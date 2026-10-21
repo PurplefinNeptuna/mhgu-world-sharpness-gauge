@@ -1,0 +1,8 @@
+{
+  "rust_bin": "tools/rust/bin",
+  "cargo_home": "tools/cargo",
+  "cargo_forge": "tools/cargo/bin/cargo-forge",
+  "devkitarm": "tools/devkitARM",
+  "python": "python3",
+  "inputs": "work/modern-sharpness-gauge/inputs"
+}

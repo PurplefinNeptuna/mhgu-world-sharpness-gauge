@@ -1,0 +1,18 @@
+[package]
+name = "modern-sharpness-gauge"
+version = "0.1.0"
+edition = "2024"
+[lib]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+[dependencies]
+forge = { package = "mhgu-forge", path = "vendor/forge-rs/forge", features = ["imgui"] }
+sharpness-gauge-core = { path = "core" }
+log = { version = "0.4", default-features = false }
+[workspace]
+members = ["core"]
+exclude = ["vendor/forge-rs"]
+[profile.release]
+opt-level = 2
+panic = "abort"

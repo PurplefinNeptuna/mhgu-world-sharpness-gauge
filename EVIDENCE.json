@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "mod": "modern-sharpness-gauge",
+  "version": "r1",
+  "kind": "plugin",
+  "runtime_platform": "forge-switch",
+  "status": "DEVELOPMENT",
+  "provenance": {
+    "plan": "work/modern-sharpness-gauge/PLAN.md (Phase 1)",
+    "phase0_research": "work/modern-sharpness-gauge/PHASE0_RESEARCH.md",
+    "decompilations": [
+      "work/modern-sharpness-gauge/ghidra-batch1",
+      "ghidra-batch2",
+      "ghidra-batch3"
+    ],
+    "ai_assistance": "DeepSeek Harness; see THIRD_PARTY.md"
+  },
+  "game": {
+    "title_id": "0100770008DD8000",
+    "version": "1.4.0",
+    "main_build_id": "FB08F1D20FD1204FE7070672777F869B",
+    "main_sha256": "b3935415499549adaf4c0e89822831daa175cfd456a7990791c79be3997645ef"
+  },
+  "build": {
+    "version": "r1",
+    "status": "BUILT",
+    "nro_sha256": "9ebf36a31a23b0cca54e0e81762de1bee82620ece1780f0d64181c30ceaab92e",
+    "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
+    "runtime_active": true,
+    "drawing_changed": false,
+    "source_sha256": {
+      "Cargo.toml": "71985a616a94ff60ba348f1c7cc09fc9514ef8c25dbd61bf3927c048aa384fdd",
+      "Cargo.lock": "d9307f137d43a8be81c77da2fbf077ebfdcbf99b0688a98f5d49adb9f948012d",
+      ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
+      "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
+      "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
+      "src/hooks.rs": "da654ce9e5f96ea2461bf653050cd616e9047e6ad481f2a67ad0c22222aaa974",
+      "src/lib.rs": "d88a065f1b82348b03659e874b924f19b84c33481ae7702671bb294a4c8ef943",
+      "src/memory.rs": "a641170e603cb80e5480fdece57f3ec5622cf42b83bdf432f0f199e540a32e10",
+      "src/sampling.rs": "5dc11357c422dc9befbf9df9a35bccf3bf962a8b9316e274bfed103f6ed7833f",
+      "src/signatures.rs": "5bfb7baefccef3049e833d50d8f088a6fc4c9d8aa9f896be71eb262ebf7d1eae",
+      "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
+      "core/src/lib.rs": "6b369bbc4d30a9d22335acacf82ae787ad34d168b8ef6ed90bdadb87ecbc0527",
+      "core/tests/behavior.rs": "c5ee27de3e19eddbc88cdd8f24ea49b683cc6aa5a71cb59fdbf5bd000d65d798",
+      "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
+      "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
+    }
+  },
+  "verify": {
+    "status": "PASSED",
+    "nro_sha256": "9ebf36a31a23b0cca54e0e81762de1bee82620ece1780f0d64181c30ceaab92e",
+    "elf_sha256": "04748baa85e2b837a23735958f309679bb7fccf58b2978e4e0acdc569d65dbfe",
+    "exports": [
+      "fini",
+      "forge_onImGuiInit",
+      "forge_onImGuiRender",
+      "forge_onInit",
+      "forge_onLoad",
+      "forge_onUpdate",
+      "init"
+    ],
+    "strong_imports": [
+      "__aeabi_unwind_cpp_pr0",
+      "forge_hook_create",
+      "forge_log",
+      "forge_log_getLevel",
+      "forge_mem_getMainTextAddr",
+      "forge_patch_create",
+      "forge_patch_destroy",
+      "forge_patch_disable",
+      "forge_patch_enable",
+      "free",
+      "igSetAllocatorFunctions",
+      "igSetCurrentContext",
+      "malloc",
+      "realloc"
+    ],
+    "signature_windows": [
+      "0xa494a0",
+      "0xa49b28",
+      "0xa39300",
+      "0xa37c1c",
+      "0xa4e628",
+      "0x61912c",
+      "0x276278",
+      "0x3f8398",
+      "0x2ad288",
+      "0x26893c",
+      "0x29cdfc",
+      "0xa4faf0",
+      "0xa4fb58",
+      "0xa4ba20",
+      "0xa4ba40"
+    ],
+    "hook_address": "0xa494a0",
+    "hook_window_words": 12,
+    "hook_signature_unique_matches": 1,
+    "hook_abi_bytes": 24,
+    "compiled_status_writes": [],
+    "local_player_cells": [
+      "main+0x188ca48 session",
+      "main+0x1885b58 sPlayer (.bss, Ghidra-proven)"
+    ],
+    "text_relocations": false,
+    "payload_files": [
+      "romfs/nativeNX/plugins/modern_sharpness_gauge.nro"
+    ]
+  },
+  "host_tests": {
+    "status": "PASSED",
+    "suite": "core/tests/behavior.rs",
+    "target": "x86_64-unknown-linux-gnu",
+    "count": 8,
+    "covers": [
+      "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
+      "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
+      "local player chain: index range, null session, empty slot",
+      "signed sharpness points, tier index, null player",
+      "full controller sample copy round-trip with 4 nodes, 3 drawables, 150/160 at tier 2",
+      "non-gauge controller and null row produce no sample",
+      "gauge without a player reports the tree only",
+      "tree scan truncation and dangling links"
+    ]
+  },
+  "not_proven": [
+    "runtime: no run of this binary exists; the log lines, sample cap and absence of drawing change are static results",
+    "tip and hilt screen direction of Txt_sharp (rect_* fields answer it)",
+    "native tier colour source and whether it can be read for the fill",
+    "cGUI+0x2c object map capacity, insert point and the 16-byte cache growth per object",
+    "the riding flag location; r1 reads neither mInputFlags+5156 nor the uPlayerQuest state words",
+    "that every recovery or buff path uses mSharpness/mMaxSharpness"
+  ],
+  "runtime": {
+    "status": "NOT RUN",
+    "date": null,
+    "binary_sha256": "9ebf36a31a23b0cca54e0e81762de1bee82620ece1780f0d64181c30ceaab92e",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r1/delivery/modern-sharpness-gauge-r1-candidate.zip; scenarios and log paths in README.md",
+    "correlate": "the reported log's MSG r1 lines against this nro_sha256 and the emulator's mod load record"
+  }
+}

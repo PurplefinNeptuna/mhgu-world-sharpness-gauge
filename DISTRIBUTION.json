@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "mod": "modern-sharpness-gauge",
+  "status": "DEVELOPMENT",
+  "reason": "r1 diagnostic candidate: one hook at the gauge draw walker records the native sharpness gauge, its node tree and the local player's sharpness fields into at most 60 ERROR log lines per process. It draws nothing and writes no game memory. Not approved for distribution; runtime NOT RUN.",
+  "publication": {
+    "published": false,
+    "url": null,
+    "date": null
+  },
+  "version": "r1",
+  "package_name": "modern-sharpness-gauge",
+  "archive": "modern-sharpness-gauge-r1-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r1/delivery",
+  "candidate_builder": "scripts/build.py",
+  "runtime_test": "NOT RUN",
+  "runtime_active": true,
+  "gamebanana": {
+    "ai_code": {
+      "used": true,
+      "software": [
+        {
+          "name": "DeepSeek Harness",
+          "url": "https://github.com/deepseek-ai/deepseek-harness"
+        }
+      ],
+      "scope": "researching the game code, writing, modifying and testing this mod's Rust code, host fixtures, build and verification scripts, and documentation."
+    },
+    "ai_assets": [],
+    "credits": [
+      {
+        "name": "MHGU Forge",
+        "author": "Fexty",
+        "url": "https://github.com/Fexty12573/forge",
+        "scope": "Fexty's MHGU fork of Jeffi's original Forge. Loader API and native hooks."
+      },
+      {
+        "name": "Original Forge",
+        "author": "Jeffi and the Skyline Project",
+        "url": "https://github.com/jeffi6375/forge",
+        "scope": "Original Forge code and API ancestry."
+      },
+      {
+        "name": "forge-rs",
+        "author": "Fexty",
+        "url": "https://github.com/Fexty12573/forge-rs",
+        "scope": "Rust runtime, callbacks, allocation, patch and hook bindings."
+      },
+      {
+        "name": "libnx",
+        "author": "Hydrosphere Developers",
+        "url": "https://github.com/switchbrew/libnx",
+        "scope": "MIT-licensed ARM32 syscall wrappers."
+      },
+      {
+        "name": "Monster Hunter Generations Ultimate",
+        "author": "Capcom",
+        "url": "https://www.monsterhunter.com/",
+        "scope": "The native sharpness gauge, GUI draw walker and player state read at runtime from the user supplied game; no game files are shipped."
+      }
+    ]
+  },
+  "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
+  "limitations": [
+    "No runtime test of this binary on Switch, Eden or Ryujinx; the sample lines, the 60-sample cap and the absence of any drawing change are static results.",
+    "60 samples per process cannot cover every recovery, buff, riding and HUD state; some paths may log nothing.",
+    "The gauge itself is not part of r1."
+  ],
+  "readme": "mods/modern-sharpness-gauge/README.md",
+  "notices": [
+    "DISTRIBUTION_NOTICES.md",
+    "LICENSE",
+    "vendor/forge-rs/LICENSE",
+    "vendor/libnx/LICENSE-MIT",
+    "licenses/FORGE-MIT.txt",
+    "vendor/crates/log-0.4.34/LICENSE-MIT",
+    "licenses/RUST-MIT.txt",
+    "licenses/UNICODE-3.0.txt",
+    "licenses/COMPILER_BUILTINS.txt"
+  ],
+  "evidence": {
+    "static": [
+      "mods/modern-sharpness-gauge/EVIDENCE.json"
+    ],
+    "manual": [
+      "mods/modern-sharpness-gauge/EVIDENCE.json"
+    ],
+    "static_summary": "r1: pinned toolchain build; 8 host fixtures passed; verify.py PASSED with 15 NSO signature windows, a unique hook window, expected exports, resolved imports only, no settings/config import, no MSR in the disassembly, no DT_TEXTREL and a one-file payload.",
+    "manual_summary": "NOT RUN. The user run of this exact archive is the Phase 1 exit evidence; README.md lists the scenarios and the log to send."
+  },
+  "dependencies": [
+    {
+      "name": "Forge",
+      "version": "1.5.1",
+      "scope": "External unmodified upstream Switch loader; not bundled."
+    }
+  ],
+  "support": {
+    "DEVELOPMENT.md": "mods/modern-sharpness-gauge/DEVELOPMENT.md",
+    "EVIDENCE.json": "mods/modern-sharpness-gauge/EVIDENCE.json",
+    "tests/README.md": "mods/modern-sharpness-gauge/tests/README.md"
+  },
+  "payloads": {
+    "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
+      "source": "build/modern-sharpness-gauge/candidates/r1/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "9ebf36a31a23b0cca54e0e81762de1bee82620ece1780f0d64181c30ceaab92e"
+    }
+  }
+}
