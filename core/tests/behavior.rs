@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
-    CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge,
+    CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
+    CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED, Gauge,
     HEAD_WORDS, INPUT_FLAGS, KEY_FIELDS, Local, MAX_NODES, MAX_SHARPNESS,
     Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS, NODE_KIND,
     NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE, NODE_WORDS,
@@ -131,6 +131,7 @@ fn gauge_fixture() -> Fake {
     fake.put(player + MAX_SHARPNESS, 160);
     fake.put(player + SHARPNESS_TYPE, 2);
     fake.put(player + INPUT_FLAGS, 0x11);
+    fake.put(player + CMD_TBL_ID, 0x2003);
     fake.put(controller + CONTROLLER_ROW, row);
     fake.put(controller + CONTROLLER_ROOT, root);
     fake.put(controller + CONTROLLER_OWNER, 0x8000);
@@ -194,6 +195,7 @@ fn controller_sample_carries_the_gauge_state() {
         hunter_index: 0
     });
     assert_eq!(sample.input_flags, 0x11);
+    assert_eq!(sample.cmd_tbl_id, 0x2003);
     assert_eq!(sample.context, 0x9000);
     assert_eq!(sample.clip, [100, 30, 520, 360]);
     assert_eq!(
@@ -218,7 +220,7 @@ fn controller_sample_carries_the_gauge_state() {
     assert_eq!(words[FIELD_CURRENT] as i32, 150);
     assert_eq!(words[FIELD_MAXIMUM] as i32, 160);
     assert_eq!(words[FIELD_TIER], 2);
-    assert_eq!(words[25], 0x7000);
+    assert_eq!(words[HEAD_WORDS - 1], 0x2003);
     let first = HEAD_WORDS + NODE_WORDS;
     assert_eq!(words[HEAD_WORDS], 0x7000);
     assert_eq!(words[first], 0x7100);
@@ -226,7 +228,7 @@ fn controller_sample_carries_the_gauge_state() {
     // The change detector covers the gauge trio, the controller, the player and
     // the first node address, and never reaches past the copied sample.
     assert!(KEY_FIELDS.iter().all(|index| *index < words.len()));
-    for live in [FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, 0, 11, HEAD_WORDS] {
+    for live in [FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED, 0, 11, HEAD_WORDS] {
         assert!(KEY_FIELDS.contains(&live));
     }
     assert_ne!((words[0], words[11], words[12]), (0, 0, 0));

@@ -110,7 +110,7 @@ above and is read through the mapping query at runtime.
   above-maximum state yields no ratio; above maximum draws full, depletion
   floors at empty. Nothing is ever divided by an unverified maximum.
 
-## Static evidence for r3
+## Static evidence for r4
 
 r2 changes, all inside the diagnostic: the node masks and offsets above
 replace the r1 guesses (`0x2000_0000` drawable, rect at `+0x38`), the walk skips
@@ -119,12 +119,15 @@ atlas rectangles, the live clip and the walker's draw context are copied, the
 sample budget is 240 with change-driven triggers plus a periodic tick, and the
 duplicate `tier` field plus the pointer-valued `first_sequence` left the line.
 
-r3 changes only the sample trigger: the raw sharpness word is bucketed at 8
+r3 changed only the sample trigger: the raw sharpness word is bucketed at 8
 points before it can request a line (a hit costs a few points, so r2's raw-value
 trigger would spend the whole budget inside one fight), a floor of 120 walker
 calls separates change-driven lines, the player pointer joins the tracked set,
 and the budget is 320 with a periodic tick every 2400 calls, so one run can
 cover a session without the tester forcing anything.
+
+r4 adds the `mCmdTblId` identity word and samples tier, maximum and player
+changes at full resolution; 10 host fixtures cover the wider 116-word copy.
 
 `./build.sh test` runs 10 host fixtures (`core/tests/behavior.rs`) then
 `verify.py`. Fixtures: partial fill, empty, full, above maximum, depleted,
@@ -194,6 +197,44 @@ raw `input_flags` word at `+5156` for comparison and never interprets it).
 riding flag stay for Phase 2: r2 only prints the raw `input_flags` word at
 `+5156` for comparison, it does not interpret it.
 
+## Sharpness chain, read from the decompilations
+
+`uPlayerQuest::adjustSharpness` (main+0x2ad288) is the only writer of
+`mSharpness`. It applies the amount as a `short`, clamps the result to 0 and to
+`mMaxSharpness`, recomputes the tier through `calculateSharpnessType`, compares
+it with the `vft+0x1fc` accessor, stores `mSharpnessType` and fires event `0x1c`
+(tier down), `0x1d` (tier up) or `0x1e` (reached the maximum) through `vft+0x3ac`.
+That is the full write path, and it explains the measured r3 steps.
+
+Skill effects on decay, all read in the same function: `HeavyPolish` zeroes the
+decay and calls `vft+0x1b0` with `0x200`; `RazorSharp`, `StonefistSoul`,
+`StonefistSoulX`, `SteadyHand`, `NightcloakSoul` and `NightcloakSoulX` halve the
+decay, and a 1-point loss is nullified on a coin flip; `BluntEdge` doubles it.
+This is why the r3 log showed costs from 2 to 42 points between samples: the
+amount depends on the move and on the hunter's skills, not on a fixed per-hit
+value.
+
+The tier itself is weapon data, not player data:
+`uPlayerBase::calculateSharpnessType` (main+0x29cdfc) takes the equipped record
+through `FUN_00aa8814(&mpPlParam->mStatusParam, 0)`, resolves the weapon base data
+with `FUN_00b0803c` over the singleton pair at `DAT_00c65ec0 + 0xc65e54`, asks that
+object at `vft+0xd8` with `(equip->field1_0x4 & 0x3ff) >> 5`, and the returned
+object answers points-to-tier at `vft+0x84`. So the per-weapon tier boundaries the
+tester measured (250 points with a wide green, 200 with a thin green) live in the
+weapon records, and one 5-bit field of the equip record selects the layout. The
+DTI type record `/DTI_Types/WpDatEntry` (68 bytes) names the matching fields:
+`Sharpness` at +21 and `SharpnessQuality` at +22, beside `WeaponId` at +58 and
+`WeaponNameId` at +60. Those records are RomFS weapon data; this workspace holds
+only `work/shared/game-exefs`, so reading the table for a named weapon needs a
+RomFS extraction through the toolbox first (`docs/TOOLS.md`). Nothing in this
+section is inferred from the game's numbers: each line names the function it came
+from.
+
+r4 adds the identity word `mCmdTblId` at player `+9388` (from the same DTI type
+record) to every sample, so a line says which weapon produced it, and a tier,
+maximum or player change is now sampled at full resolution without the rate
+floor, so a boundary lands on the exact point.
+
 ## Run log read (Eden, r3, 2026-10-22)
 
 The installed NRO hashes `c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d`,
@@ -248,8 +289,7 @@ white or purple line appears in the log. With the tester's colour mapping:
 ## Phase 2 needs
 
 The user's log from the r2 archive, matched against the NRO SHA-256
-`c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d` (r3),
-matched and recorded, in
+`63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992` (r4) in
 `DISTRIBUTION.json` and `build.json`, recorded in `EVIDENCE.json` as runtime
 evidence for r2. Phase 2 (drawing the gauge) starts once that log shows the
 counts, rectangles and tier behaviour the design needs, and nothing in it

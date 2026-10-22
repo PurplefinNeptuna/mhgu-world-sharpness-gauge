@@ -64,32 +64,36 @@ pub fn observe(controller: u32, context: u32) {
     let gauge = CTRL.load(Ordering::Relaxed);
     if gauge != 0 && controller == gauge {
         let player = PLAYER.load(Ordering::Relaxed);
-        let changed = player != 0 && match (
-            memory::word(player.wrapping_add(SHARPNESS)),
-            memory::word(player.wrapping_add(MAX_SHARPNESS)),
-            memory::word(player.wrapping_add(SHARPNESS_TYPE)),
-        ) {
-            // The sharpness word is bucketed before it can trigger a line: a
-            // hit costs a few points, and one line per hit would spend the
-            // budget inside one fight. Maximum, tier and the player pointer
-            // are not bucketed, because those mark buffs, recovery, a
-            // different hunter and a recreated HUD.
-            (Some(current), Some(maximum), Some(tier)) => {
+        // A tier, maximum or player change is the event worth measuring to the
+        // point, and it happens rarely, so it is measured at full resolution
+        // with no rate floor. The sharpness word itself is bucketed, because a
+        // hit costs a few points and one line per hit would spend the budget
+        // inside a single fight.
+        let mut stepped = false;
+        let mut exact = false;
+        if player != 0 {
+            if let (Some(current), Some(maximum), Some(tier)) = (
+                memory::word(player.wrapping_add(SHARPNESS)),
+                memory::word(player.wrapping_add(MAX_SHARPNESS)),
+                memory::word(player.wrapping_add(SHARPNESS_TYPE)),
+            ) {
                 let bucket = current >> BUCKET_SHIFT;
-                LAST[0].swap(bucket, Ordering::Relaxed) != bucket
-                    || LAST[1].swap(maximum, Ordering::Relaxed) != maximum
+                stepped = LAST[0].swap(bucket, Ordering::Relaxed) != bucket;
+                exact = LAST[1].swap(maximum, Ordering::Relaxed) != maximum
                     || LAST[2].swap(tier, Ordering::Relaxed) != tier
-                    || LAST[3].swap(player, Ordering::Relaxed) != player
-            },
-            _ => false,
-        };
-        let apart = calls.wrapping_sub(LAST_CALLS.load(Ordering::Relaxed));
-        if !changed && calls % PERIODIC_EVERY != 0 {
+                    || LAST[3].swap(player, Ordering::Relaxed) != player;
+            }
+        }
+        if !stepped && !exact && calls % PERIODIC_EVERY != 0 {
             return;
         }
-        if changed && apart < MIN_CALLS_APART {
-            // Too close to the previous sample: the periodic tick still
-            // guarantees progress, and the next bucket boundary comes soon.
+        if stepped
+            && !exact
+            && calls.wrapping_sub(LAST_CALLS.load(Ordering::Relaxed)) < MIN_CALLS_APART
+        {
+            // Only a bucket step, and it is too close to the previous line. The
+            // periodic tick guarantees progress, and the next boundary comes
+            // soon.
             return;
         }
     } else if calls % SAMPLE_EVERY != 0 {

@@ -2,16 +2,16 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r3 diagnostic candidate: one hook at the gauge draw walker (main+0xa494a0) copies the gauge controller identity, the node tree with own, effective and atlas rectangles, the live clip and the local player's signed sharpness words into at most 320 ERROR log lines per process, triggered by bucketed sharpness, maximum, tier or player change plus a periodic tick. It draws nothing and writes no game memory. Not approved for distribution; runtime NOT RUN for r2 and r3; an r1 diagnostic run was read on Eden.",
+  "reason": "r4 diagnostic candidate: the r3 walker diagnostic plus the equipped weapon's mCmdTblId in every line, and full-resolution sampling on tier, maximum and player changes. It copies the gauge controller identity, the node tree with own, effective and atlas rectangles, the live clip and the local player's signed sharpness words into at most 320 ERROR log lines per process. It draws nothing and writes no game memory. Not approved for distribution; r4 runtime NOT RUN; r3 was run and read on Eden.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r3",
+  "version": "r4",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r3-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r3/delivery",
+  "archive": "modern-sharpness-gauge-r4-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r4/delivery",
   "candidate_builder": "scripts/build.py",
   "runtime_test": "NOT RUN",
   "runtime_active": true,
@@ -62,10 +62,10 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
-    "r3 has no runtime test on Switch, Eden or Ryujinx; the sample lines, the 320-sample budget and the absence of any drawing change are static results.",
-    "r2 was built and never run: its raw-value sample trigger was replaced by r3 before any play test.",
-    "320 samples still cannot cover every recovery, buff and HUD state; some paths may produce no lines.",
-    "The gauge itself is not part of r3."
+    "r4 has no runtime test; its lines, the 320-sample budget and the absence of any drawing change are static results.",
+    "r2 was built and never run; r3 was run once on Eden and is recorded.",
+    "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
+    "The gauge itself is not part of r4."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -87,7 +87,7 @@
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
     "static_summary": "r3: pinned toolchain build; 10 host fixtures passed; verify.py PASSED with 15 NSO signature windows, unique hook window, expected exports, resolved imports only, no settings import, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json and DEVELOPMENT.md.",
-    "manual_summary": "r1 was run once on Eden (installed NRO hash equals the packaged payload): 63 ERROR lines read the gauge state correctly but the tree walk was wrong. r2 runtime NOT RUN; README.md lists the scenarios and the log to send."
+    "manual_summary": "r3 was run on Eden and read: 238 lines, Long Sword 250 points and Dual Blades 200 in the same 128x128 box, tier boundaries as per-weapon point segments, a Light Bowgun hunt with no gauge HUD and no lines, a frame-based native gauge. r4 runtime NOT RUN; README.md lists the scenarios and the log to send."
   },
   "dependencies": [
     {
@@ -103,8 +103,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r3/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d"
+      "source": "build/modern-sharpness-gauge/candidates/r4/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992"
     }
   }
 }

@@ -96,6 +96,11 @@ pub const CONTEXT_CLIP: u32 = 0xd0;
 // this word for comparison.
 pub const INPUT_FLAGS: u32 = 5_156;
 
+/// mCmdTblId in uPlayerBase, the weapon command table id. The DTI type record
+/// puts it at +9388; it is the value the animation and command lookups key on,
+/// so it names the equipped weapon in every log line.
+pub const CMD_TBL_ID: u32 = 9_388;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Gauge {
     /// mSharpness, signed sharpness points.
@@ -280,14 +285,14 @@ pub fn local_player(memory: &dyn Memory, base: u32) -> Option<Local> {
 /// plain u32 words (signed fields are two's complement) so the hook performs
 /// no allocation, formatting or file access. `FIELDS` names each word in the
 /// same order as `words`, which is the log format and the ring-buffer layout.
-pub const FIELDS: [&str; 115] = [
+pub const FIELDS: [&str; 116] = [
     "ctrl",     "row",     "owner",     "cache",
     "cache_flags",     "root",     "anim",     "objects",
     "sequences",     "first_object",     "hunter",     "player",
     "current",     "maximum",     "tier",     "input_flags",
     "context",     "clip_l",     "clip_t",     "clip_r",
     "clip_b",     "visited",     "visible",     "drawable",
-    "truncated",     "n0_addr",     "n0_flags",     "n0_kind",
+    "truncated", "cmd_tbl_id",     "n0_addr",     "n0_flags",     "n0_kind",
     "n0_l",     "n0_t",     "n0_r",     "n0_b",
     "n0_el",     "n0_et",     "n0_er",     "n0_eb",
     "n0_tx_u",     "n0_tx_v",     "n0_tx_w",     "n0_tx_h",
@@ -313,11 +318,11 @@ pub const FIELDS: [&str; 115] = [
 ];
 
 /// Sample word layout: the head block, then `MAX_NODES` node blocks.
-pub const HEAD_WORDS: usize = 25;
+pub const HEAD_WORDS: usize = 26;
 pub const NODE_WORDS: usize = 15;
-pub const FIELD_VISITED: usize = 21;
-pub const FIELD_VISIBLE: usize = 22;
-pub const FIELD_DRAWABLE: usize = 23;
+pub const FIELD_VISITED: usize = 22;
+pub const FIELD_VISIBLE: usize = 23;
+pub const FIELD_DRAWABLE: usize = 24;
 
 /// Word positions compared against the previous sample; a difference means the
 /// state changed and the sample deserves a log line. The set covers the
@@ -325,8 +330,8 @@ pub const FIELD_DRAWABLE: usize = 23;
 /// change (hunter index, player), buff or recovery (current, maximum, tier),
 /// the clip the game draws inside (context, clip_*), the tree shape (counts,
 /// first node address and rectangle).
-pub const KEY_FIELDS: [usize; 20] = [
-    0, 5, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 25, 28, 29, 30, 31,
+pub const KEY_FIELDS: [usize; 21] = [
+    0, 5, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 29, 30, 31, 32,
 ];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -343,6 +348,7 @@ pub struct Sample {
     pub first_object: u32,
     pub local: Local,
     pub input_flags: u32,
+    pub cmd_tbl_id: u32,
     pub context: u32,
     pub clip: [i32; 4],
     pub gauge: Option<Gauge>,
@@ -353,7 +359,7 @@ impl Sample {
     pub fn words(&self) -> [u32; FIELDS.len()] {
         let gauge = self.gauge.unwrap_or(Gauge::default());
         let mut words = [0u32; FIELDS.len()];
-        let head: [u32; 25] = [
+        let head: [u32; 26] = [
             self.controller,
             self.row,
             self.owner,
@@ -379,6 +385,7 @@ impl Sample {
             self.walk.visible,
             self.walk.drawable,
             self.walk.truncated as usize as u32,
+            self.cmd_tbl_id,
         ];
         for index in 0..head.len() {
             words[index] = head[index];
@@ -452,6 +459,9 @@ pub fn sample_controller(memory: &dyn Memory, controller: u32, context: u32, bas
         sample.gauge = read_gauge(memory, local.player);
         sample.input_flags = memory
             .word(local.player.wrapping_add(INPUT_FLAGS))
+            .unwrap_or(0);
+        sample.cmd_tbl_id = memory
+            .word(local.player.wrapping_add(CMD_TBL_ID))
             .unwrap_or(0);
     }
     Some(sample)

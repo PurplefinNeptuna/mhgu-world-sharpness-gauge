@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r3",
+  "version": "r4",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -35,14 +35,21 @@
     },
     "r3": {
       "nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
+      "runtime": "RUN on Eden 2026-10-22, 238 lines read; see the r3 run record",
+      "elf_sha256": null,
+      "defect_found": "tier boundaries were only visible to 8-point bucket resolution, and a line did not say which weapon it came from"
+    },
+    "r4": {
+      "nro_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
       "runtime": "NOT RUN",
-      "elf_sha256": null
+      "elf_sha256": null,
+      "adds": "mCmdTblId identity word at player +9388, full-resolution sampling on tier, maximum and player changes"
     }
   },
   "build": {
-    "version": "r3",
+    "version": "r4",
     "status": "BUILT",
-    "nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
+    "nro_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -55,19 +62,19 @@
       "src/hooks.rs": "360954c18e76e2982a6d8c284203af11be22c3fedcae26c0b7b6f236a69f5865",
       "src/lib.rs": "2973e7ba97bf4ea5ac1372fb318d605d10097e30c5e75edddcb5f06f015b43be",
       "src/memory.rs": "a641170e603cb80e5480fdece57f3ec5622cf42b83bdf432f0f199e540a32e10",
-      "src/sampling.rs": "50ac97c4c87abe86b7a41500aa16305d9a42951d7554c52246d732a7a6a18afb",
+      "src/sampling.rs": "cfd95f380d52d4f6d5f65f788ee33d6ffca397cc8b61f8806a88b547e4ac53bb",
       "src/signatures.rs": "5bfb7baefccef3049e833d50d8f088a6fc4c9d8aa9f896be71eb262ebf7d1eae",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "14d6276d8b7e0eb1e89aa18f446a63c325acd4d0f3aaeae4d8819c44784f5c09",
-      "core/tests/behavior.rs": "8f844c2e8e9bad3fec595a40f58b92ac05d81288033e34d672f29764693ff619",
+      "core/src/lib.rs": "99d2ada7d0c62ec1e4d0128f718e78aa06d1c9ecc9bfb88a7d3fb85943bc1815",
+      "core/tests/behavior.rs": "39722ccc7886539593d63f18a6aad3239812de72c6d9eb0a1edbbae59769865b",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     }
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
-    "elf_sha256": "9dc90a9724b49eb766038aba8000b6954848043c15888bc2995f025f9055f3a8",
+    "nro_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
+    "elf_sha256": "49449a172283ef4ba2a38c41c317c00979304ce1119f74c45c82d718502bcff5",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -93,6 +100,23 @@
       "malloc",
       "realloc"
     ],
+    "signature_windows": [
+      "0xa494a0",
+      "0xa49b28",
+      "0xa39300",
+      "0xa37c1c",
+      "0xa4e628",
+      "0x61912c",
+      "0x276278",
+      "0x3f8398",
+      "0x2ad288",
+      "0x26893c",
+      "0x29cdfc",
+      "0xa4faf0",
+      "0xa4fb58",
+      "0xa4ba20",
+      "0xa4ba40"
+    ],
     "hook_address": "0xa494a0",
     "hook_window_words": 12,
     "hook_signature_unique_matches": 1,
@@ -113,23 +137,6 @@
       "local player sharpness fields"
     ],
     "runtime_test": "NOT RUN",
-    "signature_windows": [
-      "0xa494a0",
-      "0xa49b28",
-      "0xa39300",
-      "0xa37c1c",
-      "0xa4e628",
-      "0x61912c",
-      "0x276278",
-      "0x3f8398",
-      "0x2ad288",
-      "0x26893c",
-      "0x29cdfc",
-      "0xa4faf0",
-      "0xa4fb58",
-      "0xa4ba20",
-      "0xa4ba40"
-    ],
     "payload_files": [
       "romfs/nativeNX/plugins/modern_sharpness_gauge.nro"
     ]
@@ -154,8 +161,14 @@
       "max_samples": 320,
       "bucket_shift": 3,
       "periodic_every": 2400,
-      "min_calls_apart": 120
-    }
+      "min_calls_apart": 120,
+      "full_resolution_on": [
+        "tier",
+        "maximum",
+        "player"
+      ]
+    },
+    "words_per_sample": 116
   },
   "runs": [
     {
@@ -271,9 +284,22 @@
     "that every recovery or buff path this build offers uses mSharpness/mMaxSharpness"
   ],
   "runtime": {
-    "status": "RUN",
-    "date": "2026-10-22",
-    "binary_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
-    "correlate": "installed NRO in Eden load/0100770008DD8000/modern-sharpness-gauge hashes c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d, equal to the r3 packaged payload"
+    "status": "NOT RUN",
+    "date": null,
+    "binary_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r4/delivery/modern-sharpness-gauge-r4-candidate.zip; scenarios and log paths in README.md",
+    "correlate": "the reported MSG r4 lines against this nro_sha256 and the emulator's mod load record",
+    "previous_runs": [
+      "r1 Eden 2026-10-22",
+      "r3 Eden 2026-10-22"
+    ]
+  },
+  "sharpness_chain_research": {
+    "writer": "uPlayerQuest::adjustSharpness main+0x2ad288: applies the amount as a short, clamps to 0 and mMaxSharpness, recomputes the tier, stores mSharpnessType, fires events 0x1c/0x1d/0x1e through vft+0x3ac",
+    "decay_skills": "HeavyPolish zeroes decay and calls vft+0x1b0 with 0x200; RazorSharp, StonefistSoul, StonefistSoulX, SteadyHand, NightcloakSoul, NightcloakSoulX halve decay with a 50 percent nullify of a 1 point loss; BluntEdge doubles it",
+    "tier_source": "uPlayerBase::calculateSharpnessType main+0x29cdfc: equip record through FUN_00aa8814, weapon base data through FUN_00b0803c over DAT_00c65ec0 + 0xc65e54, layout picked by (equip->field1_0x4 & 0x3ff) >> 5 at vft+0xd8, points to tier at vft+0x84",
+    "weapon_record": "/DTI_Types/WpDatEntry 68 bytes: Sharpness at +21, SharpnessQuality at +22, WeaponId at +58, WeaponNameId at +60",
+    "not_read_here": "the RomFS weapon data is not extracted in this workspace, so no per-weapon tier table is quoted from the game files",
+    "identity_word": "mCmdTblId at player +9388, printed in every r4 line"
   }
 }
