@@ -110,7 +110,7 @@ above and is read through the mapping query at runtime.
   above-maximum state yields no ratio; above maximum draws full, depletion
   floors at empty. Nothing is ever divided by an unverified maximum.
 
-## Static evidence for r2
+## Static evidence for r3
 
 r2 changes, all inside the diagnostic: the node masks and offsets above
 replace the r1 guesses (`0x2000_0000` drawable, rect at `+0x38`), the walk skips
@@ -118,6 +118,13 @@ invisible subtrees like the walker does, each node prints its own, effective and
 atlas rectangles, the live clip and the walker's draw context are copied, the
 sample budget is 240 with change-driven triggers plus a periodic tick, and the
 duplicate `tier` field plus the pointer-valued `first_sequence` left the line.
+
+r3 changes only the sample trigger: the raw sharpness word is bucketed at 8
+points before it can request a line (a hit costs a few points, so r2's raw-value
+trigger would spend the whole budget inside one fight), a floor of 120 walker
+calls separates change-driven lines, the player pointer joins the tracked set,
+and the budget is 320 with a periodic tick every 2400 calls, so one run can
+cover a session without the tester forcing anything.
 
 `./build.sh test` runs 10 host fixtures (`core/tests/behavior.rs`) then
 `verify.py`. Fixtures: partial fill, empty, full, above maximum, depleted,
@@ -190,7 +197,7 @@ riding flag stay for Phase 2: r2 only prints the raw `input_flags` word at
 ## Phase 2 needs
 
 The user's log from the r2 archive, matched against the NRO SHA-256
-`acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61` in
+`c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d` (r3) in
 `DISTRIBUTION.json` and `build.json`, recorded in `EVIDENCE.json` as runtime
 evidence for r2. Phase 2 (drawing the gauge) starts once that log shows the
 counts, rectangles and tier behaviour the design needs, and nothing in it

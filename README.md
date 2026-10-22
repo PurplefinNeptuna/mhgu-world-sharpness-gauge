@@ -1,6 +1,6 @@
 # Modern Sharpness Gauge
 
-r2 is a diagnostic build. It reads the native sharpness gauge and writes
+r3 is a diagnostic build. It reads the native sharpness gauge and writes
 numbers to the log. It draws nothing and changes no game value. The gauge
 itself comes in a later version, once these readings are checked.
 
@@ -12,20 +12,20 @@ itself comes in a later version, once these readings are checked.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r2-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r3-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r2`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r3`
 should be listed.
 
 ## Usage
 
 The mod works on its own. While the sharpness gauge is on screen it records up
-to 240 samples per game launch, each holding:
+to 320 samples per game launch, each holding:
 
 - the animation controller that drives the gauge, and the text objects under it;
 - your hunter's current sharpness points, maximum points, and the tier the game
@@ -34,40 +34,40 @@ to 240 samples per game launch, each holding:
 - the rectangle the game draws each text object inside, and the atlas rectangle
   that says which glyph it is.
 
-A sample is taken when something changed, or every few seconds, so one run can
-follow a whole session. Each sample prints one summary line, then one line per
+A sample is taken when the gauge changes shape: sharpness moving a visible step,
+the maximum or the tier changing, a different hunter, a recreated HUD. Otherwise
+one line comes every few seconds. You do not have to force any number: play
+normally and the log follows you. Each sample prints one summary line, then one line per
 drawn object. The shape below is an example, not a measured r2 run:
 
 ```text
-MSG r2 sample 7/240: ctrl=0x441838b0 row=0x53020238 owner=0x47f96900 cache=0x480038e0 cache_flags=0x0 root=0x488279d0 anim=4 objects=4 sequences=15 first_object=29 hunter=0 player=0x47e92570 current=294 maximum=300 tier=3 input_flags=0x0 context=0x441839c0 clip_l=0 clip_t=0 clip_r=0 clip_b=0 visited=4 visible=3 drawable=2 truncated=0 ratio_bp=9800
+MSG r3 sample 7/320: ctrl=0x441838b0 row=0x53020238 owner=0x47f96900 cache=0x480038e0 cache_flags=0x0 root=0x488279d0 anim=4 objects=4 sequences=15 first_object=29 hunter=0 player=0x47e92570 current=294 maximum=300 tier=3 input_flags=0x0 context=0x441839c0 clip_l=0 clip_t=0 clip_r=0 clip_b=0 visited=4 visible=3 drawable=2 truncated=0 ratio_bp=9800
 MSG r2 tree 7 n1: addr=0x48827a10 flags=0x2000001 kind=6 own=110 38 198 62 eff=110 38 198 62 tex=0 280 88 304
 ```
 
 A line ending in `ratio=unsupported` marks a state the mod will not use: no
 local player, no quest, no gauge on screen, or a maximum that is not a positive
-number. The native gauge keeps drawing in all of those cases. After 240 samples
+number. The native gauge keeps drawing in all of those cases. After 320 samples
 the hook stops reading game memory for the rest of that launch.
 
 ### What to play
 
-Play 20 to 30 minutes across these states, then send the log. One weapon per
-quest is how MHGU works, so weapon variety means separate quests:
+Play 20 to 30 minutes across these quests, then send the log. MHGU gives you
+one weapon per quest and a hit only takes a few sharpness points, so let the
+game do the changing instead of trying to:
 
-1. One solo quest with a melee weapon you use often. Fight until sharpness drops
-   through at least two colours, then finish or fail the quest.
-2. In the same quest, sheathe your weapon a few times, then keep fighting until
-   the gauge turns red. Note the numbers each time it changes.
-3. If your game has an item that sharpens, bring it and use it in one quest; if
-   it does not, say so in your report instead.
-4. One quest with a different weapon type from quest 1, played the same way.
-5. One quest where you eat before it starts, and one where you do not. Tell me
-   whether your game has any meal, item or skill that raises sharpness, and what
-   the numbers do around it.
-6. During a quest, open the map and the item screens; MHGU only opens the map
-   once you are running, so nothing before a quest should show the gauge. Do
-   this between quests too, going to the hub and starting another quest.
-7. One quest where you die or time out, then the next quest.
-8. One online quest where you join as the second, third or fourth hunter.
+1. One quest with a melee weapon you use often, played through one monster or
+   several, then finish or fail it.
+2. In that quest, sheathe your weapon where that sharpens it, and use a whetstone
+   between fights rather than in the middle of one.
+3. One quest with a different weapon type, played the same way.
+4. One quest where you eat before it starts, and one where you do not.
+5. During a quest, open the map and the item screens. Between quests, walk
+   around the hub, then start another quest: no gauge should show outside a
+   quest.
+6. One quest where you die or run out of time, then the next quest.
+7. One online quest where you join as the second, third or fourth hunter.
+8. One quest where you never draw a melee weapon.
 
 Tell the tester anything that looked wrong on screen: a new gauge, moved text,
 flicker, or a frozen HUD. None of those are expected.
@@ -95,13 +95,13 @@ mod writes no save data.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-r2 has not been run by its author, so its sample lines, the 240-sample cap and
+r3 has not been run by its author, so its sample lines, the 320-sample cap and
 the claim that nothing is drawn are build-time results, awaiting a play test.
-An earlier r1 diagnostic was played: it read the sharpness numbers correctly
-(300 points maximum, dropping by three per hit) but printed no tree geometry,
-which is what r2 corrects.
+An r1 diagnostic was played: it read the sharpness numbers correctly (300
+points maximum, dropping by three per hit) but printed no tree geometry at all,
+and its 60 samples spent themselves in two minutes, which r2 and r3 correct.
 
-240 samples still cannot cover every recovery, buff and HUD state; some paths
+320 samples still cannot cover every recovery, buff and HUD state; some paths
 may produce no lines in a given run, and the mod has no settings to change
 that. The gauge itself is not part of this version.
 

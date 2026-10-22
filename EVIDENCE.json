@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r2",
+  "version": "r3",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -30,14 +30,19 @@
     },
     "r2": {
       "nro_sha256": "acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61",
-      "elf_sha256": "019814e75007b38e0c48799a1f5a442b9d2fb7eacda0c96eed36d15e10707bd3",
-      "runtime": "NOT RUN"
+      "runtime": "NOT RUN: superseded by r3 before any play test",
+      "defect_found": "the change trigger watched the raw sharpness word, so a few points per hit would spend the budget inside one fight, and the tester cannot force sharpness changes on demand"
+    },
+    "r3": {
+      "nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
+      "runtime": "NOT RUN",
+      "elf_sha256": null
     }
   },
   "build": {
-    "version": "r2",
+    "version": "r3",
     "status": "BUILT",
-    "nro_sha256": "acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61",
+    "nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -50,7 +55,7 @@
       "src/hooks.rs": "360954c18e76e2982a6d8c284203af11be22c3fedcae26c0b7b6f236a69f5865",
       "src/lib.rs": "2973e7ba97bf4ea5ac1372fb318d605d10097e30c5e75edddcb5f06f015b43be",
       "src/memory.rs": "a641170e603cb80e5480fdece57f3ec5622cf42b83bdf432f0f199e540a32e10",
-      "src/sampling.rs": "0bdd880e094ac7a4bf3add6d81f3adfb765c35a882f23abf7dd4ad6cecc992bf",
+      "src/sampling.rs": "50ac97c4c87abe86b7a41500aa16305d9a42951d7554c52246d732a7a6a18afb",
       "src/signatures.rs": "5bfb7baefccef3049e833d50d8f088a6fc4c9d8aa9f896be71eb262ebf7d1eae",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
       "core/src/lib.rs": "14d6276d8b7e0eb1e89aa18f446a63c325acd4d0f3aaeae4d8819c44784f5c09",
@@ -61,8 +66,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61",
-    "elf_sha256": "019814e75007b38e0c48799a1f5a442b9d2fb7eacda0c96eed36d15e10707bd3",
+    "nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
+    "elf_sha256": "9dc90a9724b49eb766038aba8000b6954848043c15888bc2995f025f9055f3a8",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -88,6 +93,26 @@
       "malloc",
       "realloc"
     ],
+    "hook_address": "0xa494a0",
+    "hook_window_words": 12,
+    "hook_signature_unique_matches": 1,
+    "hook_abi_bytes": 24,
+    "forge_trampoline_bytes": 32,
+    "forge_pool_chunk_bytes": 16384,
+    "compiled_status_writes": [],
+    "local_player_cells": [
+      "main+0x188ca48 session",
+      "main+0x1885b58 sPlayer (.bss, Ghidra-proven)"
+    ],
+    "runtime_active": true,
+    "drawing_changed": false,
+    "text_relocations": false,
+    "observes": [
+      "gauge controller identity",
+      "gauge node tree counts",
+      "local player sharpness fields"
+    ],
+    "runtime_test": "NOT RUN",
     "signature_windows": [
       "0xa494a0",
       "0xa49b28",
@@ -105,16 +130,6 @@
       "0xa4ba20",
       "0xa4ba40"
     ],
-    "hook_address": "0xa494a0",
-    "hook_window_words": 12,
-    "hook_signature_unique_matches": 1,
-    "hook_abi_bytes": 24,
-    "compiled_status_writes": [],
-    "local_player_cells": [
-      "main+0x188ca48 session",
-      "main+0x1885b58 sPlayer (.bss, Ghidra-proven)"
-    ],
-    "text_relocations": false,
     "payload_files": [
       "romfs/nativeNX/plugins/modern_sharpness_gauge.nro"
     ]
@@ -134,7 +149,13 @@
       "non-gauge controller and null row produce no sample",
       "gauge without a player reports the tree only",
       "tree scan truncation, dangling links, and a hidden subtree that is not walked"
-    ]
+    ],
+    "sampling_budget": {
+      "max_samples": 320,
+      "bucket_shift": 3,
+      "periodic_every": 2400,
+      "min_calls_apart": 120
+    }
   },
   "runs": [
     {
@@ -180,8 +201,8 @@
   "runtime": {
     "status": "NOT RUN",
     "date": null,
-    "binary_sha256": "acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r2/delivery/modern-sharpness-gauge-r2-candidate.zip; scenarios and log paths in README.md",
+    "binary_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r3/delivery/modern-sharpness-gauge-r3-candidate.zip; scenarios and log paths in README.md",
     "correlate": "the reported MSG r2 lines against this nro_sha256 and the emulator's mod load record"
   }
 }

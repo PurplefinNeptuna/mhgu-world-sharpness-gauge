@@ -12,12 +12,20 @@ use sharpness_gauge_core::{
     FIELDS, MAX_SHARPNESS, Memory, SHARPNESS, SHARPNESS_TYPE, sample_controller,
 };
 
-pub const MAX_SAMPLES: u32 = 240;
+pub const MAX_SAMPLES: u32 = 320;
 /// Walker calls between discovery attempts, before the gauge controller is
 /// known. The walker runs for every animation controller each frame.
 pub const SAMPLE_EVERY: u32 = 60;
-/// Periodic tick that guarantees log progress even when nothing changed.
-pub const PERIODIC_EVERY: u32 = 1_200;
+/// Periodic tick that guarantees log progress even when nothing changed. The
+/// walker is called hundreds of times a second, so this is a few seconds.
+pub const PERIODIC_EVERY: u32 = 2_400;
+/// Never emit two samples closer than this, so a busy fight cannot flood the
+/// log faster than the budget.
+pub const MIN_CALLS_APART: u32 = 120;
+/// A hit only removes a few sharpness points, so the raw value is not a useful
+/// trigger: it is shifted by this much, which is 8 points per step. A full
+/// 300-point gauge therefore costs about 38 lines instead of 300.
+pub const BUCKET_SHIFT: u32 = 3;
 pub const WORDS: usize = FIELDS.len();
 /// Slots cover the whole budget, so no slot is overwritten before it is read.
 pub const RING: usize = MAX_SAMPLES as usize;
@@ -36,7 +44,11 @@ static READ: AtomicU32 = AtomicU32::new(0);
 /// triple seen (current, maximum, tier). Zero CTRL means "not found yet".
 static CTRL: AtomicU32 = AtomicU32::new(0);
 static PLAYER: AtomicU32 = AtomicU32::new(0);
-static LAST: [AtomicU32; 3] = const { [const { AtomicU32::new(0) }; 3] };
+/// Walker call count of the last emitted sample, so the rate floor can work.
+static LAST_CALLS: AtomicU32 = AtomicU32::new(0);
+/// Last bucketed sharpness, maximum, tier and player pointer seen. Zero means
+/// "nothing seen yet", which makes the first sample a change.
+static LAST: [AtomicU32; 4] = const { [const { AtomicU32::new(0) }; 4] };
 static RING_WORDS: [AtomicU32; RING * WORDS] =
     const { [const { AtomicU32::new(0) }; RING * WORDS] };
 
@@ -57,15 +69,27 @@ pub fn observe(controller: u32, context: u32) {
             memory::word(player.wrapping_add(MAX_SHARPNESS)),
             memory::word(player.wrapping_add(SHARPNESS_TYPE)),
         ) {
-            // One changed word is enough to deserve a line; a failed read is
-            // not a change, and the periodic tick still covers it.
-            (Some(current), Some(maximum), Some(tier)) =>
-                LAST[0].swap(current, Ordering::Relaxed) != current
+            // The sharpness word is bucketed before it can trigger a line: a
+            // hit costs a few points, and one line per hit would spend the
+            // budget inside one fight. Maximum, tier and the player pointer
+            // are not bucketed, because those mark buffs, recovery, a
+            // different hunter and a recreated HUD.
+            (Some(current), Some(maximum), Some(tier)) => {
+                let bucket = current >> BUCKET_SHIFT;
+                LAST[0].swap(bucket, Ordering::Relaxed) != bucket
                     || LAST[1].swap(maximum, Ordering::Relaxed) != maximum
-                    || LAST[2].swap(tier, Ordering::Relaxed) != tier,
+                    || LAST[2].swap(tier, Ordering::Relaxed) != tier
+                    || LAST[3].swap(player, Ordering::Relaxed) != player
+            },
             _ => false,
         };
+        let apart = calls.wrapping_sub(LAST_CALLS.load(Ordering::Relaxed));
         if !changed && calls % PERIODIC_EVERY != 0 {
+            return;
+        }
+        if changed && apart < MIN_CALLS_APART {
+            // Too close to the previous sample: the periodic tick still
+            // guarantees progress, and the next bucket boundary comes soon.
             return;
         }
     } else if calls % SAMPLE_EVERY != 0 {
@@ -74,6 +98,7 @@ pub fn observe(controller: u32, context: u32) {
         return;
     }
     let base = memory::BASE.load(Ordering::Relaxed);
+    LAST_CALLS.store(calls, Ordering::Relaxed);
     let Some(sample) = sample_controller(&Machine, controller, context, base) else {
         return;
     };

@@ -2,16 +2,16 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r2 diagnostic candidate: one hook at the gauge draw walker (main+0xa494a0) copies the gauge controller identity, the node tree with own, effective and atlas rectangles, the live clip and the local player's signed sharpness words into at most 240 ERROR log lines per process, driven by state change plus a periodic tick. It draws nothing and writes no game memory. Not approved for distribution; runtime NOT RUN for r2; an r1 diagnostic run was read on Eden.",
+  "reason": "r3 diagnostic candidate: one hook at the gauge draw walker (main+0xa494a0) copies the gauge controller identity, the node tree with own, effective and atlas rectangles, the live clip and the local player's signed sharpness words into at most 320 ERROR log lines per process, triggered by bucketed sharpness, maximum, tier or player change plus a periodic tick. It draws nothing and writes no game memory. Not approved for distribution; runtime NOT RUN for r2 and r3; an r1 diagnostic run was read on Eden.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r2",
+  "version": "r3",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r2-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r2/delivery",
+  "archive": "modern-sharpness-gauge-r3-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r3/delivery",
   "candidate_builder": "scripts/build.py",
   "runtime_test": "NOT RUN",
   "runtime_active": true,
@@ -62,9 +62,10 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
-    "r2 has no runtime test on Switch, Eden or Ryujinx; the sample lines, the 240-sample budget and the absence of any drawing change are static results.",
-    "The read-only run cannot cover every recovery, buff, riding and HUD state; some paths may produce no lines.",
-    "The gauge itself is not part of r2."
+    "r3 has no runtime test on Switch, Eden or Ryujinx; the sample lines, the 320-sample budget and the absence of any drawing change are static results.",
+    "r2 was built and never run: its raw-value sample trigger was replaced by r3 before any play test.",
+    "320 samples still cannot cover every recovery, buff and HUD state; some paths may produce no lines.",
+    "The gauge itself is not part of r3."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -85,7 +86,7 @@
     "manual": [
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r2: pinned toolchain build; 10 host fixtures passed; verify.py PASSED with 15 NSO signature windows, unique hook window, expected exports, resolved imports only, no settings import, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json and DEVELOPMENT.md.",
+    "static_summary": "r3: pinned toolchain build; 10 host fixtures passed; verify.py PASSED with 15 NSO signature windows, unique hook window, expected exports, resolved imports only, no settings import, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json and DEVELOPMENT.md.",
     "manual_summary": "r1 was run once on Eden (installed NRO hash equals the packaged payload): 63 ERROR lines read the gauge state correctly but the tree walk was wrong. r2 runtime NOT RUN; README.md lists the scenarios and the log to send."
   },
   "dependencies": [
@@ -102,8 +103,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r2/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61"
+      "source": "build/modern-sharpness-gauge/candidates/r3/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d"
     }
   }
 }
