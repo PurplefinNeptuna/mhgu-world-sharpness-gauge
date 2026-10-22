@@ -176,7 +176,7 @@ fn read_row() -> Result<Row, u32> {
     }
     let (Some(bar), Some(bar_parent)) = (
         memory::word(root.wrapping_add(NODE_CHILD)),
-        memory::word(root.wrapping_add(NODE_PARENT)),
+        memory::word(root.wrapping_add(NODE_CHILD).wrapping_add(NODE_PARENT)),
     ) else {
         return Err(23);
     };
@@ -185,7 +185,7 @@ fn read_row() -> Result<Row, u32> {
     }
     let (Some(effect), Some(effect_parent)) = (
         memory::word(bar.wrapping_add(NODE_SIBLING)),
-        memory::word(bar.wrapping_add(NODE_PARENT)),
+        memory::word(bar.wrapping_add(NODE_SIBLING).wrapping_add(NODE_PARENT)),
     ) else {
         return Err(23);
     };
@@ -194,22 +194,22 @@ fn read_row() -> Result<Row, u32> {
     }
     let (Some(edge), Some(edge_parent)) = (
         memory::word(effect.wrapping_add(NODE_SIBLING)),
-        memory::word(effect.wrapping_add(NODE_PARENT)),
+        memory::word(effect.wrapping_add(NODE_SIBLING).wrapping_add(NODE_PARENT)),
     ) else {
         return Err(23);
     };
-
     if edge == 0 || edge == effect || edge == bar
         || edge_parent != root
         || !memory::writable(edge, TEXTURE_BYTES)
     {
         return Err(29);
     }
-    // The walk stops where a sibling comes back to the root, so the last sibling
-    // of the root's chain must point at the root. That is the loop bound the cache
-    // entries are built from, and it is what a stray child pointer would break.
+    // How the walk closes, from main+0xa494a0: a sibling equal to the root breaks
+    // the loop, and a zero sibling pops to node+0x70, which the gate above proves
+    // is the root. Both closings are valid, any other pointer is not the end of
+    // this chain. The r10 log shows the edge glyph closing with sibling 0.
     let terminator = memory::word(edge.wrapping_add(NODE_SIBLING)).ok_or(23u32)?;
-    if terminator != root {
+    if terminator != 0 && terminator != root {
         return Err(30);
     }
     let group = root;

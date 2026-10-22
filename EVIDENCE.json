@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r10",
+  "version": "r11",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r10",
+    "version": "r11",
     "status": "BUILT",
-    "nro_sha256": "eb741f03177d9e026c1d1b32f5d7fef09fb43d3ec2ee401c8a35b982f321c561",
+    "nro_sha256": "11155325db0184403daaef420d0e02c63b316a65f4c84cf03ac6fc271cc21f26",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -336,6 +336,24 @@
         "Long Sword at t=129 s: current=200 maximum=200 tier=3, cache=0x488c5a10, row=0x51990238, anim 4 objects 4 sequences 15 first_object 29"
       ],
       "conclusion": "two gate failures in a row (r8 stage 26, r9 stage 29): stopped shipping gate fixes, went back to the decompiled walker main+0xa494a0 and the DTI record for cGUIObjRoot, which gave the root's cache/flag/terminator contract used in r10"
+    },
+    {
+      "date": "2026-10-23",
+      "version": "r10",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "eb741f03177d9e026c1d1b32f5d7fef09fb43d3ec2ee401c8a35b982f321c561",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r10-eden-2026-10-23.txt",
+      "session_seconds": 1959,
+      "our_lines": 627,
+      "observed": [
+        "483 stage-21 lines while the HUD was absent, then 107 stage-27 lines from t=1959 s: gates 25 (root class is cGUIObjRoot) and 26 (cache at root+0x80, walker drawable count 3) passed on live data for the first time",
+        "gate 27 read the parent of the root, not of the bar: the tree line prints bar 0x47f595c0 child=0x0 sibling=0x47f81390 parent=0x47f66640-style link to the controller 0x47f66540, so bar+0x70 is the root and root+0x70 is something else",
+        "the third node closes the sibling chain with sibling 0x0 and parent 0x47f66540: the walker pops through the parent instead of meeting the root as a sibling, so gate 30 as written in r10 would have failed next",
+        "Long Sword t=1959 s: current=250 maximum=250 tier=3, cache=0x441a9a90, row=0x52af0238, anim 4 objects 4 sequences 15 first_object 29, drawables 3",
+        "no mask inserted, nothing published: the insertion stopped before any write"
+      ],
+      "conclusion": "the root layout and cache contract from the walker decompile are confirmed on live data; the remaining failure is a parent read shifted by one field in my gates, fixed in r11 together with the zero-sibling closing"
     }
   ],
   "not_proven": [
@@ -349,8 +367,8 @@
   "runtime": {
     "status": "NOT RUN",
     "date": null,
-    "binary_sha256": "eb741f03177d9e026c1d1b32f5d7fef09fb43d3ec2ee401c8a35b982f321c561",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r10/delivery/modern-sharpness-gauge-r10-candidate.zip; scenario and log path in README.md",
+    "binary_sha256": "11155325db0184403daaef420d0e02c63b316a65f4c84cf03ac6fc271cc21f26",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r11/delivery/modern-sharpness-gauge-r11-candidate.zip; scenario and log path in README.md",
     "correlate": "the reported MSG r4 lines against this nro_sha256 and the emulator's mod load record",
     "previous_runs": [
       "r1 Eden 2026-10-22",

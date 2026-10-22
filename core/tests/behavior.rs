@@ -315,6 +315,12 @@ fn the_sharpness_textures_are_siblings_under_the_root() {
     assert_eq!(walked.nodes[0].address, mask);
     assert_eq!(walked.nodes[0].links, [sharp, efx, root]);
     assert_eq!(walked.nodes[1].links, [0, efx, mask]);
+
+    // The r10 log closed the chain with the edge glyph's sibling at 0 and popped
+    // through its parent, which is the root. Both closings end the walk.
+    fake.put(edge + NODE_SIBLING, 0);
+    let closed = scan_walk(&fake, sharp);
+    assert_eq!(closed.nodes[2].links, [0x7400, 0, root]);
 }
 
 #[test]

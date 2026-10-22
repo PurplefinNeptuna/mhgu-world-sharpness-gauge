@@ -1,6 +1,6 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 prototype candidate r10 (`DISTRIBUTION.json`, DEVELOPMENT).
+Current state: Phase 2 prototype candidate r11 (`DISTRIBUTION.json`, DEVELOPMENT).
 r10 inserts a `cGUIObjScissorMask` as the gauge root's first child and clips the bar,
 the glow and the edge with it; the fill cycles 0/25/50/100 percent, 20 seconds each,
 as a fixed prototype. The gauge layout it writes against is the decompiled draw walker
@@ -9,15 +9,14 @@ at main+0xa494a0 plus the r9 Eden log, recorded in
 whose `+0x68` is the bar, whose `+0x80` is the draw cache, whose `+0x8c` bit 0 is the
 rebuild flag, and whose `+0x9c` is the animation row. The three sharpness textures are
 direct siblings of that root and the walk closes on a sibling that points back at it,
-so gate 30 checks the closing pointer. This HUD has no animation map list:
+so gate 30 accepts both closings: a sibling equal to the root, or a zero sibling that pops through the node's own parent. This HUD has no animation map list:
 `instance+0xd8` and `root+0xa0/+0xa4` are zero, so the map growth from the quest row
 contract is deliberately not applied here.
 
-Run history: r5 stage 20, r6 stage 20, r7 stage 24, r8 stage 26, r9 stage 29 (77
-lines, then 23 and 24 after a scene change). r8 and r9 both failed on gates copied from
+Run history: r5 stage 20, r6 stage 20, r7 stage 24, r8 stage 26, r9 stage 29, r10 stage 27 (107 lines: gates 25 and 26 passed, the parent word was read from the root instead of the bar). r8 and r9 both failed on gates copied from
 Key Quest Markers whose model the logs refuted, so r10 follows playbook P3 step 4: every
 gate is now written against the walker decompile, the `cGUIObjRoot` DTI record, and the
-logged link words, not against another row's layout. r10 runtime is NOT RUN.
+logged link words, not against another row's layout. r11 runtime is NOT RUN.
 
 Open items: the mask property (`mMask`) value the game needs before it writes a scissor
 is unproven, so only a screenshot can confirm clipping; `restore()` has no caller because
