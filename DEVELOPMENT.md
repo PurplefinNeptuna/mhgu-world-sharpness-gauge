@@ -1,6 +1,6 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 prototype candidate r12 (`DISTRIBUTION.json`, DEVELOPMENT).
+Current state: Phase 2 prototype candidate r13 (`DISTRIBUTION.json`, DEVELOPMENT).
 r10 inserts a `cGUIObjScissorMask` as the gauge root's first child and clips the bar,
 the glow and the edge with it; the fill cycles 0/25/50/100 percent, 20 seconds each,
 as a fixed prototype. The gauge layout it writes against is the decompiled draw walker
@@ -16,7 +16,13 @@ contract is deliberately not applied here.
 Run history: r5 stage 20, r6 stage 20, r7 stage 24, r8 stage 26, r9 stage 29, r10 stage 27 (107 lines: gates 25 and 26 passed, the parent word was read from the root instead of the bar), r11 stage 27 again (277 lines: the fix chained root+0x68+0x70, which is the root+0xd8 word, not the bar's parent) plus 112 stage-23 lines after a scene change on a capture whose row was gone. r8 and r9 both failed on gates copied from
 Key Quest Markers whose model the logs refuted, so r10 follows playbook P3 step 4: every
 gate is now written against the walker decompile, the `cGUIObjRoot` DTI record, and the
-logged link words, not against another row's layout. r12 runtime is NOT RUN.
+logged link words, not against another row's layout. r12 was packaged (NRO `01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e`) and never reported run;
+r13 runtime is NOT RUN.
+
+User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
+candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
+match: stage 21 in bulk while no gauge exists, and a stage-23 streak after a scene change.
+r13 gates insertion on a live sharpness gauge (stage 34) and restores on staleness.
 
 Open items: the mask property (`mMask`) value the game needs before it writes a scissor
 is unproven, so only a screenshot can confirm clipping; `restore()` has no caller because

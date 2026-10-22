@@ -122,16 +122,25 @@ fn read_row() -> Result<Row, u32> {
     ) else {
         return Err(23);
     };
+    let (Some(cache), Some(cache_flags)) = (
+        memory::word(root.wrapping_add(0x80)),
+        memory::word(root.wrapping_add(0x8c)),
+    ) else {
+        return Err(23);
+    };
+    // drawables() reads the walker's own count word in the cache header, so the
+    // cache we allocate is sized from what the tree produced this frame.
+    let drawables = sampling::drawables();
+    if cache == 0 || drawables == 0 || !memory::readable(cache.wrapping_sub(8), 0x20) {
+        return Err(26);
+    }
     let (Some(objects), Some(sequences)) = (
         memory::half(description.wrapping_add(4)),
         memory::half(description.wrapping_add(6)),
     ) else {
         return Err(23);
     };
-    let (Some(anim), Some(active)) = (
-        memory::word(description),
-        memory::word(root.wrapping_add(0x50)),
-    ) else {
+    let Some(anim) = memory::word(description) else {
         return Err(23);
     };
     let Some(first_object) = memory::word(description.wrapping_add(0x0c)) else {
@@ -142,7 +151,7 @@ fn read_row() -> Result<Row, u32> {
     // carries no drawable count, so the cache length comes from the walker's count
     // (sampling::drawables), not from the row. root+0x50 is recorded, not required:
     // it is a counter-row fact from Key Quest Markers, not a gauge-row fact.
-    AUTHORED50.store(active, Ordering::Release);
+    AUTHORED50.store(cache_flags, Ordering::Release);
     if anim != GAUGE_ANIMATION
         || objects != GAUGE_OBJECTS
         || sequences != GAUGE_SEQUENCES
@@ -158,21 +167,16 @@ fn read_row() -> Result<Row, u32> {
     // The three sharpness textures are direct siblings of the root, so the mask
     // enters as the root's first child, keeps the glow and the edge as its own
     // siblings, and takes the bar as its child.
+    // A sharpness gauge must be live. The hub has no gauge, a quest that ended
+    // tears its HUD down, and weapons without sharpness (bowguns, the prowler
+    // rig) never build the gauge row at all, so there is nothing to clip there.
+    sampling::gauge_points().ok_or(34u32)?;
+    if sampling::gauge_age_calls() > STALE_CALLS {
+        return Err(34);
+    }
     let root_dti = MtDti::find("cGUIObjRoot").ok_or(33u32)?;
     if !is_type(root, root_dti as *const _ as u32) {
         return Err(25);
-    }
-    let (Some(cache), Some(cache_flags)) = (
-        memory::word(root.wrapping_add(0x80)),
-        memory::word(root.wrapping_add(0x8c)),
-    ) else {
-        return Err(23);
-    };
-    // drawables() reads the walker's own count word in the cache header, so the
-    // cache we allocate is sized from what the tree produced this frame.
-    let drawables = sampling::drawables();
-    if cache == 0 || drawables == 0 || !memory::readable(cache.wrapping_sub(8), 0x20) {
-        return Err(26);
     }
     let Some(bar) = memory::word(root.wrapping_add(NODE_CHILD)) else {
         return Err(23);
@@ -367,6 +371,9 @@ fn rect(bar: &u32) -> Option<[i32; 4]> {
 /// or publish) is terminal, because retrying an allocation path that already
 /// failed is not how this row gets built.
 const RETRY_EVERY: u32 = 240;
+/// Walker calls after which an accepted gauge sample is stale. The walker runs
+/// for every animation controller, so a few thousand calls is a few seconds.
+const STALE_CALLS: u32 = 3_000;
 static TRIES: AtomicU32 = AtomicU32::new(0);
 /// The bar's live width, and bit 0/1 for "the authored 88 and 24 match".
 static BAR_W: AtomicU32 = AtomicU32::new(0);
@@ -375,6 +382,19 @@ static AUTHORED: AtomicU32 = AtomicU32::new(0);
 static AUTHORED50: AtomicU32 = AtomicU32::new(0);
 
 pub fn tick() {
+    if STATE.load(Ordering::Relaxed) == 1 {
+        // The gauge HUD is torn down when a quest ends. Undo the insertion while
+        // the objects are still the ones we linked, then let the next quest start
+        // a fresh insertion against the controller the hook captures then.
+        if sampling::gauge_age_calls() > STALE_CALLS {
+            if restore() {
+                hooks::clear_capture(hooks::capture().1);
+                STATE.store(0, Ordering::Release);
+                FAILURE.store(0, Ordering::Release);
+            }
+        }
+        return;
+    }
     if STATE.load(Ordering::Relaxed) != 0 {
         return;
     }

@@ -8,7 +8,7 @@
 //! window. All formatting and logging happens later in `forge_onUpdate`.
 use crate::memory;
 use core::sync::atomic::{AtomicU32, Ordering};
-use sharpness_gauge_core::{
+use sharpness_gauge_core::{FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER,
     FIELDS, FIELD_DRAWABLE, MAX_SHARPNESS, Memory, SHARPNESS, SHARPNESS_TYPE, sample_controller};
 
 pub const MAX_SAMPLES: u32 = 320;
@@ -46,6 +46,9 @@ static PLAYER: AtomicU32 = AtomicU32::new(0);
 /// Walker call count of the last emitted sample, so the rate floor can work.
 static LAST_CALLS: AtomicU32 = AtomicU32::new(0);
 static LAST_DRAWABLE: AtomicU32 = AtomicU32::new(0);
+/// The last accepted sample's sharpness points, packed 10 bits current, 10 bits
+/// maximum, 6 bits tier. A gauge of 0/0 is not a sharpness weapon.
+static LAST_GAUGE: AtomicU32 = AtomicU32::new(0);
 /// Last bucketed sharpness, maximum, tier and player pointer seen. Zero means
 /// "nothing seen yet", which makes the first sample a change.
 static LAST: [AtomicU32; 4] = const { [const { AtomicU32::new(0) }; 4] };
@@ -112,6 +115,12 @@ pub fn observe(controller: u32, context: u32) {
         RING_WORDS[slot * WORDS + index].store(*word, Ordering::Relaxed);
     }
     LAST_DRAWABLE.store(words[FIELD_DRAWABLE as usize], Ordering::Relaxed);
+    LAST_GAUGE.store(
+        (words[FIELD_CURRENT as usize] & 0x3ff)
+            | ((words[FIELD_MAXIMUM as usize] & 0x3ff) << 10)
+            | ((words[FIELD_TIER as usize] & 0x3f) << 20),
+        Ordering::Relaxed,
+    );
     CTRL.store(controller, Ordering::Relaxed);
     PLAYER.store(sample.local.player, Ordering::Relaxed);
     // Publish the slot words first, then the write cursor, so a reader that
@@ -143,6 +152,23 @@ pub fn take() -> Option<(u32, [u32; WORDS])> {
 /// so the cache length the row needs is the number the walker reported.
 pub fn drawables() -> u32 {
     LAST_DRAWABLE.load(Ordering::Relaxed)
+}
+
+/// Current and maximum sharpness points of the last accepted sample, when that
+/// sample carried a sharpness gauge at all. Weapons without sharpness (bowguns,
+/// the prowler rig) produce no gauge row, so there is nothing to accept.
+pub fn gauge_points() -> Option<(u32, u32)> {
+    let packed = LAST_GAUGE.load(Ordering::Relaxed);
+    let current = packed & 0x3ff;
+    let maximum = (packed >> 10) & 0x3ff;
+    (maximum != 0 && current <= maximum).then_some((current, maximum))
+}
+
+/// Walker calls since the last accepted gauge sample. The HUD is rebuilt when a
+/// quest starts and torn down when it ends, so a long gap means the gauge the
+/// plugin captured belongs to a scene that is gone.
+pub fn gauge_age_calls() -> u32 {
+    CALLS.load(Ordering::Relaxed).wrapping_sub(LAST_CALLS.load(Ordering::Relaxed))
 }
 
 pub fn stats() -> (u32, u32, bool) {

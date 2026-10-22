@@ -1,6 +1,6 @@
 # Modern Sharpness Gauge
 
-r12 is a test build of the gauge bar. It adds a clipping mask over the game's
+r13 is a test build of the gauge bar. It adds a clipping mask over the game's
 own sharpness gauge so the bar shows your current points against the maximum for
 the weapon you are holding. The game keeps drawing the gauge, keeps its colours,
 keeps its tier frames and keeps its effects; this mod only decides where the bar
@@ -18,14 +18,14 @@ clipping gets checked before the mod starts following real sharpness.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r12-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r13-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r12`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r13`
 should be listed.
 
 ## Usage
@@ -60,7 +60,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it.
-The lines that matter start with `MSG r12`. A line saying
+The lines that matter start with `MSG r13`. A line saying
 `scissor mask inserted` means the mask was added; a line saying
 `mask insertion failed at stage` followed by a number says where it stopped.
 Lines saying `clip x= ... width= ... ratio= ...` are the mask sizes the mod
@@ -69,7 +69,8 @@ The stage number says which check stopped the mod: 21 means no gauge instance wa
 found, 24 the row counts, 25 the root object's class, 26 the gauge's draw cache,
 27 the bar under it (its parent must be the root), 28 the glow beside the bar, 29 the
 edge beside the glow, 30 a chain that does not close back on the root, 31 the bar's class, 32 the bar's live
-width, 33 a missing class record. Report the number exactly as printed. Tree lines
+width, 33 a missing class record, 34 no sharpness gauge to clip (the hub, a finished
+quest, or a weapon with no sharpness). Report the number exactly as printed. Tree lines
 print each node's child, sibling and parent pointer so a failed chain can be read
 off the log.
 
