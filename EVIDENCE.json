@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r7",
+  "version": "r8",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -60,10 +60,16 @@
       "defects_found": "A single \"row absent\" code cannot say which check failed, so a run gives no diagnosis. The bar's live texture rect in the log (300 96 320) is not the archive rect (0 280 88 304), which shows the animation rewrites the rect and that demanding the authored 88x24 as a hard gate is the wrong contract."
     },
     "r7": {
-      "nro_sha256": "510c0dcc3ff690db6af15cb5a52c98008964918b9f987346bebf4dc3e691ac13",
+      "nro_sha256": "95d5ef230369005bf84f5cb9c529b81cf830e77ae8e08c3a83a17a72147f320f",
       "archive_sha256": "ad335b25a8a523a0e9476bd4789974a6fe6136bccbfe6a1661d8e33f5e2bee86",
+      "runtime": "Eden run recorded by the tester: stage 21 while the gauge was absent, then stage 24 from 294 s with instance=0x47dfaf00 and controller=gauge=0x485994b0, matching the sample ctrl field. The instance capture and controller match work; the row gates failed. No mask inserted, nothing changed on screen.",
+      "defects_found": "The gates required the counter row layout copied from Key Quest Markers: a drawable count at row+8, where the gauge row has a pointer-like value, plus root+0x50 == 1 as a hard gate."
+    },
+    "r8": {
+      "nro_sha256": "9ecdf379fc963e3cf93c7dc97dc05c1f223645d7e2ba2acf16284f96ceb09cf1",
+      "archive_sha256": "eda613d2ee7bbc7dc0828bf22a1c7077cc0e0d2ea6843a82166e1c84edca861e",
       "runtime": "NOT RUN",
-      "changes": "Per-gate stage codes 21..33 in the failure line with instance/controller/gauge values; the fill track scales from the bar's live width (SPRITE_WIDTH 88 as the reference), and an authored-size mismatch is recorded (authored bit 0/1) instead of failing the gate. 13 host fixtures pass."
+      "changes": "Row identity from the proven fields (4 / 4 / 15 / 29); cache length from sampling drawables; root+0x50 recorded in the clip line instead of gating; 13 host fixtures pass."
     }
   },
   "build": {
