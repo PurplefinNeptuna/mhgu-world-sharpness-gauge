@@ -94,6 +94,12 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
     unsafe { f(instance, context) };
 }
 
+/// The raw recorded pair, for the log line. Zeros mean the instance hook never
+/// saw a controller matching the gauge controller.
+pub fn capture() -> (u32, u32) {
+    (INSTANCE.load(Ordering::Relaxed), CONTROLLER.load(Ordering::Relaxed))
+}
+
 /// The recorded pair, only handed out when the gauge controller is the controller
 /// this instance draws. Returns (instance, controller).
 pub fn gauge_instance() -> Option<(u32, u32)> {

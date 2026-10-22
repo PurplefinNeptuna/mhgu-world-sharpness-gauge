@@ -326,15 +326,15 @@ fn the_prototype_fill_shares_one_boundary_column() {
     let ink = (sword[0] + BAR_INK_LEFT, sword[0] + BAR_INK_LEFT + BAR_INK_TRACK);
     assert_eq!(ink, (128, 190));
     for (ratio, column) in [(0u32, 128), (2_500, 143), (5_000, 159), (10_000, 190)] {
-        assert_eq!(boundary(sword, ratio), column);
+        assert_eq!(boundary(sword, ratio, 88), column);
         assert_eq!(kept(sword, column), [110, 38, column, 166]);
         assert_eq!(kept(effect, column), [116, 32, column.max(116), 160]);
     }
     // Ratio 0 keeps a non-zero clip: the mask spans 18 columns of empty sprite, so the
     // degenerate zero-size scissor never has to be trusted. Ratio 1 covers the last ink
     // column. The clip rows start at the effect glyph's top and cover the bar's rows.
-    assert_eq!(boundary(sword, 0) - sword[0], BAR_INK_LEFT);
-    assert!(boundary(sword, 10_000) > ink.1 - 1);
+    assert_eq!(boundary(sword, 0, 88) - sword[0], BAR_INK_LEFT);
+    assert!(boundary(sword, 10_000, 88) > ink.1 - 1);
     assert_eq!((CLIP_TOP, CLIP_HEIGHT), (-6, 32));
     assert_eq!(kept([200, 0, 100, 10], 260), [200, 0, 200, 10]);
     assert_eq!(
@@ -354,9 +354,18 @@ fn the_mask_box_covers_the_bar_and_the_effect() {
         (5_000, [110, 32, 49, 32]),
         (10_000, [110, 32, 80, 32]),
     ] {
-        assert_eq!(mask_box(sword, ratio), box_);
+        assert_eq!(mask_box(sword, ratio, 88), box_);
         assert!(box_[2] > 0 && box_[3] > 0);
     }
-    assert_eq!(mask_box(sword, 10_000)[2], boundary(sword, 10_000) - sword[0]);
-    assert_eq!(mask_box(sword, 0)[2], BAR_INK_LEFT);
+    assert_eq!(mask_box(sword, 10_000, 88)[2], boundary(sword, 10_000, 88) - sword[0]);
+    assert_eq!(mask_box(sword, 0, 88)[2], BAR_INK_LEFT);
+}
+#[test]
+fn the_fill_track_scales_with_the_live_bar_width() {
+    // A 176-wide bar is the same art at double scale: the inset and the track double.
+    let sword = [110, 38, 238, 166];
+    assert_eq!(boundary(sword, 10_000, 176), 110 + 36 + 124);
+    assert_eq!(boundary(sword, 0, 176), 110 + 36);
+    assert_eq!(boundary(sword, 5_000, 176), 110 + 36 + 62);
+    assert_eq!(mask_box(sword, 10_000, 176)[2], 160);
 }

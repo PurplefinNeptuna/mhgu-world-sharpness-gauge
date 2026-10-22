@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r6",
+  "version": "r7",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -55,8 +55,15 @@
     "r6": {
       "nro_sha256": "475b825e0136f9376009b337c8a6ba0ad67d545b153713388a42022c194eff1d",
       "archive_sha256": "427229fef99f322184894bfb8b9564b752491a519005d68a69787c13c7147680",
+      "runtime": "Eden run recorded by the tester: retrying works (stage 20 reported every 4 seconds, matching the 240-attempt cadence) and sampling is correct (Long Sword 300/300 down to 267/300, tier 3). No mask was inserted; the row validation kept failing and stage 20 named no gate.",
+      "changes": "Instance capture only records a pair whose instance+0xdc is the gauge controller; row discovery derives the group from bar+0x70 and checks the bar/effect/edge chain in both directions with the bar identified by its authored 88x24 size; stage 20 retries every 240 attempts.",
+      "defects_found": "A single \"row absent\" code cannot say which check failed, so a run gives no diagnosis. The bar's live texture rect in the log (300 96 320) is not the archive rect (0 280 88 304), which shows the animation rewrites the rect and that demanding the authored 88x24 as a hard gate is the wrong contract."
+    },
+    "r7": {
+      "nro_sha256": "510c0dcc3ff690db6af15cb5a52c98008964918b9f987346bebf4dc3e691ac13",
+      "archive_sha256": "ad335b25a8a523a0e9476bd4789974a6fe6136bccbfe6a1661d8e33f5e2bee86",
       "runtime": "NOT RUN",
-      "changes": "Instance capture only records a pair whose instance+0xdc is the gauge controller; row discovery derives the group from bar+0x70 and checks the bar/effect/edge chain in both directions with the bar identified by its authored 88x24 size; stage 20 retries every 240 attempts."
+      "changes": "Per-gate stage codes 21..33 in the failure line with instance/controller/gauge values; the fill track scales from the bar's live width (SPRITE_WIDTH 88 as the reference), and an authored-size mismatch is recorded (authored bit 0/1) instead of failing the gate. 13 host fixtures pass."
     }
   },
   "build": {

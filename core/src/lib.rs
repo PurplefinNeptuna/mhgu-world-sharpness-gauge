@@ -181,6 +181,8 @@ pub fn prototype_ratio(seconds: u32) -> u32 {
 /// leaves all of the ink out, ratio 1 covers it. `CLIP_TOP`/`CLIP_HEIGHT` cover the
 /// effect glyph, whose authored offset is (6,-6) with height 32. Measured 2026-10-22
 /// from `HD_hud00_BM_NOMIP.tex` (sha256 bd5d1a3fcc77454ef8a7ed715dda1a76a72e5e0ee6413d4ddc6f550c7b89e857).
+/// The authored sprite width the ink measurements are expressed against.
+pub const SPRITE_WIDTH: i32 = 88;
 pub const BAR_INK_LEFT: i32 = 18;
 pub const BAR_INK_TRACK: i32 = 62;
 pub const CLIP_TOP: i32 = -6;
@@ -194,8 +196,11 @@ pub const CLIP_HEIGHT: i32 = 32;
 /// the logged rect is a 128x128 default while the authored size is 88x24, so the offset
 /// between them is unproven. r5 logs the rect, the live size at +0xb4/+0xb8 and the
 /// applied clip so a constant offset is measured instead of guessed.
-pub fn boundary(sword: [i32; 4], ratio_bp: u32) -> i32 {
-    sword[0] + BAR_INK_LEFT + (BAR_INK_TRACK as i64 * ratio_bp as i64 / 10_000) as i32
+pub fn boundary(sword: [i32; 4], ratio_bp: u32, bar_width: i32) -> i32 {
+    let width = bar_width.max(1);
+    let left = (BAR_INK_LEFT as i64 * width as i64 / SPRITE_WIDTH as i64) as i32;
+    let track = (BAR_INK_TRACK as i64 * width as i64 / SPRITE_WIDTH as i64) as i32;
+    sword[0] + left + (track as i64 * ratio_bp as i64 / 10_000) as i32
 }
 
 /// The kept rectangle for one sprite under a shared column: a sprite starting
@@ -215,8 +220,8 @@ pub fn kept(rect: [i32; 4], column: i32) -> [i32; 4] {
 /// offset rows are inside, its height is `CLIP_HEIGHT`, and its width runs from the rect's
 /// left to the shared boundary. Width is never zero: at ratio 0 it is `BAR_INK_LEFT`, the
 /// empty part of the sprite, so the degenerate mask size is never asked for.
-pub fn mask_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
-    let column = boundary(rect, ratio_bp);
+pub fn mask_box(rect: [i32; 4], ratio_bp: u32, bar_width: i32) -> [i32; 4] {
+    let column = boundary(rect, ratio_bp, bar_width);
     [rect[0], rect[1] + CLIP_TOP, column - rect[0], CLIP_HEIGHT]
 }
 

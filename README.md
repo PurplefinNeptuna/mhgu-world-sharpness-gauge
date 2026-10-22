@@ -1,6 +1,6 @@
 # Modern Sharpness Gauge
 
-r6 is a test build of the gauge bar. It adds a clipping mask over the game's
+r7 is a test build of the gauge bar. It adds a clipping mask over the game's
 own sharpness gauge so the bar shows your current points against the maximum for
 the weapon you are holding. The game keeps drawing the gauge, keeps its colours,
 keeps its tier frames and keeps its effects; this mod only decides where the bar
@@ -18,14 +18,14 @@ clipping gets checked before the mod starts following real sharpness.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r6-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r7-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r6`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r7`
 should be listed.
 
 ## Usage
@@ -60,11 +60,15 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it.
-The lines that matter start with `MSG r6`. A line saying
+The lines that matter start with `MSG r7`. A line saying
 `scissor mask inserted` means the mask was added; a line saying
 `mask insertion failed at stage` followed by a number says where it stopped.
 Lines saying `clip x= ... width= ... ratio= ...` are the mask sizes the mod
-applied, one for each step of the cycle.
+applied, one for each step of the cycle, with the bar's live width at the end.
+The stage number says which check stopped the mod: 21 means no gauge instance was
+found, 24 the row counts, 25 to 27 the row's map and cache, 28 to 30 the bar's
+place in the tree, 31 the bar's class, 32 the bar's size, 33 a missing class
+record. Report the number exactly as printed.
 
 ## Update and removal
 

@@ -53,6 +53,10 @@ pub fn inserted() -> bool {
     STATE.load(Ordering::Relaxed) == 1
 }
 /// (mask, old map length, old cache bytes) for the log line.
+pub fn bar_width() -> (u32, u32) {
+    (BAR_W.load(Ordering::Relaxed), AUTHORED.load(Ordering::Relaxed))
+}
+
 pub fn applied() -> (u32, u32, u32) {
     let sizes = SIZES.load(Ordering::Relaxed);
     (
@@ -88,68 +92,143 @@ struct Row {
     group: u32,
     bar: u32,
     effect: u32,
+    width: i32,
 }
 
-fn read_row() -> Option<Row> {
-    let (instance, root) = hooks::gauge_instance()?;
+/// Read and validate the gauge row. Each gate has its own stage code so a single
+/// run says which check failed: 21 no captured instance pair, 22 instance or
+/// controller not writable, 23 a field read failed, 24 row counts do not match the
+/// gauge animation, 25 the root's map alias disagrees, 26 root+0x50 is not 1,
+/// 27 cache alias, map length or map[0] disagree, 28 controller+0x68 is not the bar,
+/// 29 the bar/effect/edge chain disagrees, 30 the bar has no usable parent, 31 the
+/// bar is not a cGUIObjTexture, 32 the bar's live size is not 88x24, 33 a DTI is
+/// missing.
+fn read_row() -> Result<Row, u32> {
+    let Some((instance, root)) = hooks::gauge_instance() else {
+        return Err(21);
+    };
     if !memory::writable(instance, INSTANCE_BYTES) || !memory::writable(root, ROOT_BYTES) {
-        return None;
+        return Err(22);
     }
-    let map = memory::word(instance.checked_add(0xd8)?)?;
-    let description = memory::word(root.checked_add(0x9c)?)?;
-    let objects = memory::half(description.checked_add(4)?)?;
-    let sequences = memory::half(description.checked_add(6)?)?;
-    let drawables = memory::word(description.checked_add(8)?)?;
-    if memory::word(description)? != GAUGE_ANIMATION
+    let (Some(map), Some(description)) = (
+        memory::word(instance.wrapping_add(0xd8)),
+        memory::word(root.wrapping_add(0x9c)),
+    ) else {
+        return Err(23);
+    };
+    let (Some(objects), Some(sequences), Some(drawables)) = (
+        memory::half(description.wrapping_add(4)),
+        memory::half(description.wrapping_add(6)),
+        memory::word(description.wrapping_add(8)),
+    ) else {
+        return Err(23);
+    };
+    let (Some(anim), Some(map_alias), Some(active)) = (
+        memory::word(description),
+        memory::word(root.wrapping_add(0xa0)),
+        memory::word(root.wrapping_add(0x50)),
+    ) else {
+        return Err(23);
+    };
+    if anim != GAUGE_ANIMATION
         || objects != GAUGE_OBJECTS
         || sequences != GAUGE_SEQUENCES
         || drawables != GAUGE_DRAWABLES
-        || memory::word(root.checked_add(0xa0)?)? != map
-        || memory::word(root.checked_add(0x50)?)? != 1
     {
-        return None;
+        return Err(24);
     }
-    let cache = memory::word(root.checked_add(0xa4)?)?;
-    let bytes = drawables.checked_mul(16)?.checked_add(8)? as usize;
+    if map_alias != map {
+        return Err(25);
+    }
+    if active != 1 {
+        return Err(26);
+    }
+    let (Some(cache), Some(cache_alias)) = (
+        memory::word(root.wrapping_add(0xa4)),
+        memory::word(root.wrapping_add(0x80)),
+    ) else {
+        return Err(23);
+    };
+    let bytes = drawables.wrapping_mul(16).wrapping_add(8) as usize;
+    let (Some(head), Some(bar), Some(effect), Some(edge)) = (
+        memory::word(map),
+        memory::word(map.wrapping_add(4)),
+        memory::word(map.wrapping_add(8)),
+        memory::word(map.wrapping_add(12)),
+    ) else {
+        return Err(23);
+    };
     if cache == 0
-        || memory::word(root.checked_add(0x80)?)? != cache
+        || cache_alias != cache
         || !memory::readable(cache, bytes)
         || !memory::readable(map, objects as usize * 4)
-        || memory::word(map)? != root
+        || head != root
     {
-        return None;
+        return Err(27);
     }
-    let texture = MtDti::find("cGUIObjTexture")? as *const _ as u32;
     // The row's map is [controller, tree root, ...], and the gauge's tree root is
-    // the bar sprite: the r5 log shows controller+0x68 equal to the first walked
+    // the bar sprite: the r5 log prints controller+0x68 equal to the first walked
     // node, which is `Txt_sharp`. Then the effect glyph, then the edge. The group
-    // `sharp` is the bar's parent, above the walker's entry point, so it is
-    // derived from the bar and never indexed from the map.
-    let bar = memory::word(map.checked_add(4)?)?;
-    let effect = memory::word(map.checked_add(8)?)?;
-    let edge = memory::word(map.checked_add(12)?)?;
-    let group = memory::word(bar.checked_add(0x70)?)?;
-    // Every link of the chain the archive stores, checked in both directions, plus
-    // the bar's authored 88x24 size, which is what makes it the bar and not a
-    // look-alike texture object in the same row.
+    // `sharp` is the bar's parent above the walker's entry point, derived from the
+    // bar and never indexed from the map.
+    let Some(tree_root) = memory::word(root.wrapping_add(0x68)) else {
+        return Err(23);
+    };
+    if tree_root != bar {
+        return Err(28);
+    }
+    let (Some(bar_child), Some(effect_parent), Some(effect_child), Some(edge_parent)) = (
+        memory::word(bar.wrapping_add(0x68)),
+        memory::word(effect.wrapping_add(0x70)),
+        memory::word(effect.wrapping_add(0x68)),
+        memory::word(edge.wrapping_add(0x70)),
+    ) else {
+        return Err(23);
+    };
     if !memory::writable(bar, TEXTURE_BYTES)
         || !memory::writable(effect, TEXTURE_BYTES)
         || !memory::writable(edge, TEXTURE_BYTES)
-        || group == 0
-        || !memory::writable(group, NODE_BYTES)
-        || memory::word(root.checked_add(0x68)?)? != bar
-        || !is_type(bar, texture)
-        || memory::word(bar.checked_add(0xb4)?)? != BAR_WIDTH.to_bits()
-        || memory::word(bar.checked_add(0xb8)?)? != BAR_HEIGHT.to_bits()
-        || memory::word(bar.checked_add(0x68)?)? != effect
-        || memory::word(effect.checked_add(0x70)?)? != bar
-        || memory::word(effect.checked_add(0x68)?)? != edge
-        || memory::word(edge.checked_add(0x70)?)? != effect
-        || memory::word(group.checked_add(0x68)?)? != bar
+        || bar_child != effect
+        || effect_parent != bar
+        || effect_child != edge
+        || edge_parent != effect
     {
-        return None;
+        return Err(29);
     }
-    Some(Row {
+    let Some(group) = memory::word(bar.wrapping_add(0x70)) else {
+        return Err(23);
+    };
+    let Some(group_child) = memory::word(group.wrapping_add(0x68)) else {
+        return Err(23);
+    };
+    if group == 0 || group == root || !memory::writable(group, NODE_BYTES) || group_child != bar {
+        return Err(30);
+    }
+    let Some(texture) = MtDti::find("cGUIObjTexture") else {
+        return Err(33);
+    };
+    if !is_type(bar, texture as *const _ as u32) {
+        return Err(31);
+    }
+    let (Some(width), Some(height)) = (
+        memory::word(bar.wrapping_add(0xb4)),
+        memory::word(bar.wrapping_add(0xb8)),
+    ) else {
+        return Err(23);
+    };
+    // The authored 88x24 is the expected size; the live value is what the geometry
+    // scales from, so a bar the game draws at another size still clips correctly
+    // instead of failing the gate. Stage 32 means an unusable live size.
+    let live_width = f32::from_bits(width) as i32;
+    if !(1..=1024).contains(&live_width) {
+        return Err(32);
+    }
+    BAR_W.store(live_width as u32, Ordering::Release);
+    AUTHORED.store(
+        ((width == BAR_WIDTH.to_bits()) as u32) | (((height == BAR_HEIGHT.to_bits()) as u32) << 1),
+        Ordering::Release,
+    );
+    Ok(Row {
         root,
         instance,
         map,
@@ -157,6 +236,7 @@ fn read_row() -> Option<Row> {
         group,
         bar,
         effect,
+        width: live_width,
     })
 }
 
@@ -256,8 +336,8 @@ pub fn apply(ratio_bp: u32) -> Option<[i32; 4]> {
         return None;
     }
     let mask = MASK.load(Ordering::Relaxed);
-    let row = read_row()?;
-    let box_ = sharpness_gauge_core::mask_box(rect(&row.bar)?, ratio_bp);
+    let row = read_row().ok()?;
+    let box_ = sharpness_gauge_core::mask_box(rect(&row.bar)?, ratio_bp, row.width);
     if !memory::write_bits(mask + 0x80, box_[0] as f32)
         || !memory::write_bits(mask + 0x84, box_[1] as f32)
         || !word(mask + 0x54, memory::word(mask + 0x54)? | 0x2_0000)
@@ -287,6 +367,9 @@ fn rect(bar: &u32) -> Option<[i32; 4]> {
 /// failed is not how this row gets built.
 const RETRY_EVERY: u32 = 240;
 static TRIES: AtomicU32 = AtomicU32::new(0);
+/// The bar's live width, and bit 0/1 for "the authored 88 and 24 match".
+static BAR_W: AtomicU32 = AtomicU32::new(0);
+static AUTHORED: AtomicU32 = AtomicU32::new(0);
 
 pub fn tick() {
     if STATE.load(Ordering::Relaxed) != 0 {
@@ -296,9 +379,14 @@ pub fn tick() {
     if tries != 0 && tries % RETRY_EVERY != 0 {
         return;
     }
-    let Some(row) = read_row() else {
-        let _ = FAILURE.compare_exchange(0, 20, Ordering::Relaxed, Ordering::Relaxed);
-        return;
+    let row = match read_row() {
+        Ok(row) => row,
+        Err(gate) => {
+            // Overwrite, so a persistent gate is reported on every retry instead
+            // of only the first time. The gate is the diagnosis, not a status.
+            FAILURE.store(gate, Ordering::Release);
+            return;
+        }
     };
     match insert(&row) {
         Ok(mask) => {

@@ -177,8 +177,12 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " mask insertion failed at stage {stage}"
-        ), stage = stage);
+            " mask insertion failed at stage {stage}: instance={instance} controller={controller} gauge={gauge}"
+        ),
+        stage = stage,
+        instance = hooks::capture().0,
+        controller = hooks::capture().1,
+        gauge = sampling::gauge_controller());
     }
     if gui::inserted() && !REPORTED_INSERT.swap(true, Ordering::Relaxed) {
         let (mask, objects, cache) = gui::applied();
@@ -196,8 +200,16 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
                 log::error!(concat!(
                     "MSG ",
                     env!("MSG_VERSION"),
-                    " clip x={x} y={y} width={width} height={height} ratio={ratio}bp seconds={seconds}"
-                ), x = box_[0], y = box_[1], width = box_[2], height = box_[3], ratio = ratio, seconds = seconds);
+                    " clip x={x} y={y} width={width} height={height} ratio={ratio}bp seconds={seconds} bar_width={bar_width} authored={authored}"
+                ),
+                x = box_[0],
+                y = box_[1],
+                width = box_[2],
+                height = box_[3],
+                ratio = ratio,
+                seconds = seconds,
+                bar_width = gui::bar_width().0,
+                authored = gui::bar_width().1);
             }
         }
     }
