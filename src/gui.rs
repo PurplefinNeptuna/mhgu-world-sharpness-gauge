@@ -15,6 +15,7 @@ use crate::{
     memory::BASE,
 };
 use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use sharpness_gauge_core::{NODE_CHILD, NODE_DRAWABLE, NODE_FLAGS, NODE_PARENT, NODE_SIBLING, NODE_VISIBLE};
 use forge::mt::dti::MtDti;
 
 /// Mod-owned object id, outside the ids `hud0.gui` uses for this row.
@@ -38,11 +39,9 @@ const BAR_HEIGHT: f32 = 24.0;
 static STATE: AtomicU8 = AtomicU8::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static OLD_CACHE: AtomicU32 = AtomicU32::new(0);
-static MAP_FREE: AtomicU32 = AtomicU32::new(0); // the allocator's free method
 static BAR_NODE: AtomicU32 = AtomicU32::new(0);
 static GROUP_NODE: AtomicU32 = AtomicU32::new(0);
 static CACHE_BLOCK: AtomicU32 = AtomicU32::new(0);
-static ALLOCATOR: AtomicU32 = AtomicU32::new(0);
 static FAILURE: AtomicU32 = AtomicU32::new(0);
 /// The row's map length and cache size at the moment of insertion, for the log.
 static SIZES: AtomicU32 = AtomicU32::new(0);
@@ -151,52 +150,69 @@ fn read_row() -> Result<Row, u32> {
     {
         return Err(24);
     }
-    // Gauge layout, proven from the r5-r8 sample lines: the controller keeps the
-    // animation row at +0x9c, the draw cache at +0x80, and the walker entry at
-    // +0x68 is the bar node itself. The gauge publishes no animation map list
-    // (the samples print map=0 map_word=0), so the map and cache-alias gates are
-    // dropped. The chain is read from the node tree: the bar's siblings are the
-    // effect glyph and the edge marker, and the bar's parent is the group.
-    let Some(cache) = memory::word(root.wrapping_add(0x80)) else {
-        return Err(23);
-    };
-    if cache == 0 || !memory::readable(cache, 8) {
+    // Gauge layout, from the walker decompile at main+0xa494a0 and the r9 Eden log.
+    // The walk root is a cGUIObjRoot: the bar's parent (bar 0x488aa9b0 has
+    // parent=0x48898ec0, the controller on every sample line), the draw cache
+    // lives at root+0x80, root+0x8c bit 0 is the dirty bit the walker clears after
+    // rebuilding, and the walk ends when a sibling pointer comes back to the root.
+    // The three sharpness textures are direct siblings of the root, so the mask
+    // enters as the root's first child, keeps the glow and the edge as its own
+    // siblings, and takes the bar as its child.
+    let root_dti = MtDti::find("cGUIObjRoot").ok_or(33u32)?;
+    if !is_type(root, root_dti as *const _ as u32) {
         return Err(25);
     }
-    let Some(bar) = memory::word(root.wrapping_add(0x68)) else {
+    let (Some(cache), Some(cache_flags)) = (
+        memory::word(root.wrapping_add(0x80)),
+        memory::word(root.wrapping_add(0x8c)),
+    ) else {
         return Err(23);
     };
-    if bar == 0 || bar == root || !memory::writable(bar, TEXTURE_BYTES) {
+    // drawables() reads the walker's own count word in the cache header, so the
+    // cache we allocate is sized from what the tree produced this frame.
+    let drawables = sampling::drawables();
+    if cache == 0 || drawables == 0 || !memory::readable(cache.wrapping_sub(8), 0x20) {
         return Err(26);
     }
-    let (Some(effect), Some(effect_parent)) = (
-        memory::word(bar.wrapping_add(0x6c)),
-        memory::word(bar.wrapping_add(0x70)),
+    let (Some(bar), Some(bar_parent)) = (
+        memory::word(root.wrapping_add(NODE_CHILD)),
+        memory::word(root.wrapping_add(NODE_PARENT)),
     ) else {
         return Err(23);
     };
-    let Some(edge) = memory::word(effect.wrapping_add(0x6c)) else {
-        return Err(23);
-    };
-    let (Some(edge_parent), Some(group_child)) = (
-        memory::word(edge.wrapping_add(0x70)),
-        memory::word(effect_parent.wrapping_add(0x68)),
-    ) else {
-        return Err(23);
-    };
-    if effect == 0 || effect == bar || edge == 0 || edge == effect {
+    if bar == 0 || bar == root || bar_parent != root || !memory::writable(bar, TEXTURE_BYTES) {
         return Err(27);
     }
-    if !memory::writable(effect, TEXTURE_BYTES)
-        || !memory::writable(edge, TEXTURE_BYTES)
-        || !memory::writable(effect_parent, NODE_BYTES)
-    {
+    let (Some(effect), Some(effect_parent)) = (
+        memory::word(bar.wrapping_add(NODE_SIBLING)),
+        memory::word(bar.wrapping_add(NODE_PARENT)),
+    ) else {
+        return Err(23);
+    };
+    if effect == 0 || effect == bar || effect_parent != root || !memory::writable(effect, TEXTURE_BYTES) {
         return Err(28);
     }
-    if effect_parent == root || edge_parent != effect_parent || group_child != bar {
+    let (Some(edge), Some(edge_parent)) = (
+        memory::word(effect.wrapping_add(NODE_SIBLING)),
+        memory::word(effect.wrapping_add(NODE_PARENT)),
+    ) else {
+        return Err(23);
+    };
+
+    if edge == 0 || edge == effect || edge == bar
+        || edge_parent != root
+        || !memory::writable(edge, TEXTURE_BYTES)
+    {
         return Err(29);
     }
-    let group = effect_parent;
+    // The walk stops where a sibling comes back to the root, so the last sibling
+    // of the root's chain must point at the root. That is the loop bound the cache
+    // entries are built from, and it is what a stray child pointer would break.
+    let terminator = memory::word(edge.wrapping_add(NODE_SIBLING)).ok_or(23u32)?;
+    if terminator != root {
+        return Err(30);
+    }
+    let group = root;
     let Some(texture) = MtDti::find("cGUIObjTexture") else {
         return Err(33);
     };
@@ -243,55 +259,54 @@ fn insert(row: &Row) -> Result<u32, u32> {
     if mask == 0 || mask & 3 != 0 || !memory::writable(mask, MASK_BYTES) || !is_type(mask, dti) {
         return Err(2);
     }
-    // 2. The game's allocator. The counter mod allocates a binding map per row;
-    // the gauge row publishes none, so the only allocation here is the cache.
-    let instance_dti = MtDti::find("cGUIInstance").ok_or(19u32)? as *const _ as u32;
-    let getter: u32 = base() + 0x7aa47c;
-    let allocator = memory::call1(getter, instance_dti).ok_or(3u32)?;
-    let allocate = method(allocator, 0x1c).ok_or(4u32)?;
-    let free = method(allocator, 0x34).ok_or(5u32)?;
-    // 3. The draw cache grows by one begin/end pair: the walker emits a pair for
-    // the new child, and the terminator stays last. The counter mod asks the row
-    // object's vtable slot 0x58 for that buffer; the gauge controller has no
-    // proven slot there, so the block comes from the same game allocator as the
-    // map and the entry pointer is the second word of the header, exactly where
-    // the sampler reads it (count at block+0x18, flags at block+0x1c).
-    let cache_bytes = (sampling::drawables().max(1) + 1) * 16 + 8;
-    let block = memory::call3(allocate, allocator, cache_bytes + 8, 16).ok_or(10u32)?;
-    let new_cache = block.checked_add(8).ok_or(11u32)?;
-    if block == 0
-        || block & 15 != 0
-        || !memory::write_bytes(block, (cache_bytes + 8) as usize)
+    // 2. The cache allocation goes through the root object's own pair of methods,
+    // vtable 0x58 to take and 0x5c to release. That is proven for this class: the
+    // root is a cGUIObjRoot (gate 25), the same class the quest row publishes, and
+    // the native destructor releases the block through the same slot.
+    let allocate = method(row.root, 0x58).ok_or(4u32)?;
+    let free = method(row.root, 0x5c).ok_or(5u32)?;
+    // 3. The draw cache grows by one begin/end pair: the walker emits an enter
+    // entry and an exit entry for the new child, and the terminator stays last.
+    // Entries are (kind, node) word pairs, eight bytes each, so one more drawable
+    // is exactly sixteen more bytes plus the eight-byte terminator, and the header
+    // sits eight bytes below the entry pointer the root publishes at +0x80.
+    let cache_bytes = (sampling::drawables() + 1) * 16 + 8;
+    let new_cache = memory::call2(allocate, row.root, cache_bytes).ok_or(10u32)?;
+    if new_cache == 0
+        || new_cache & 15 != 0
+        || !memory::write_bytes(new_cache.wrapping_sub(8), (cache_bytes + 8) as usize)
     {
         return Err(11);
     }
-    CACHE_BLOCK.store(block, Ordering::Release);
-    // 4. The mask takes the bar's place in the group's child slot, and the bar
-    // becomes the mask's child. The bar keeps its own children, so the effect
-    // glyph and the edge are inside the same scissor.
+    CACHE_BLOCK.store(new_cache, Ordering::Release);
+    // 4. The mask takes the root's first-child slot and the bar becomes its child.
+    // The mask's siblings stay the glow and the edge, so the walk visits
+    // mask -> bar -> glow -> edge and the scissor covers all three. The mask needs
+    // visible and drawable set, because those are the two bits the walker emits on:
+    // bit 0 selects the enter path, 0x0200_0000 selects the entry itself.
     if !word(mask + 0x50, MOD_ID)
-        || !word(mask + 0x68, row.bar)
-        || !word(mask + 0x6c, 0)
-        || !word(mask + 0x70, row.group)
-        || !word(mask + 0x54, (memory::word(mask + 0x54).ok_or(12u32)? | 0x80_0000))
-        || !word(row.bar + 0x70, mask)
-        || !word(row.group + 0x68, mask)
+        || !word(mask + NODE_CHILD, row.bar)
+        || !word(mask + NODE_SIBLING, row.effect)
+        || !word(mask + NODE_PARENT, row.group)
         || !word(
-            row.group + 0x54,
-            memory::word(row.group + 0x54).ok_or(13u32)? | 0x80_0000,
+            mask + NODE_FLAGS,
+            memory::word(mask + NODE_FLAGS).ok_or(12u32)? | NODE_VISIBLE | NODE_DRAWABLE,
         )
+        || !word(row.bar + NODE_PARENT, mask)
+        || !word(row.group + NODE_CHILD, mask)
     {
-        memory::call2(free, allocator, block);
+        memory::call2(free, row.root, new_cache);
         return Err(15);
     }
     // 5. Publish the gauge cache pointer. The counter mod writes map aliases at
     // root+0xa0/+0xa4 and a cache alias at root+0x9c; the gauge uses none of them
     // (controller+0x9c is the animation row and +0xa0/+0xa4 stay 0), so writing
-    // them here would corrupt the row. Only the cache pointer and its flags move.
+    // them here would corrupt the row. Bit 0 of root+0x8c is the dirty flag the
+    // walker clears when it rebuilds, so that is the only bit to set.
     let published = word(row.root + 0x80, new_cache)
         && word(
             row.root + 0x8c,
-            memory::word(row.root + 0x8c).ok_or(16u32)? | 3,
+            memory::word(row.root + 0x8c).ok_or(16u32)? | 1,
         );
     if !published {
         return Err(17);
@@ -299,8 +314,6 @@ fn insert(row: &Row) -> Result<u32, u32> {
     // The originals stay allocated and reachable; the plugin keeps them for
     // restore, and the game's own cleanup counts the published tree.
     OLD_CACHE.store(row.cache, Ordering::Release);
-    MAP_FREE.store(free, Ordering::Release);
-    ALLOCATOR.store(allocator, Ordering::Release);
     SIZES.store(
         (GAUGE_OBJECTS as u32) | ((row.cache_bytes()) << 16),
         Ordering::Release,
@@ -312,7 +325,7 @@ fn insert(row: &Row) -> Result<u32, u32> {
 
 impl Row {
     fn cache_bytes(&self) -> u32 {
-        (sampling::drawables().max(1) * 16 + 8) & 0xffff
+        ((sampling::drawables() + 1) * 16 + 8) & 0xffff
     }
 }
 
@@ -392,18 +405,14 @@ pub fn tick() {
 
 fn restore_links(old_cache: u32, root: u32) -> Option<()> {
     let bar = BAR_NODE.load(Ordering::Relaxed);
-    let group = GROUP_NODE.load(Ordering::Relaxed);
-    if bar == 0 || group == 0 {
-        return None;
-    }
-    if !word(bar + 0x70, group) || !word(group + 0x68, bar) {
+    if bar == 0 || !word(bar + NODE_PARENT, root) || !word(root + NODE_CHILD, bar) {
         return None;
     }
     if !word(root + 0x80, old_cache) {
         return None;
     }
     let flags = memory::word(root + 0x8c)?;
-    if !word(root + 0x8c, flags | 3) {
+    if !word(root + 0x8c, flags | 1) {
         return None;
     }
     Some(())
@@ -425,19 +434,15 @@ pub fn restore() -> bool {
         return false;
     }
     let block = CACHE_BLOCK.load(Ordering::Relaxed);
-    if block != 0 && !word(root + 0x80, old_cache) {
-        return false;
-    }
     if let Some(destroy) = method(mask, 0x04) {
         memory::call1(destroy, mask);
     }
-    let free = MAP_FREE.load(Ordering::Relaxed);
-    let allocator = ALLOCATOR.load(Ordering::Relaxed);
-    // The map the plugin allocated is the one to free: after the links and the
-    // published aliases are restored, nothing points at it any more. The game's
-    // original map stays allocated and owned by the row.
-    if free != 0 && allocator != 0 && block != 0 {
-        memory::call2(free, allocator, block);
+    // The cache block the root handed us is released through the root's own
+    // release slot, the same pair the native cleanup uses.
+    if let Some(free) = method(root, 0x5c) {
+        if block != 0 {
+            memory::call2(free, root, block);
+        }
     }
     STATE.store(2, Ordering::Release);
     true

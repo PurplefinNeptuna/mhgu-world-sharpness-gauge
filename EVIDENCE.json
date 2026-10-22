@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r9",
+  "version": "r10",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r9",
+    "version": "r10",
     "status": "BUILT",
-    "nro_sha256": "3720967e77d0df7209e30eaed2ab596e854e5b96a3c088c5256f90317227defa",
+    "nro_sha256": "eb741f03177d9e026c1d1b32f5d7fef09fb43d3ec2ee401c8a35b982f321c561",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -318,6 +318,24 @@
         "current=300 maximum=300 tier=3 with ratio_bp=10000 sampled on a Long Sword"
       ],
       "conclusion": "static/runtime separation: the r8 run proves the gauge controller layout (row +0x9c, cache +0x80, walk root +0x68 is the bar) and disproves the counter-style map/alias gates; the insertion never published anything"
+    },
+    {
+      "date": "2026-10-22",
+      "version": "r9",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "3720967e77d0df7209e30eaed2ab596e854e5b96a3c088c5256f90317227defa",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r9-eden-2026-10-22.txt",
+      "session_seconds": 493,
+      "our_lines": 141,
+      "observed": [
+        "insertion stopped at stage 29, 77 times: the gate required the bar's parent to be a group node that is not the controller. The log's own link words show the bar's parent IS the controller (bar 0x488aa9b0 parent=0x48898ec0 = ctrl on every sample line), so the gate's model was wrong",
+        "the three sharpness textures are siblings of the root: bar sibling=0x4872c300, glow sibling=0x488d0c60, both parent=0x48898ec0",
+        "the tree log printed two nodes for a walk of visited=3: FIELD_VISITED pointed at the visible word, so the node loop ran twice, and FIELD_DRAWABLE pointed at the truncation word, so the cache was sized from 0 -> 1 drawable (40 bytes) for a tree that needs 72",
+        "stage 23 and 24 at t=485 s after 77 stage-29 failures: the row read failed once the scene changed, consistent with a captured controller whose row pointer is being torn down",
+        "Long Sword at t=129 s: current=200 maximum=200 tier=3, cache=0x488c5a10, row=0x51990238, anim 4 objects 4 sequences 15 first_object 29"
+      ],
+      "conclusion": "two gate failures in a row (r8 stage 26, r9 stage 29): stopped shipping gate fixes, went back to the decompiled walker main+0xa494a0 and the DTI record for cGUIObjRoot, which gave the root's cache/flag/terminator contract used in r10"
     }
   ],
   "not_proven": [
@@ -331,8 +349,8 @@
   "runtime": {
     "status": "NOT RUN",
     "date": null,
-    "binary_sha256": "3720967e77d0df7209e30eaed2ab596e854e5b96a3c088c5256f90317227defa",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r9/delivery/modern-sharpness-gauge-r9-candidate.zip; scenario and log path in README.md",
+    "binary_sha256": "eb741f03177d9e026c1d1b32f5d7fef09fb43d3ec2ee401c8a35b982f321c561",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r10/delivery/modern-sharpness-gauge-r10-candidate.zip; scenario and log path in README.md",
     "correlate": "the reported MSG r4 lines against this nro_sha256 and the emulator's mod load record",
     "previous_runs": [
       "r1 Eden 2026-10-22",

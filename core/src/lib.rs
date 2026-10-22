@@ -386,9 +386,11 @@ pub const FIELDS: [&str; 134] = [
 /// Sample word layout: the head block, then `MAX_NODES` node blocks.
 pub const HEAD_WORDS: usize = 26;
 pub const NODE_WORDS: usize = 18;
-pub const FIELD_VISITED: usize = 22;
-pub const FIELD_VISIBLE: usize = 23;
-pub const FIELD_DRAWABLE: usize = 24;
+/// The head block is the first 26 words of `Sample::words`, in that order. These
+/// indexes are the proof: a fixture pins each one to its named slot.
+pub const FIELD_VISITED: usize = 21;
+pub const FIELD_VISIBLE: usize = 22;
+pub const FIELD_DRAWABLE: usize = 23;
 
 /// Word positions compared against the previous sample; a difference means the
 /// state changed and the sample deserves a log line. The set covers the

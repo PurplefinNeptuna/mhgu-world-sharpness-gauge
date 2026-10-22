@@ -3,10 +3,11 @@ use sharpness_gauge_core::{
     boundary, kept, prototype_ratio,
     BAR_INK_LEFT, BAR_INK_TRACK, CLIP_HEIGHT, CLIP_TOP, mask_box,
     CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
-    CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED, Gauge,
+    CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_DRAWABLE, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED,
+    FIELD_VISIBLE, Gauge, Sample,
     HEAD_WORDS, INPUT_FLAGS, KEY_FIELDS, Local, MAX_NODES, MAX_SHARPNESS,
     Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS, NODE_KIND,
-    NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE, NODE_WORDS,
+    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE, NODE_WORDS,
     PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
     SHARPNESS_TYPE, SPLAYER_CELL, basis_points, fill_ratio, gauge_of,
     is_sharp_animation, local_player, ratio_of_words, read_gauge, sample_controller,
@@ -57,6 +58,24 @@ fn ratio_needs_a_positive_maximum_then_clamps() {
         maximum: 160,
         tier: 3
     }), Some(0.9375));
+}
+
+#[test]
+fn head_field_indexes_point_at_their_names() {
+    // The r9 log printed three tree nodes for visited=3 and sized the draw cache
+    // from a word that was the truncated flag, not the drawable count. The head
+    // block is positional, so pin every walk field to the value it must carry.
+    let mut sample = Sample::default();
+    sample.walk.visited = 21;
+    sample.walk.visible = 22;
+    sample.walk.drawable = 23;
+    sample.walk.truncated = true;
+    let words = sample.words();
+    assert_eq!(words[FIELD_VISITED], 21);
+    assert_eq!(words[FIELD_VISIBLE], 22);
+    assert_eq!(words[FIELD_DRAWABLE], 23);
+    assert_eq!(words[FIELD_DRAWABLE + 1], 1);
+    assert_eq!(HEAD_WORDS, 26);
 }
 
 #[test]
@@ -263,6 +282,39 @@ fn a_hidden_subtree_is_not_walked() {
     // visible child below the hidden edge glyph is never visited.
     let fake = gauge_fixture();
     assert_eq!(scan_walk(&fake, 0x7000).visited, 4);
+}
+
+#[test]
+fn the_sharpness_textures_are_siblings_under_the_root() {
+    // Shape proven by the r9 Eden log: bar 0x488aa9b0, glow 0x4872c300 and the
+    // edge are siblings whose parent is the controller 0x48898ec0, and the walk
+    // closes when a sibling comes back to that root. The gate set in gui.rs is
+    // written against this shape, so pin it here.
+    let mut fake = gauge_fixture();
+    let (root, sharp, efx, edge) = (0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32);
+    fake.put(sharp + NODE_CHILD, 0);
+    fake.put(sharp + NODE_PARENT, root);
+    fake.put(efx + NODE_SIBLING, edge);
+    fake.put(efx + NODE_PARENT, root);
+    fake.put(edge + NODE_SIBLING, root);
+    fake.put(edge + NODE_PARENT, root);
+    let walk = scan_walk(&fake, sharp);
+    assert_eq!(walk.nodes[0].links, [0, efx, root]);
+    assert_eq!(walk.nodes[1].links, [0, edge, root]);
+    assert_eq!(walk.nodes[2].links, [0x7400, root, root]);
+    // The mask enters as the root's first child and takes the bar under it, so
+    // the root's child slot is no longer the bar and the bar's parent is the mask.
+    let mask = 0x7500u32;
+    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(mask + NODE_CHILD, sharp);
+    fake.put(mask + NODE_SIBLING, efx);
+    fake.put(mask + NODE_PARENT, root);
+    fake.put(root + NODE_CHILD, mask);
+    fake.put(sharp + NODE_PARENT, mask);
+    let walked = scan_walk(&fake, mask);
+    assert_eq!(walked.nodes[0].address, mask);
+    assert_eq!(walked.nodes[0].links, [sharp, efx, root]);
+    assert_eq!(walked.nodes[1].links, [0, efx, mask]);
 }
 
 #[test]
