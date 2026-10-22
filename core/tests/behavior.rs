@@ -1,6 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     boundary, kept, prototype_ratio,
+    BAR_INK_LEFT, BAR_INK_TRACK, CLIP_HEIGHT, CLIP_TOP, mask_box,
     CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
     CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED, Gauge,
     HEAD_WORDS, INPUT_FLAGS, KEY_FIELDS, Local, MAX_NODES, MAX_SHARPNESS,
@@ -318,19 +319,44 @@ fn a_broken_tree_stops_at_its_bounds() {
 
 #[test]
 fn the_prototype_fill_shares_one_boundary_column() {
-    // The rects the r3 run measured on the Long Sword gauge.
+    // The rects the r3 run measured on the Long Sword gauge. The ink of the bar sprite
+    // runs from column 128 to 189, measured from the atlas frames (110 + 18, 62 wide).
     let sword = [110, 38, 238, 166];
     let effect = [116, 32, 244, 160];
-    for (ratio, column) in [(0u32, 110), (2_500, 142), (5_000, 174), (10_000, 238)] {
+    let ink = (sword[0] + BAR_INK_LEFT, sword[0] + BAR_INK_LEFT + BAR_INK_TRACK);
+    assert_eq!(ink, (128, 190));
+    for (ratio, column) in [(0u32, 128), (2_500, 143), (5_000, 159), (10_000, 190)] {
         assert_eq!(boundary(sword, ratio), column);
         assert_eq!(kept(sword, column), [110, 38, column, 166]);
         assert_eq!(kept(effect, column), [116, 32, column.max(116), 160]);
     }
-    // Degenerate state is clamped, never a crash.
+    // Ratio 0 keeps a non-zero clip: the mask spans 18 columns of empty sprite, so the
+    // degenerate zero-size scissor never has to be trusted. Ratio 1 covers the last ink
+    // column. The clip rows start at the effect glyph's top and cover the bar's rows.
+    assert_eq!(boundary(sword, 0) - sword[0], BAR_INK_LEFT);
+    assert!(boundary(sword, 10_000) > ink.1 - 1);
+    assert_eq!((CLIP_TOP, CLIP_HEIGHT), (-6, 32));
     assert_eq!(kept([200, 0, 100, 10], 260), [200, 0, 200, 10]);
-    assert_eq!(boundary([10, 0, 10, 4], 5_000), 10);
     assert_eq!(
         (0..200).step_by(20).map(prototype_ratio).collect::<Vec<_>>(),
         [0, 2_500, 5_000, 10_000, 0, 2_500, 5_000, 10_000, 0, 2_500]
     );
+}
+
+#[test]
+fn the_mask_box_covers_the_bar_and_the_effect() {
+    let sword = [110, 38, 238, 166];
+    // Top is 32 and the height 32: the bar's ink rows (+6..+17) and the effect glyph's
+    // offset rows (-6..+25) both fall inside. Width is never zero.
+    for (ratio, box_) in [
+        (0u32, [110, 32, 18, 32]),
+        (2_500, [110, 32, 33, 32]),
+        (5_000, [110, 32, 49, 32]),
+        (10_000, [110, 32, 80, 32]),
+    ] {
+        assert_eq!(mask_box(sword, ratio), box_);
+        assert!(box_[2] > 0 && box_[3] > 0);
+    }
+    assert_eq!(mask_box(sword, 10_000)[2], boundary(sword, 10_000) - sword[0]);
+    assert_eq!(mask_box(sword, 0)[2], BAR_INK_LEFT);
 }

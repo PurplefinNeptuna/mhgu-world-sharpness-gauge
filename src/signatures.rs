@@ -3,6 +3,11 @@
 //! work/modern-sharpness-gauge/PHASE0_RESEARCH.md). scripts/verify.py rechecks every
 //! window against the supplied input before a candidate is packaged.
 pub const HOOK: u32 = 0xa494a0;
+/// The instance draw entry main+0xa39300: the caller of the walker. Its 12-word
+/// window is already a required signature below, and its first argument is the
+/// cGUIInstance that owns the row's controller at instance+0xdc.
+/// Same 12-word pattern as the SIGNATURES entry for 0xa39300, from original main.
+pub const INSTANCE_HOOK: u32 = 0xa39300;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     // main+0xa494a0: draw walker entry; the hook target. push {r4,r5,r11,lr} prologue, unique 12-word pattern
     (0xa494a0, [

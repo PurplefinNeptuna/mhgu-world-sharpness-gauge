@@ -119,6 +119,11 @@ pub fn observe(controller: u32, context: u32) {
 }
 
 /// Oldest unread sample, with its 1-based number.
+/// The controller of the gauge row, as recorded by the last accepted sample.
+pub fn gauge_controller() -> u32 {
+    CTRL.load(Ordering::Relaxed)
+}
+
 pub fn take() -> Option<(u32, [u32; WORDS])> {
     let taken = TAKEN.load(Ordering::Acquire);
     let read = READ.load(Ordering::Relaxed);

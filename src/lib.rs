@@ -9,8 +9,9 @@
 extern crate alloc;
 use alloc::string::String;
 use core::fmt::Write as _;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use sharpness_gauge_core::{FIELDS, HEAD_WORDS, MAX_NODES, NODE_WORDS, FIELD_VISITED, ratio_of_words};
+mod gui;
 mod hooks;
 mod memory;
 mod sampling;
@@ -159,9 +160,47 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
     line
 }
 
+/// The prototype ratio cycle runs here, outside the hook: the mask is inserted once
+/// and its clip is written from the elapsed wall clock of the plugin's own frames.
+static ELAPSED: AtomicU32 = AtomicU32::new(0);
+static LAST_BOX: AtomicU32 = AtomicU32::new(0);
+static REPORTED_INSERT: AtomicBool = AtomicBool::new(false);
+const GRACE_SECONDS: u32 = 6;
+
 /// Logging runs here, outside the hook, formatted from the copied words.
 #[unsafe(no_mangle)]
-pub extern "C" fn forge_onUpdate(_delta: f32) {
+pub extern "C" fn forge_onUpdate(delta: f32) {
+    let seconds = ELAPSED.fetch_add((delta * 1_000.0).max(0.0) as u32, Ordering::Relaxed) / 1_000;
+    gui::tick();
+    let stage = gui::take_failure();
+    if stage != 0 {
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " mask insertion failed at stage {stage}"
+        ), stage = stage);
+    }
+    if gui::inserted() && !REPORTED_INSERT.swap(true, Ordering::Relaxed) {
+        let (mask, objects, cache) = gui::applied();
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " scissor mask inserted; row map {objects} bindings, draw cache {cache} bytes, mask {mask}"
+        ), objects = objects, cache = cache, mask = mask);
+    }
+    if gui::inserted() && seconds > GRACE_SECONDS {
+        let ratio = sharpness_gauge_core::prototype_ratio(seconds - GRACE_SECONDS);
+        if let Some(box_) = gui::apply(ratio) {
+            let key = (box_[2] as u32) << 16 | (ratio & 0xffff);
+            if LAST_BOX.swap(key, Ordering::Relaxed) != key {
+                log::error!(concat!(
+                    "MSG ",
+                    env!("MSG_VERSION"),
+                    " clip x={x} y={y} width={width} height={height} ratio={ratio}bp seconds={seconds}"
+                ), x = box_[0], y = box_[1], width = box_[2], height = box_[3], ratio = ratio, seconds = seconds);
+            }
+        }
+    }
     for _ in 0..DRAIN_PER_FRAME {
         let Some((number, words)) = sampling::take() else {
             break;

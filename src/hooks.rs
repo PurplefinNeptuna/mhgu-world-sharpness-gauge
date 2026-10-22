@@ -1,10 +1,14 @@
-//! One Forge-owned trampoline at the draw walker entry main+0xa494a0.
-//! Installation is all-or-nothing: every signature window is checked before
-//! any write, and a failure restores the originals it touched.
+//! Two Forge-owned trampolines: the draw walker entry main+0xa494a0, and the
+//! instance draw entry main+0xa39300 that hands the walker its controller. The
+//! second one only records the pair (instance, controller) so the insertion
+//! code can reach the cGUIInstance that owns the gauge row, which is not
+//! derivable from the controller. Installation is all-or-nothing: every
+//! signature window is checked before any write, and a failure restores the
+//! originals it touched.
 use crate::{
     memory,
     sampling,
-    signatures::{HOOK, SIGNATURES},
+    signatures::{HOOK, INSTANCE_HOOK, SIGNATURES},
 };
 use alloc::vec::Vec;
 use core::{
@@ -14,12 +18,22 @@ use core::{
 use forge::patch::Patch;
 
 core::arch::global_asm!(
-    ".hidden msg_walker\n.hidden msg_walker_original\n.hidden msg_active"
+    ".hidden msg_walker\n.hidden msg_walker_original\n.hidden msg_active\n\
+     .hidden msg_instance\n.hidden msg_instance_original\n.hidden msg_instance_active"
 );
 #[unsafe(no_mangle)]
 pub static msg_walker_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
 pub static msg_active: AtomicBool = AtomicBool::new(false);
+#[unsafe(no_mangle)]
+pub static msg_instance_original: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static msg_instance_active: AtomicBool = AtomicBool::new(false);
+// The instance whose +0xdc is the gauge controller, recorded as plain integers.
+// Game pointers never leave this module; readers only use them synchronously
+// on the same thread that the game called them on.
+static INSTANCE: AtomicU32 = AtomicU32::new(0);
+static CONTROLLER: AtomicU32 = AtomicU32::new(0);
 #[cfg(target_pointer_width = "32")]
 const _: () = assert!(core::mem::size_of::<forge::sys::hook::Hook>() == 24);
 #[cfg(target_pointer_width = "32")]
@@ -53,6 +67,38 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
     unsafe { f(controller, context) };
 }
 
+/// The instance draw entry takes (instance, context) and reads the controller at
+/// instance+0xdc before calling the walker, which is the only place in the game that
+/// relates the two. Recording is three loads and two stores; nothing is allocated,
+/// formatted, logged or float-computed, and it runs before the native call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
+    let original = msg_instance_original.load(Ordering::Acquire);
+    if original == 0 {
+        return;
+    }
+    if msg_instance_active.load(Ordering::Acquire) {
+        if let Some(controller) = memory::word(instance.wrapping_add(0xdc)) {
+            CONTROLLER.store(controller, Ordering::Relaxed);
+            INSTANCE.store(instance, Ordering::Relaxed);
+        }
+    }
+    let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
+    unsafe { f(instance, context) };
+}
+
+/// The recorded pair, only handed out when the gauge controller is the controller
+/// this instance draws. Returns (instance, controller).
+pub fn gauge_instance() -> Option<(u32, u32)> {
+    let instance = INSTANCE.load(Ordering::Relaxed);
+    let controller = CONTROLLER.load(Ordering::Relaxed);
+    let gauge = sampling::gauge_controller();
+    if instance == 0 || controller == 0 || gauge == 0 || controller != gauge {
+        return None;
+    }
+    Some((instance, controller))
+}
+
 /// Restore only our branch words (or a partially installed original/branch
 /// pair). Foreign modifications keep their ownership; Forge keeps allocated
 /// continuations reachable for the process lifetime.
@@ -79,25 +125,12 @@ fn rollback(patch: &mut Patch) -> bool {
         && current == original
 }
 
-pub fn install() -> Result<Vec<Patch>, &'static str> {
-    let base = forge::mem::text_addr();
-    memory::BASE.store(base, Ordering::Relaxed);
-    if base == 0 || base > 0xfe00_0000 || base & 3 != 0 || !memory::correct_program() {
-        return Err("unsupported title/address");
-    }
-    for &(offset, bytes) in SIGNATURES {
-        let mut actual = [0; 32];
-        if !memory::executable(base + offset, 32)
-            || !memory::copy(base + offset, &mut actual)
-            || actual != bytes
-        {
-            return Err("MHGU 1.4.0 code mismatch at a required function");
-        }
-    }
-    // The entry prologue push {r4,r5,r11,lr} plus mov r4,r1 contains no
-    // PC-relative operand, so Forge can relocate the first eight bytes.
-    let target = base + HOOK;
-    let detour = msg_walker as *const () as u32;
+/// Plant one Forge hook over the first eight bytes of a function entry. Both
+/// targets start with a `push` plus a stack-pointer arithmetic word, so neither
+/// relocated word contains a PC-relative operand. The continuation must show the
+/// original eight bytes, then the same branch form back to target+8.
+fn plant(base: u32, offset: u32, detour: u32, published: &AtomicU32) -> Result<Patch, &'static str> {
+    let target = base + offset;
     let mut branch = [0; 8];
     branch[..4].copy_from_slice(&0xe51ff004u32.to_le_bytes());
     branch[4..].copy_from_slice(&detour.to_le_bytes());
@@ -116,7 +149,7 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
         && code[8..12] == 0xe51ff004u32.to_le_bytes()
         && code[12..] == (target + 8).to_le_bytes();
     if valid {
-        msg_walker_original.store(continuation, Ordering::Release);
+        published.store(continuation, Ordering::Release);
     }
     let mut actual = [0; 8];
     if !valid
@@ -128,12 +161,59 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
         || !memory::sync_code(target, 8)
     {
         let restored = rollback(&mut patch);
+        published.store(0, Ordering::Release);
         return Err(if restored {
             "Forge hook failed; restored original"
         } else {
             "hook rollback failed; restart required"
         });
     }
-    msg_active.store(true, Ordering::Release);
-    Ok(alloc::vec::Vec::from_iter([patch]))
+    Ok(patch)
+}
+
+pub fn install() -> Result<Vec<Patch>, &'static str> {
+    let base = forge::mem::text_addr();
+    memory::BASE.store(base, Ordering::Relaxed);
+    if base == 0 || base > 0xfe00_0000 || base & 3 != 0 || !memory::correct_program() {
+        return Err("unsupported title/address");
+    }
+    for &(offset, bytes) in SIGNATURES {
+        let mut actual = [0; 32];
+        if !memory::executable(base + offset, 32)
+            || !memory::copy(base + offset, &mut actual)
+            || actual != bytes
+        {
+            return Err("MHGU 1.4.0 code mismatch at a required function");
+        }
+    }
+    // Plant the walker hook first: the gauge row must be identifiable before the
+    // instance pair is of any use, and the instance capture only records pairs.
+    let walker = plant(base, HOOK, msg_walker as *const () as u32, &msg_walker_original)?;
+    let instance = plant(
+        base,
+        INSTANCE_HOOK,
+        msg_instance as *const () as u32,
+        &msg_instance_original,
+    );
+    let patches = match instance {
+        Ok(patch) => {
+            msg_active.store(true, Ordering::Release);
+            msg_instance_active.store(true, Ordering::Release);
+            alloc::vec::Vec::from_iter([walker, patch])
+        }
+        Err(message) => {
+            // The walker hook is live and armed; disarm it, roll it back, and hand
+            // the caller the patch that was touched.
+            msg_active.store(false, Ordering::Release);
+            let mut walker = walker;
+            let restored = rollback(&mut walker) && memory::sync_code(base + HOOK, 8);
+            let patches = alloc::vec::Vec::from_iter([walker]);
+            return Err(if restored {
+                message
+            } else {
+                "second hook failed and the walker hook could not be restored; restart required"
+            });
+        }
+    };
+    Ok(patches)
 }
