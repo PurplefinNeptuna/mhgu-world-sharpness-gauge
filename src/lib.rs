@@ -137,7 +137,8 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
             "MSG ",
             env!("MSG_VERSION"),
             " tree {number} n{index}: addr={a:#x} flags={f:#x} kind={k}",
-            " own={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th}"
+            " own={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th}",
+            " child={ch:#x} sibling={sb:#x} parent={pa:#x}"
         ),
         number = number,
         index = index,
@@ -155,7 +156,10 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
         tu = words[base + 11] as i32,
         tv = words[base + 12] as i32,
         tw = words[base + 13] as i32,
-        th = words[base + 14] as i32
+        th = words[base + 14] as i32,
+        ch = words[base + 15],
+        sb = words[base + 16],
+        pa = words[base + 17]
     );
     line
 }

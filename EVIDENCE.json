@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r8",
+  "version": "r9",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r4",
+    "version": "r9",
     "status": "BUILT",
-    "nro_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
+    "nro_sha256": "3720967e77d0df7209e30eaed2ab596e854e5b96a3c088c5256f90317227defa",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -299,6 +299,25 @@
       ],
       "tier_colour_mapping": "0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple; supplied by the tester 2026-10-22",
       "weapons_top_tier": "both the Long Sword and the Dual Blades used had top tier 3 (green), so tiers 4, 5 and 6 are still unmeasured"
+    },
+    {
+      "date": "2026-10-22",
+      "version": "r8",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "9ecdf379fc963e3cf93c7dc97dc05c1f223645d7e2ba2acf16284f96ceb09cf1",
+      "matches_packaged_payload": true,
+      "log": "~/.local/share/eden/log/eden_log.txt",
+      "session_seconds": 628,
+      "our_lines": 257,
+      "observed": [
+        "identity gate 24 passed: every sample line prints anim=4 objects=4 sequences=15 first_object=29, and controller=0x48027660 row=0x51960238 cache=0x47ffe1d0 root=0x4801f890",
+        "the controller's map fields are 0: sample lines print map=0x0 map_word=0, so the gauge publishes no animation binding list",
+        "the walk root (controller+0x68) is the bar node: tree n0 addr=0x4801f890 flags=0x2800005 with +0x80/+0x84 float position 284.0/224.0, tree n1 addr=0x440f3da0",
+        "insertion stopped at stage 26, the cache-alias gate, because root+0x9c is the animation row (0x51960238) and root+0x80 is the bar's position float, not the cache fields the counter mod's layout has",
+        "gauge observed at t=89.3 after 6002 walker calls with no gauge in the first 47 s of a quest start",
+        "current=300 maximum=300 tier=3 with ratio_bp=10000 sampled on a Long Sword"
+      ],
+      "conclusion": "static/runtime separation: the r8 run proves the gauge controller layout (row +0x9c, cache +0x80, walk root +0x68 is the bar) and disproves the counter-style map/alias gates; the insertion never published anything"
     }
   ],
   "not_proven": [
@@ -312,8 +331,8 @@
   "runtime": {
     "status": "NOT RUN",
     "date": null,
-    "binary_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r4/delivery/modern-sharpness-gauge-r4-candidate.zip; scenarios and log paths in README.md",
+    "binary_sha256": "3720967e77d0df7209e30eaed2ab596e854e5b96a3c088c5256f90317227defa",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r9/delivery/modern-sharpness-gauge-r9-candidate.zip; scenario and log path in README.md",
     "correlate": "the reported MSG r4 lines against this nro_sha256 and the emulator's mod load record",
     "previous_runs": [
       "r1 Eden 2026-10-22",

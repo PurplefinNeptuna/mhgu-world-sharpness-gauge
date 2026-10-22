@@ -37,10 +37,11 @@ const BAR_HEIGHT: f32 = 24.0;
 /// the row is a persistent HUD object and a second mask would clip twice.
 static STATE: AtomicU8 = AtomicU8::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
-static OLD_MAP: AtomicU32 = AtomicU32::new(0);
-static NEW_MAP: AtomicU32 = AtomicU32::new(0);
 static OLD_CACHE: AtomicU32 = AtomicU32::new(0);
-static MAP_FREE: AtomicU32 = AtomicU32::new(0);
+static MAP_FREE: AtomicU32 = AtomicU32::new(0); // the allocator's free method
+static BAR_NODE: AtomicU32 = AtomicU32::new(0);
+static GROUP_NODE: AtomicU32 = AtomicU32::new(0);
+static CACHE_BLOCK: AtomicU32 = AtomicU32::new(0);
 static ALLOCATOR: AtomicU32 = AtomicU32::new(0);
 static FAILURE: AtomicU32 = AtomicU32::new(0);
 /// The row's map length and cache size at the moment of insertion, for the log.
@@ -103,11 +104,12 @@ struct Row {
 /// Read and validate the gauge row. Each gate has its own stage code so a single
 /// run says which check failed: 21 no captured instance pair, 22 instance or
 /// controller not writable, 23 a field read failed, 24 row counts do not match the
-/// gauge animation, 25 the root's map alias disagrees, 26 root+0x50 is not 1,
-/// 27 cache alias, map length or map[0] disagree, 28 controller+0x68 is not the bar,
-/// 29 the bar/effect/edge chain disagrees, 30 the bar has no usable parent, 31 the
-/// bar is not a cGUIObjTexture, 32 the bar's live size is not 88x24, 33 a DTI is
-/// missing.
+/// gauge animation, 25 the controller has no usable draw cache,
+/// 26 controller+0x68 is missing, equals the controller, or is not writable, 27 the
+/// bar's siblings are not two distinct objects, 28 an object in the chain is not
+/// writable, 29 the bar's parent group is missing, is the controller, the edge's
+/// parent differs, or its first child is not the bar, 31 the bar is not a
+/// cGUIObjTexture, 32 the bar's live width is outside 1..=1024, 33 a DTI is missing.
 fn read_row() -> Result<Row, u32> {
     let Some((instance, root)) = hooks::gauge_instance() else {
         return Err(21);
@@ -121,16 +123,14 @@ fn read_row() -> Result<Row, u32> {
     ) else {
         return Err(23);
     };
-    let (Some(objects), Some(sequences), Some(drawables)) = (
+    let (Some(objects), Some(sequences)) = (
         memory::half(description.wrapping_add(4)),
         memory::half(description.wrapping_add(6)),
-        memory::word(description.wrapping_add(8)),
     ) else {
         return Err(23);
     };
-    let (Some(anim), Some(map_alias), Some(active)) = (
+    let (Some(anim), Some(active)) = (
         memory::word(description),
-        memory::word(root.wrapping_add(0xa0)),
         memory::word(root.wrapping_add(0x50)),
     ) else {
         return Err(23);
@@ -143,7 +143,6 @@ fn read_row() -> Result<Row, u32> {
     // carries no drawable count, so the cache length comes from the walker's count
     // (sampling::drawables), not from the row. root+0x50 is recorded, not required:
     // it is a counter-row fact from Key Quest Markers, not a gauge-row fact.
-    let count = sampling::drawables().max(1);
     AUTHORED50.store(active, Ordering::Release);
     if anim != GAUGE_ANIMATION
         || objects != GAUGE_OBJECTS
@@ -152,68 +151,52 @@ fn read_row() -> Result<Row, u32> {
     {
         return Err(24);
     }
-    if map_alias != map {
+    // Gauge layout, proven from the r5-r8 sample lines: the controller keeps the
+    // animation row at +0x9c, the draw cache at +0x80, and the walker entry at
+    // +0x68 is the bar node itself. The gauge publishes no animation map list
+    // (the samples print map=0 map_word=0), so the map and cache-alias gates are
+    // dropped. The chain is read from the node tree: the bar's siblings are the
+    // effect glyph and the edge marker, and the bar's parent is the group.
+    let Some(cache) = memory::word(root.wrapping_add(0x80)) else {
+        return Err(23);
+    };
+    if cache == 0 || !memory::readable(cache, 8) {
         return Err(25);
     }
-    let (Some(cache), Some(cache_alias)) = (
-        memory::word(root.wrapping_add(0xa4)),
-        memory::word(root.wrapping_add(0x80)),
-    ) else {
+    let Some(bar) = memory::word(root.wrapping_add(0x68)) else {
         return Err(23);
     };
-    let bytes = drawables.wrapping_mul(16).wrapping_add(8) as usize;
-    let (Some(head), Some(bar), Some(effect), Some(edge)) = (
-        memory::word(map),
-        memory::word(map.wrapping_add(4)),
-        memory::word(map.wrapping_add(8)),
-        memory::word(map.wrapping_add(12)),
-    ) else {
-        return Err(23);
-    };
-    if cache == 0 || cache_alias != cache || !memory::readable(cache, count as usize * 16 + 8) {
+    if bar == 0 || bar == root || !memory::writable(bar, TEXTURE_BYTES) {
         return Err(26);
     }
-    if !memory::readable(map, objects as usize * 4) || head != root {
-        return Err(27);
-    }
-    // The row's map is [controller, tree root, ...], and the gauge's tree root is
-    // the bar sprite: the r5 log prints controller+0x68 equal to the first walked
-    // node, which is `Txt_sharp`. Then the effect glyph, then the edge. The group
-    // `sharp` is the bar's parent above the walker's entry point, derived from the
-    // bar and never indexed from the map.
-    let Some(tree_root) = memory::word(root.wrapping_add(0x68)) else {
-        return Err(23);
-    };
-    if tree_root != bar {
-        return Err(28);
-    }
-    let (Some(bar_child), Some(effect_parent), Some(effect_child), Some(edge_parent)) = (
-        memory::word(bar.wrapping_add(0x68)),
-        memory::word(effect.wrapping_add(0x70)),
-        memory::word(effect.wrapping_add(0x68)),
-        memory::word(edge.wrapping_add(0x70)),
+    let (Some(effect), Some(effect_parent)) = (
+        memory::word(bar.wrapping_add(0x6c)),
+        memory::word(bar.wrapping_add(0x70)),
     ) else {
         return Err(23);
     };
-    if !memory::writable(bar, TEXTURE_BYTES)
-        || !memory::writable(effect, TEXTURE_BYTES)
+    let Some(edge) = memory::word(effect.wrapping_add(0x6c)) else {
+        return Err(23);
+    };
+    let (Some(edge_parent), Some(group_child)) = (
+        memory::word(edge.wrapping_add(0x70)),
+        memory::word(effect_parent.wrapping_add(0x68)),
+    ) else {
+        return Err(23);
+    };
+    if effect == 0 || effect == bar || edge == 0 || edge == effect {
+        return Err(27);
+    }
+    if !memory::writable(effect, TEXTURE_BYTES)
         || !memory::writable(edge, TEXTURE_BYTES)
-        || bar_child != effect
-        || effect_parent != bar
-        || effect_child != edge
-        || edge_parent != effect
+        || !memory::writable(effect_parent, NODE_BYTES)
     {
+        return Err(28);
+    }
+    if effect_parent == root || edge_parent != effect_parent || group_child != bar {
         return Err(29);
     }
-    let Some(group) = memory::word(bar.wrapping_add(0x70)) else {
-        return Err(23);
-    };
-    let Some(group_child) = memory::word(group.wrapping_add(0x68)) else {
-        return Err(23);
-    };
-    if group == 0 || group == root || !memory::writable(group, NODE_BYTES) || group_child != bar {
-        return Err(30);
-    }
+    let group = effect_parent;
     let Some(texture) = MtDti::find("cGUIObjTexture") else {
         return Err(33);
     };
@@ -260,33 +243,29 @@ fn insert(row: &Row) -> Result<u32, u32> {
     if mask == 0 || mask & 3 != 0 || !memory::writable(mask, MASK_BYTES) || !is_type(mask, dti) {
         return Err(2);
     }
-    // 2. A map with one more binding, keeping the game's own bindings in place.
+    // 2. The game's allocator. The counter mod allocates a binding map per row;
+    // the gauge row publishes none, so the only allocation here is the cache.
     let instance_dti = MtDti::find("cGUIInstance").ok_or(19u32)? as *const _ as u32;
     let getter: u32 = base() + 0x7aa47c;
     let allocator = memory::call1(getter, instance_dti).ok_or(3u32)?;
     let allocate = method(allocator, 0x1c).ok_or(4u32)?;
     let free = method(allocator, 0x34).ok_or(5u32)?;
-    let map_bytes = (GAUGE_OBJECTS as u32 + 1) * 4;
-    let new_map = memory::call3(allocate, allocator, map_bytes, 16).ok_or(6u32)?;
-    if new_map == 0 || new_map & 15 != 0 || !memory::writable(new_map, map_bytes as usize) {
-        return Err(7);
-    }
-    // SAFETY: destination mapping checked writable, source checked readable,
-    // length is the row's own binding count.
-    unsafe {
-        core::ptr::copy_nonoverlapping(row.map as *const u8, new_map as *mut u8, GAUGE_OBJECTS as usize * 4)
-    };
-    word(new_map + GAUGE_OBJECTS as u32 * 4, mask).then_some(()).ok_or(8u32)?;
     // 3. The draw cache grows by one begin/end pair: the walker emits a pair for
-    // the new child, and the terminator stays last.
-    // The walker's own count of drawables, plus the new mask pair.
+    // the new child, and the terminator stays last. The counter mod asks the row
+    // object's vtable slot 0x58 for that buffer; the gauge controller has no
+    // proven slot there, so the block comes from the same game allocator as the
+    // map and the entry pointer is the second word of the header, exactly where
+    // the sampler reads it (count at block+0x18, flags at block+0x1c).
     let cache_bytes = (sampling::drawables().max(1) + 1) * 16 + 8;
-    let row_allocate = method(row.root, 0x58).ok_or(9u32)?;
-    let new_cache = memory::call2(row_allocate, row.root, cache_bytes).ok_or(10u32)?;
-    if new_cache == 0 || new_cache & 15 != 0 || !memory::write_bytes(new_cache, cache_bytes as usize) {
-        memory::call2(free, allocator, new_map);
+    let block = memory::call3(allocate, allocator, cache_bytes + 8, 16).ok_or(10u32)?;
+    let new_cache = block.checked_add(8).ok_or(11u32)?;
+    if block == 0
+        || block & 15 != 0
+        || !memory::write_bytes(block, (cache_bytes + 8) as usize)
+    {
         return Err(11);
     }
+    CACHE_BLOCK.store(block, Ordering::Release);
     // 4. The mask takes the bar's place in the group's child slot, and the bar
     // becomes the mask's child. The bar keeps its own children, so the effect
     // glyph and the edge are inside the same scissor.
@@ -302,16 +281,14 @@ fn insert(row: &Row) -> Result<u32, u32> {
             memory::word(row.group + 0x54).ok_or(13u32)? | 0x80_0000,
         )
     {
-        memory::call2(free, allocator, new_map);
-        memory::call2(method(row.root, 0x5c).ok_or(14u32)?, row.root, new_cache);
+        memory::call2(free, allocator, block);
         return Err(15);
     }
-    // 5. Publish both map aliases and both cache aliases, then ask the row to
-    // rebuild its draw order.
-    let published = word(row.instance + 0xd8, new_map)
-        && word(row.root + 0xa0, new_map)
-        && word(row.root + 0xa4, new_cache)
-        && word(row.root + 0x80, new_cache)
+    // 5. Publish the gauge cache pointer. The counter mod writes map aliases at
+    // root+0xa0/+0xa4 and a cache alias at root+0x9c; the gauge uses none of them
+    // (controller+0x9c is the animation row and +0xa0/+0xa4 stay 0), so writing
+    // them here would corrupt the row. Only the cache pointer and its flags move.
+    let published = word(row.root + 0x80, new_cache)
         && word(
             row.root + 0x8c,
             memory::word(row.root + 0x8c).ok_or(16u32)? | 3,
@@ -321,8 +298,6 @@ fn insert(row: &Row) -> Result<u32, u32> {
     }
     // The originals stay allocated and reachable; the plugin keeps them for
     // restore, and the game's own cleanup counts the published tree.
-    OLD_MAP.store(row.map, Ordering::Release);
-    NEW_MAP.store(new_map, Ordering::Release);
     OLD_CACHE.store(row.cache, Ordering::Release);
     MAP_FREE.store(free, Ordering::Release);
     ALLOCATOR.store(allocator, Ordering::Release);
@@ -330,6 +305,8 @@ fn insert(row: &Row) -> Result<u32, u32> {
         (GAUGE_OBJECTS as u32) | ((row.cache_bytes()) << 16),
         Ordering::Release,
     );
+    BAR_NODE.store(row.bar, Ordering::Release);
+    GROUP_NODE.store(row.group, Ordering::Release);
     Ok(mask)
 }
 
@@ -413,16 +390,16 @@ pub fn tick() {
     }
 }
 
-fn restore_links(old_map: u32, old_cache: u32, instance: u32, root: u32) -> Option<()> {
-    let bar = memory::word(old_map.checked_add(8)?)?;
-    let group = memory::word(old_map.checked_add(4)?)?;
-    if !word(bar + 0x70, group)
-        || !word(group + 0x68, bar)
-        || !word(instance + 0xd8, old_map)
-        || !word(root + 0xa0, old_map)
-        || !word(root + 0xa4, old_cache)
-        || !word(root + 0x80, old_cache)
-    {
+fn restore_links(old_cache: u32, root: u32) -> Option<()> {
+    let bar = BAR_NODE.load(Ordering::Relaxed);
+    let group = GROUP_NODE.load(Ordering::Relaxed);
+    if bar == 0 || group == 0 {
+        return None;
+    }
+    if !word(bar + 0x70, group) || !word(group + 0x68, bar) {
+        return None;
+    }
+    if !word(root + 0x80, old_cache) {
         return None;
     }
     let flags = memory::word(root + 0x8c)?;
@@ -439,13 +416,16 @@ pub fn restore() -> bool {
     if STATE.load(Ordering::Relaxed) != 1 {
         return true;
     }
-    let Some((instance, _)) = hooks::gauge_instance() else {
+    let (mask, _, _) = applied();
+    let old_cache = OLD_CACHE.load(Ordering::Relaxed);
+    let Some((_, root)) = hooks::gauge_instance() else {
         return false;
     };
-    let (mask, _, _) = applied();
-    let old_map = OLD_MAP.load(Ordering::Relaxed);
-    let old_cache = OLD_CACHE.load(Ordering::Relaxed);
-    if old_map == 0 || old_cache == 0 || restore_links(old_map, old_cache, instance, root_of(instance)).is_none() {
+    if old_cache == 0 || restore_links(old_cache, root).is_none() {
+        return false;
+    }
+    let block = CACHE_BLOCK.load(Ordering::Relaxed);
+    if block != 0 && !word(root + 0x80, old_cache) {
         return false;
     }
     if let Some(destroy) = method(mask, 0x04) {
@@ -456,14 +436,9 @@ pub fn restore() -> bool {
     // The map the plugin allocated is the one to free: after the links and the
     // published aliases are restored, nothing points at it any more. The game's
     // original map stays allocated and owned by the row.
-    let spare = NEW_MAP.load(Ordering::Relaxed);
-    if free != 0 && allocator != 0 && spare != 0 {
-        memory::call2(free, allocator, spare);
+    if free != 0 && allocator != 0 && block != 0 {
+        memory::call2(free, allocator, block);
     }
     STATE.store(2, Ordering::Release);
     true
-}
-
-fn root_of(instance: u32) -> u32 {
-    memory::word(instance + 0xdc).unwrap_or(0)
 }

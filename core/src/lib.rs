@@ -160,6 +160,9 @@ pub struct Node {
     pub rect: [i32; 4],
     pub effective: [i32; 4],
     pub texture: [i32; 4],
+    /// child (+0x68), sibling (+0x6c), parent (+0x70): the links the scissor mask
+    /// insertion walks, logged so a failed gate names the link it rejected.
+    pub links: [u32; 3],
 }
 
 /// Bounded pre-order walk of a controller's node tree. It records counts and
@@ -279,7 +282,11 @@ pub fn scan_walk(memory: &dyn Memory, root: u32) -> Walk {
                 rect: [0; 4],
                 effective: [0; 4],
                 texture: [0; 4],
+                links: [0; 3],
             };
+            recorded.links[0] = memory.word(node.wrapping_add(NODE_CHILD)).unwrap_or(0);
+            recorded.links[1] = memory.word(node.wrapping_add(NODE_SIBLING)).unwrap_or(0);
+            recorded.links[2] = memory.word(node.wrapping_add(NODE_PARENT)).unwrap_or(0);
             for index in 0..4 {
                 recorded.rect[index] = memory
                     .word(node.wrapping_add(NODE_RECT + (index as u32) * 4))
@@ -344,7 +351,7 @@ pub fn local_player(memory: &dyn Memory, base: u32) -> Option<Local> {
 /// plain u32 words (signed fields are two's complement) so the hook performs
 /// no allocation, formatting or file access. `FIELDS` names each word in the
 /// same order as `words`, which is the log format and the ring-buffer layout.
-pub const FIELDS: [&str; 116] = [
+pub const FIELDS: [&str; 134] = [
     "ctrl",     "row",     "owner",     "cache",
     "cache_flags",     "root",     "anim",     "objects",
     "sequences",     "first_object",     "hunter",     "player",
@@ -354,31 +361,31 @@ pub const FIELDS: [&str; 116] = [
     "truncated", "cmd_tbl_id",     "n0_addr",     "n0_flags",     "n0_kind",
     "n0_l",     "n0_t",     "n0_r",     "n0_b",
     "n0_el",     "n0_et",     "n0_er",     "n0_eb",
-    "n0_tx_u",     "n0_tx_v",     "n0_tx_w",     "n0_tx_h",
+    "n0_tx_u",     "n0_tx_v",     "n0_tx_w",     "n0_tx_h", "n0_child", "n0_sibling", "n0_parent",
     "n1_addr",     "n1_flags",     "n1_kind",     "n1_l",
     "n1_t",     "n1_r",     "n1_b",     "n1_el",
     "n1_et",     "n1_er",     "n1_eb",     "n1_tx_u",
-    "n1_tx_v",     "n1_tx_w",     "n1_tx_h",     "n2_addr",
+    "n1_tx_v",     "n1_tx_w",     "n1_tx_h", "n1_child", "n1_sibling", "n1_parent",     "n2_addr",
     "n2_flags",     "n2_kind",     "n2_l",     "n2_t",
     "n2_r",     "n2_b",     "n2_el",     "n2_et",
     "n2_er",     "n2_eb",     "n2_tx_u",     "n2_tx_v",
-    "n2_tx_w",     "n2_tx_h",     "n3_addr",     "n3_flags",
+    "n2_tx_w",     "n2_tx_h", "n2_child", "n2_sibling", "n2_parent",     "n3_addr",     "n3_flags",
     "n3_kind",     "n3_l",     "n3_t",     "n3_r",
     "n3_b",     "n3_el",     "n3_et",     "n3_er",
     "n3_eb",     "n3_tx_u",     "n3_tx_v",     "n3_tx_w",
-    "n3_tx_h",     "n4_addr",     "n4_flags",     "n4_kind",
+    "n3_tx_h", "n3_child", "n3_sibling", "n3_parent",     "n4_addr",     "n4_flags",     "n4_kind",
     "n4_l",     "n4_t",     "n4_r",     "n4_b",
     "n4_el",     "n4_et",     "n4_er",     "n4_eb",
-    "n4_tx_u",     "n4_tx_v",     "n4_tx_w",     "n4_tx_h",
+    "n4_tx_u",     "n4_tx_v",     "n4_tx_w",     "n4_tx_h", "n4_child", "n4_sibling", "n4_parent",
     "n5_addr",     "n5_flags",     "n5_kind",     "n5_l",
     "n5_t",     "n5_r",     "n5_b",     "n5_el",
     "n5_et",     "n5_er",     "n5_eb",     "n5_tx_u",
-    "n5_tx_v",     "n5_tx_w",     "n5_tx_h",
+    "n5_tx_v",     "n5_tx_w",     "n5_tx_h", "n5_child", "n5_sibling", "n5_parent",
 ];
 
 /// Sample word layout: the head block, then `MAX_NODES` node blocks.
 pub const HEAD_WORDS: usize = 26;
-pub const NODE_WORDS: usize = 15;
+pub const NODE_WORDS: usize = 18;
 pub const FIELD_VISITED: usize = 22;
 pub const FIELD_VISIBLE: usize = 23;
 pub const FIELD_DRAWABLE: usize = 24;
@@ -460,6 +467,9 @@ impl Sample {
                 words[base + 7 + edge] = node.effective[edge] as u32;
                 words[base + 11 + edge] = node.texture[edge] as u32;
             }
+            words[base + 15] = node.links[0];
+            words[base + 16] = node.links[1];
+            words[base + 17] = node.links[2];
         }
         words
     }
