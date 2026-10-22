@@ -235,6 +235,20 @@ record) to every sample, so a line says which weapon produced it, and a tier,
 maximum or player change is now sampled at full resolution without the rate
 floor, so a boundary lands on the exact point.
 
+## Phase 2, in progress (2026-10-22)
+
+Phase 2 research lives in `work/modern-sharpness-gauge/PHASE2_RESEARCH.md`. Proven
+there: the `cGUIObjScissorMask` field map (`+0x80/+0x84` float position with the
+`0x20000` dirty bit, `+0xa4` mask flags, `+0xa8/+0xac` int size), the Size setter and
+its `+0xa4 |= 2` dirty, the consumer at main+0xa4ba94 that only acts on that bit, the
+mask push/pop in main+0xb375c4, and the scissor routine that writes the live clip at
+`ctx+0xd0..+0xdc` which prepaint intersects. Geometry is decided in code: `boundary`,
+`kept` and `prototype_ratio` in `core/src/lib.rs`, with the plan's ratios 0, 0.25, 0.5
+and 1, hilt at the left, one shared screen column for the sword and its effect. Not
+open in code: no mask object is created by this plugin yet, and none will be until the
+constructor entry, the gauge row's map and cache publish contract and the ratio-zero
+behaviour are proven. Four such items are listed in that note.
+
 ## Gauge scope, set by the tester on 2026-10-22
 
 The bar length is `current / maximum` and nothing else. Tier boundaries, the

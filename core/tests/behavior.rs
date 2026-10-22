@@ -1,5 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
+    boundary, kept, prototype_ratio,
     CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
     CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED, Gauge,
     HEAD_WORDS, INPUT_FLAGS, KEY_FIELDS, Local, MAX_NODES, MAX_SHARPNESS,
@@ -313,4 +314,23 @@ fn a_broken_tree_stops_at_its_bounds() {
     let scan = scan_walk(&broken, 0xb000);
     assert_eq!(scan.visited, 1);
     assert!(scan.truncated);
+}
+
+#[test]
+fn the_prototype_fill_shares_one_boundary_column() {
+    // The rects the r3 run measured on the Long Sword gauge.
+    let sword = [110, 38, 238, 166];
+    let effect = [116, 32, 244, 160];
+    for (ratio, column) in [(0u32, 110), (2_500, 142), (5_000, 174), (10_000, 238)] {
+        assert_eq!(boundary(sword, ratio), column);
+        assert_eq!(kept(sword, column), [110, 38, column, 166]);
+        assert_eq!(kept(effect, column), [116, 32, column.max(116), 160]);
+    }
+    // Degenerate state is clamped, never a crash.
+    assert_eq!(kept([200, 0, 100, 10], 260), [200, 0, 200, 10]);
+    assert_eq!(boundary([10, 0, 10, 4], 5_000), 10);
+    assert_eq!(
+        (0..200).step_by(20).map(prototype_ratio).collect::<Vec<_>>(),
+        [0, 2_500, 5_000, 10_000, 0, 2_500, 5_000, 10_000, 0, 2_500]
+    );
 }

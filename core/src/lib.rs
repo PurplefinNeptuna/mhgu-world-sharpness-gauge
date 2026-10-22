@@ -166,6 +166,37 @@ pub struct Node {
 /// the leading nodes; no pointer is retained past the call. The stack depth,
 /// visit count and recorded node count are fixed, so a damaged tree cannot run
 /// away.
+/// Prototype fill ratios from the plan's Phase 2 step (0, 0.25, 0.5 and 1), in
+/// basis points, each held for `PROTOTYPE_SECONDS` before the next one.
+pub const PROTOTYPE_RATIOS: [u32; 4] = [0, 2_500, 5_000, 10_000];
+pub const PROTOTYPE_SECONDS: u32 = 20;
+
+pub fn prototype_ratio(seconds: u32) -> u32 {
+    PROTOTYPE_RATIOS[((seconds / PROTOTYPE_SECONDS) as usize) % PROTOTYPE_RATIOS.len()]
+}
+
+/// The shared screen column the fill stops at. The hilt is the left edge, so the
+/// kept part grows from the left and the tip side is clipped (tester's report,
+/// 2026-10-22). The column is measured on the sword sprite's own rect; the
+/// effect glyph is clipped at that same column, not at its own proportion,
+/// because its rect carries its local offset.
+pub fn boundary(sword: [i32; 4], ratio_bp: u32) -> i32 {
+    let width = (sword[2] - sword[0]).max(0);
+    sword[0] + (width as i64 * ratio_bp as i64 / 10_000) as i32
+}
+
+/// The kept rectangle for one sprite under a shared column: a sprite starting
+/// past the column keeps a zero-width rect, which is the empty side, and a sprite
+/// ending before it keeps its full width.
+pub fn kept(rect: [i32; 4], column: i32) -> [i32; 4] {
+    [
+        rect[0],
+        rect[1],
+        rect[2].min(column).max(rect[0]),
+        rect[3],
+    ]
+}
+
 pub const SCAN_STACK: usize = 16;
 pub const SCAN_LIMIT: u32 = 64;
 pub const MAX_NODES: usize = 6;
