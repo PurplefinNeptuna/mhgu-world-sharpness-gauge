@@ -363,6 +363,54 @@ white or purple line appears in the log. With the tester's colour mapping:
   kind word prepaint tests. The observed flag words are `0x02800005` (visible,
   drawable, bit 23) and `0x02040000` (drawable, bit 22, visibility clear).
 
+## Phase 2 static evidence (r5, r6)
+
+`work/modern-sharpness-gauge/PHASE2_RESEARCH.md` holds the full record; the parts
+this mod depends on:
+
+- The mask factory is `main+0xa4b6cc`. It takes no arguments, allocates 0xd0 bytes
+  through the mask DTI's own MT allocator (`MtDti::getAllocator` at `main+0x7aef68`,
+  slot +0x20, size 0xd0, align 0x10, id from the DTI record), stores the vtable,
+  writes the mask defaults (128x128 at +0xa8/+0xac, +0xa4 |= 3, +0x8c = 1.0f) and
+  walks the parent chain on `+0x70` comparing `+4`. It is reached through the class
+  table at `main+0x178ff04`; no `bl` targets it.
+- `cGUIObjScissorMask::DTI` is at `main+0x21233e8`: size 208, vtable
+  `main+0x178fb04`, id 0xda93f7a, parent `cGUIObj2D`, `mId` at +0x50. DTI
+  `get`/`set` and `vft` numbers are main-relative, the same convention as every
+  other offset in this mod; Ghidra's function names are 0x9c9000 higher, and the
+  export files are named by main-relative offset.
+- The instance is not derivable from the controller. `main+0xa39300` is the only
+  caller of the draw walker in all of .text (one `bl`), and it reads the controller
+  at `instance+0xdc`. Second hook, same relocation rules: prologue
+  `push {r4-r11,lr}` plus `add r11, sp, #0x1c`, unique 12-word window.
+- The row's map is `[controller, tree root, ...]` and the gauge's tree root is
+  `Txt_sharp`: the r5 log prints `root` equal to node n0's address. So the group
+  `sharp` is the bar's parent above the walker's entry point, derived from
+  `bar+0x70`, never indexed from the map.
+- The bar is identified by its authored size 88x24 read from the live texture
+  fields +0xb4/+0xb8, cross-checked against the bar -> effect -> edge chain in both
+  directions. In `hud0.gui` the bar's ink occupies columns 18..=79 and rows +6..+17
+  of that rect, measured from the decoded atlas, so the clip track starts 18 in from
+  the rect's left and runs 62 columns. Ratio 0 asks for an 18-wide clip, so the
+  degenerate zero-size mask is never used.
+
+## r5 runtime reading and the two fixes in r6
+
+The tester's r5 run on Eden sampled the gauge correctly (Long Sword 300/300 down to
+260/300, tier 3, three walked nodes) and inserted nothing, reporting
+`mask insertion failed at stage 20` at the first update, 16 seconds after launch.
+Two defects, both fixed in r6:
+
+1. Stage 20 means the row is not present yet, which is normal before the gauge HUD
+   exists. r5 marked it terminal. r6 reports it once and retries every 240
+   attempts; only factory, allocation and publish failures are terminal.
+2. r5 recorded the last instance that called the walker. Every HUD animation
+   instance calls it, so the pair was a race. r6 records only a pair whose
+   `instance+0xdc` is the gauge controller the sampler identified.
+
+`restore()` has no caller: the vendored forge-rs exposes no plugin unload callback,
+so the mask lives until the process exits. Recorded as a gap, not hidden.
+
 ## Phase 2 needs
 
 The user's log from the r2 archive, matched against the NRO SHA-256

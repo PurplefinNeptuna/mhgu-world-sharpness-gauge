@@ -120,21 +120,32 @@ fn read_row() -> Option<Row> {
         return None;
     }
     let texture = MtDti::find("cGUIObjTexture")? as *const _ as u32;
-    let group = memory::word(map.checked_add(4)?)?;
-    let bar = memory::word(map.checked_add(8)?)?;
-    let effect = memory::word(map.checked_add(12)?)?;
-    // The chain the archive stores: group -> Txt_sharp -> Txt_sharpefx, each one's
-    // parent pointer back to the previous, and the bar's authored 88x24 size.
-    if !memory::writable(group, NODE_BYTES)
-        || !memory::writable(bar, TEXTURE_BYTES)
+    // The row's map is [controller, tree root, ...], and the gauge's tree root is
+    // the bar sprite: the r5 log shows controller+0x68 equal to the first walked
+    // node, which is `Txt_sharp`. Then the effect glyph, then the edge. The group
+    // `sharp` is the bar's parent, above the walker's entry point, so it is
+    // derived from the bar and never indexed from the map.
+    let bar = memory::word(map.checked_add(4)?)?;
+    let effect = memory::word(map.checked_add(8)?)?;
+    let edge = memory::word(map.checked_add(12)?)?;
+    let group = memory::word(bar.checked_add(0x70)?)?;
+    // Every link of the chain the archive stores, checked in both directions, plus
+    // the bar's authored 88x24 size, which is what makes it the bar and not a
+    // look-alike texture object in the same row.
+    if !memory::writable(bar, TEXTURE_BYTES)
         || !memory::writable(effect, TEXTURE_BYTES)
-        || memory::word(group.checked_add(0x68)?)? != bar
-        || memory::word(bar.checked_add(0x70)?)? != group
-        || memory::word(bar.checked_add(0x68)?)? != effect
-        || memory::word(effect.checked_add(0x70)?)? != bar
+        || !memory::writable(edge, TEXTURE_BYTES)
+        || group == 0
+        || !memory::writable(group, NODE_BYTES)
+        || memory::word(root.checked_add(0x68)?)? != bar
         || !is_type(bar, texture)
         || memory::word(bar.checked_add(0xb4)?)? != BAR_WIDTH.to_bits()
         || memory::word(bar.checked_add(0xb8)?)? != BAR_HEIGHT.to_bits()
+        || memory::word(bar.checked_add(0x68)?)? != effect
+        || memory::word(effect.checked_add(0x70)?)? != bar
+        || memory::word(effect.checked_add(0x68)?)? != edge
+        || memory::word(edge.checked_add(0x70)?)? != effect
+        || memory::word(group.checked_add(0x68)?)? != bar
     {
         return None;
     }
@@ -269,15 +280,24 @@ fn rect(bar: &u32) -> Option<[i32; 4]> {
 }
 
 /// Insert once, from the plugin's update callback (the game's own thread, outside
-/// the walker). Stage codes are reported through `take_failure`.
+/// the walker). A row that is not present yet is not a failure: the gauge HUD row
+/// exists only while a weapon-owning player is in a quest, so stage 20 reports once
+/// and keeps retrying at a slow cadence. A hard failure (mask factory, allocation
+/// or publish) is terminal, because retrying an allocation path that already
+/// failed is not how this row gets built.
+const RETRY_EVERY: u32 = 240;
+static TRIES: AtomicU32 = AtomicU32::new(0);
+
 pub fn tick() {
-    let state = STATE.load(Ordering::Relaxed);
-    if state != 0 {
+    if STATE.load(Ordering::Relaxed) != 0 {
+        return;
+    }
+    let tries = TRIES.fetch_add(1, Ordering::Relaxed);
+    if tries != 0 && tries % RETRY_EVERY != 0 {
         return;
     }
     let Some(row) = read_row() else {
         let _ = FAILURE.compare_exchange(0, 20, Ordering::Relaxed, Ordering::Relaxed);
-        STATE.store(2, Ordering::Release);
         return;
     };
     match insert(&row) {

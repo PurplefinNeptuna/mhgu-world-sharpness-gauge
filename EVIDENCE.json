@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r4",
+  "version": "r6",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -13,7 +13,8 @@
       "ghidra-batch2",
       "ghidra-batch3"
     ],
-    "ai_assistance": "DeepSeek Harness; see THIRD_PARTY.md"
+    "ai_assistance": "DeepSeek Harness; see THIRD_PARTY.md",
+    "phase2_research": "work/modern-sharpness-gauge/PHASE2_RESEARCH.md"
   },
   "game": {
     "title_id": "0100770008DD8000",
@@ -44,6 +45,18 @@
       "runtime": "NOT RUN",
       "elf_sha256": null,
       "adds": "mCmdTblId identity word at player +9388, full-resolution sampling on tier, maximum and player changes"
+    },
+    "r5": {
+      "nro_sha256": "b50cc8545310df586e2e26ef1f1e37973c7a6cf6368f0cc18c5d77a4c0343313",
+      "archive_sha256": "3bd7dbf7199a4edd9266969300389403c01a08ecc7a8ef3a93b253f63b532151",
+      "runtime": "Eden run recorded by the tester: sampling worked (samples 1 to 11, Long Sword 300/300 down to 260/300, tier 3, three walked nodes) and the HUD changed nothing. The insertion reported stage 20 at the first update and stopped retrying.",
+      "defects_found": "The row does not exist while the gauge HUD is absent, so stage 20 is a normal early state and must be retryable; the instance capture recorded the last instance that called the walker instead of the gauge instance; the row map is [controller, bar, effect, edge] with the group above the bar, so indexing map[1] as the group is wrong."
+    },
+    "r6": {
+      "nro_sha256": "475b825e0136f9376009b337c8a6ba0ad67d545b153713388a42022c194eff1d",
+      "archive_sha256": "427229fef99f322184894bfb8b9564b752491a519005d68a69787c13c7147680",
+      "runtime": "NOT RUN",
+      "changes": "Instance capture only records a pair whose instance+0xdc is the gauge controller; row discovery derives the group from bar+0x70 and checks the bar/effect/edge chain in both directions with the bar identified by its authored 88x24 size; stage 20 retries every 240 attempts."
     }
   },
   "build": {

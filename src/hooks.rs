@@ -68,9 +68,11 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
 }
 
 /// The instance draw entry takes (instance, context) and reads the controller at
-/// instance+0xdc before calling the walker, which is the only place in the game that
-/// relates the two. Recording is three loads and two stores; nothing is allocated,
-/// formatted, logged or float-computed, and it runs before the native call.
+/// instance+0xdc before calling the walker. It is the only caller of the walker in
+/// the whole program (one `bl` in .text), but every animation instance on the HUD
+/// reaches it, so the pair is recorded only when its controller is the gauge
+/// controller the sampler identified. Anything else is not the gauge row and is
+/// ignored, which is what makes the recorded instance unambiguous.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
     let original = msg_instance_original.load(Ordering::Acquire);
@@ -78,9 +80,14 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
         return;
     }
     if msg_instance_active.load(Ordering::Acquire) {
-        if let Some(controller) = memory::word(instance.wrapping_add(0xdc)) {
-            CONTROLLER.store(controller, Ordering::Relaxed);
-            INSTANCE.store(instance, Ordering::Relaxed);
+        let gauge = sampling::gauge_controller();
+        if gauge != 0 {
+            if let Some(controller) = memory::word(instance.wrapping_add(0xdc)) {
+                if controller == gauge {
+                    CONTROLLER.store(controller, Ordering::Relaxed);
+                    INSTANCE.store(instance, Ordering::Relaxed);
+                }
+            }
         }
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
