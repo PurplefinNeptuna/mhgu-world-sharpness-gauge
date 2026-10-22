@@ -200,7 +200,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
                 log::error!(concat!(
                     "MSG ",
                     env!("MSG_VERSION"),
-                    " clip x={x} y={y} width={width} height={height} ratio={ratio}bp seconds={seconds} bar_width={bar_width} authored={authored}"
+                    " clip x={x} y={y} width={width} height={height} ratio={ratio}bp seconds={seconds} bar_width={bar_width} authored={authored} row_flags={row_flags} drawables={drawables}"
                 ),
                 x = box_[0],
                 y = box_[1],
@@ -209,7 +209,9 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
                 ratio = ratio,
                 seconds = seconds,
                 bar_width = gui::bar_width().0,
-                authored = gui::bar_width().1);
+                authored = gui::bar_width().1,
+                row_flags = gui::row_flags().0,
+                drawables = gui::row_flags().1);
             }
         }
     }

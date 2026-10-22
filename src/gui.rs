@@ -11,7 +11,7 @@
 //! Nothing here allocates through Forge, and no game-owned block is freed while
 //! the tree still points at it.
 use crate::{
-    hooks, memory,
+    hooks, memory, sampling,
     memory::BASE,
 };
 use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
@@ -29,7 +29,7 @@ const NODE_BYTES: usize = 192;
 const GAUGE_ANIMATION: u32 = 4;
 const GAUGE_OBJECTS: u16 = 4;
 const GAUGE_SEQUENCES: u16 = 15;
-const GAUGE_DRAWABLES: u32 = 3;
+const GAUGE_FIRST_OBJECT: u32 = 29;
 const BAR_WIDTH: f32 = 88.0;
 const BAR_HEIGHT: f32 = 24.0;
 
@@ -55,6 +55,11 @@ pub fn inserted() -> bool {
 /// (mask, old map length, old cache bytes) for the log line.
 pub fn bar_width() -> (u32, u32) {
     (BAR_W.load(Ordering::Relaxed), AUTHORED.load(Ordering::Relaxed))
+}
+
+/// root+0x50 as read, and the walker's drawable count the cache length uses.
+pub fn row_flags() -> (u32, u32) {
+    (AUTHORED50.load(Ordering::Relaxed), sampling::drawables())
 }
 
 pub fn applied() -> (u32, u32, u32) {
@@ -130,18 +135,25 @@ fn read_row() -> Result<Row, u32> {
     ) else {
         return Err(23);
     };
+    let Some(first_object) = memory::word(description.wrapping_add(0x0c)) else {
+        return Err(23);
+    };
+    // The gauge row is identified by the fields the sampler already proves on every
+    // sample line: animation 4, 4 objects, 15 sequences, first object 29. The row
+    // carries no drawable count, so the cache length comes from the walker's count
+    // (sampling::drawables), not from the row. root+0x50 is recorded, not required:
+    // it is a counter-row fact from Key Quest Markers, not a gauge-row fact.
+    let count = sampling::drawables().max(1);
+    AUTHORED50.store(active, Ordering::Release);
     if anim != GAUGE_ANIMATION
         || objects != GAUGE_OBJECTS
         || sequences != GAUGE_SEQUENCES
-        || drawables != GAUGE_DRAWABLES
+        || first_object != GAUGE_FIRST_OBJECT
     {
         return Err(24);
     }
     if map_alias != map {
         return Err(25);
-    }
-    if active != 1 {
-        return Err(26);
     }
     let (Some(cache), Some(cache_alias)) = (
         memory::word(root.wrapping_add(0xa4)),
@@ -158,12 +170,10 @@ fn read_row() -> Result<Row, u32> {
     ) else {
         return Err(23);
     };
-    if cache == 0
-        || cache_alias != cache
-        || !memory::readable(cache, bytes)
-        || !memory::readable(map, objects as usize * 4)
-        || head != root
-    {
+    if cache == 0 || cache_alias != cache || !memory::readable(cache, count as usize * 16 + 8) {
+        return Err(26);
+    }
+    if !memory::readable(map, objects as usize * 4) || head != root {
         return Err(27);
     }
     // The row's map is [controller, tree root, ...], and the gauge's tree root is
@@ -269,7 +279,8 @@ fn insert(row: &Row) -> Result<u32, u32> {
     word(new_map + GAUGE_OBJECTS as u32 * 4, mask).then_some(()).ok_or(8u32)?;
     // 3. The draw cache grows by one begin/end pair: the walker emits a pair for
     // the new child, and the terminator stays last.
-    let cache_bytes = (GAUGE_DRAWABLES + 1) * 16 + 8;
+    // The walker's own count of drawables, plus the new mask pair.
+    let cache_bytes = (sampling::drawables().max(1) + 1) * 16 + 8;
     let row_allocate = method(row.root, 0x58).ok_or(9u32)?;
     let new_cache = memory::call2(row_allocate, row.root, cache_bytes).ok_or(10u32)?;
     if new_cache == 0 || new_cache & 15 != 0 || !memory::write_bytes(new_cache, cache_bytes as usize) {
@@ -324,7 +335,7 @@ fn insert(row: &Row) -> Result<u32, u32> {
 
 impl Row {
     fn cache_bytes(&self) -> u32 {
-        (GAUGE_DRAWABLES * 16 + 8) & 0xffff
+        (sampling::drawables().max(1) * 16 + 8) & 0xffff
     }
 }
 
@@ -370,6 +381,8 @@ static TRIES: AtomicU32 = AtomicU32::new(0);
 /// The bar's live width, and bit 0/1 for "the authored 88 and 24 match".
 static BAR_W: AtomicU32 = AtomicU32::new(0);
 static AUTHORED: AtomicU32 = AtomicU32::new(0);
+/// root+0x50 as read, recorded because it is not a gate for this row.
+static AUTHORED50: AtomicU32 = AtomicU32::new(0);
 
 pub fn tick() {
     if STATE.load(Ordering::Relaxed) != 0 {

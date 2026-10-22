@@ -9,8 +9,7 @@
 use crate::memory;
 use core::sync::atomic::{AtomicU32, Ordering};
 use sharpness_gauge_core::{
-    FIELDS, MAX_SHARPNESS, Memory, SHARPNESS, SHARPNESS_TYPE, sample_controller,
-};
+    FIELDS, FIELD_DRAWABLE, MAX_SHARPNESS, Memory, SHARPNESS, SHARPNESS_TYPE, sample_controller};
 
 pub const MAX_SAMPLES: u32 = 320;
 /// Walker calls between discovery attempts, before the gauge controller is
@@ -46,6 +45,7 @@ static CTRL: AtomicU32 = AtomicU32::new(0);
 static PLAYER: AtomicU32 = AtomicU32::new(0);
 /// Walker call count of the last emitted sample, so the rate floor can work.
 static LAST_CALLS: AtomicU32 = AtomicU32::new(0);
+static LAST_DRAWABLE: AtomicU32 = AtomicU32::new(0);
 /// Last bucketed sharpness, maximum, tier and player pointer seen. Zero means
 /// "nothing seen yet", which makes the first sample a change.
 static LAST: [AtomicU32; 4] = const { [const { AtomicU32::new(0) }; 4] };
@@ -111,6 +111,7 @@ pub fn observe(controller: u32, context: u32) {
     for (index, word) in words.iter().enumerate() {
         RING_WORDS[slot * WORDS + index].store(*word, Ordering::Relaxed);
     }
+    LAST_DRAWABLE.store(words[FIELD_DRAWABLE as usize], Ordering::Relaxed);
     CTRL.store(controller, Ordering::Relaxed);
     PLAYER.store(sample.local.player, Ordering::Relaxed);
     // Publish the slot words first, then the write cursor, so a reader that
@@ -136,6 +137,12 @@ pub fn take() -> Option<(u32, [u32; WORDS])> {
     }
     READ.store(read + 1, Ordering::Relaxed);
     Some((read + 1, words))
+}
+
+/// The drawable count of the last accepted sample. The row has no drawable field,
+/// so the cache length the row needs is the number the walker reported.
+pub fn drawables() -> u32 {
+    LAST_DRAWABLE.load(Ordering::Relaxed)
 }
 
 pub fn stats() -> (u32, u32, bool) {
