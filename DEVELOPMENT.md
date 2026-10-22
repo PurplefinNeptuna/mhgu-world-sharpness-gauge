@@ -235,6 +235,50 @@ record) to every sample, so a line says which weapon produced it, and a tier,
 maximum or player change is now sampled at full resolution without the rate
 floor, so a boundary lands on the exact point.
 
+## Sharpness tables, read from the game's RomFS (Eden dump)
+
+The RomFS is at `~/.local/share/eden/dump/0100770008DD8000/romfs/nativeNX/`, and
+the sharpness layout the tier chain points at is in it.
+
+`table/kireajiData.kad`: magic `0x3F99999A`, entry count 164, 14 bytes per entry
+(8-byte header, then `164 * 14` = 2304 bytes, exact). Each entry is seven u16
+cumulative thresholds. The rule that reproduces every tier transition measured in
+the r3 log is: tier index = how many of the seven thresholds are strictly less
+than the sharpness value. All 12 measured transitions across both weapons fit
+that rule, and no type fits the non-strict reading.
+
+`table/weapon07LevelData.w07d` (Long Sword, 876 entries, stride 15, header verified
+by `8 + 876 * 15 == 13148`) and `table/weapon11LevelData.w11d` (Dual Blades, 845
+entries, stride 17, `8 + 845 * 17 == 14373`) carry, per row: int32 weapon level
+id, u8 weapon base id, u8 level, u8 kireaji type, u8 sharpness amount, int16 raw
+damage. The maximum follows the modding wiki's formula
+`150 + 25 * amount` (`references/MHGU-Modding.wiki/Weapon-Stat-Modding.md`), and
+the r3 measurements match it: `maximum=250` is amount 4, `maximum=200` is amount 2.
+
+Matching the r3 boundaries against the tables:
+
+- Dual Blades, level 1, amount 2 (max 200), a boundary-consistent kireaji type:
+  exactly one row, level id 147, base id 22, type 76, raw 80. Type 76 thresholds
+  `80, 90, 190, 310, 390, 450, 450`, so at level 1 the segments are red 80,
+  orange 10, yellow 100, green 190 to 200 = 10 points. That is the tester's thin
+  green, from the game's own numbers.
+- Long Sword, level 1, amount 4 (max 250), boundary-consistent types: two rows,
+  both raw 130. Level id 55, base id 8, type 1 (thresholds `60, 90, 190, 290,
+  390, 400, 450`: red 60, orange 30, yellow 100, green 190 to 250 = 60 points,
+  the wide green). Level id 431, base id 61, type 65 (thresholds `60, 100, 190,
+  310, 340, 420, 450`: red 60, orange 40, yellow 90, green 60). The r3 log cannot
+  separate them: it needs one sample with sharpness between 90 and 99, where type
+  1 reads yellow and type 65 reads orange.
+- Types 62 and 111 also reproduce the log, and no level-1 row of the right amount
+  uses them, so the level tables rule them out for these two weapons.
+
+For Phase 2 this replaces guesswork with numbers: `mMaxSharpness` follows
+`150 + 25 * amount`, the tier boundaries are the equipped weapon's kireaji
+thresholds, and the fill fraction stays `current / mMaxSharpness` while the
+colour comes from `mSharpnessType` computed from the same thresholds. A runtime
+read of the kireaji type is the clean way to get boundaries for any weapon, and
+it is reachable through the chain in the section above.
+
 ## Run log read (Eden, r3, 2026-10-22)
 
 The installed NRO hashes `c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d`,

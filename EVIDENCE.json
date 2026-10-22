@@ -301,5 +301,15 @@
     "weapon_record": "/DTI_Types/WpDatEntry 68 bytes: Sharpness at +21, SharpnessQuality at +22, WeaponId at +58, WeaponNameId at +60",
     "not_read_here": "the RomFS weapon data is not extracted in this workspace, so no per-weapon tier table is quoted from the game files",
     "identity_word": "mCmdTblId at player +9388, printed in every r4 line"
+  },
+  "sharpness_tables": {
+    "source": "Eden RomFS dump ~/.local/share/eden/dump/0100770008DD8000/romfs/nativeNX/table",
+    "kireajiData.kad": "magic 0x3F99999A, 164 entries, 14 bytes each: seven u16 cumulative thresholds per type",
+    "tier_rule": "tier index = count of thresholds strictly below the sharpness value; reproduces all 12 tier transitions measured in the r3 log",
+    "max_formula": "mMaxSharpness = 150 + 25 * sharpnessAmount (references/MHGU-Modding.wiki/Weapon-Stat-Modding.md), matching the measured 250 (amount 4) and 200 (amount 2)",
+    "level_tables": "weapon07LevelData.w07d 876 entries stride 15; weapon11LevelData.w11d 845 entries stride 17; header 8 bytes verified by exact file sizes",
+    "dual_piercers_lv1": "unique level-1 fit: levelId 147 baseId 22 kireaji type 76 raw 80; segments red 80, orange 10, yellow 100, green 190 to 200 (10 points, the tester's thin green)",
+    "hidden_saber_lv1": "two level-1 fits, both raw 130: levelId 55 baseId 8 type 1 (red 60, orange 30, yellow 100, green 190 to 250, 60 points wide) and levelId 431 baseId 61 type 65 (red 60, orange 40, yellow 90, green 60). The r3 log cannot separate them: one sample with sharpness between 90 and 99 decides",
+    "not_claimed": "no weapon base id is mapped to a weapon name from game files; the identification is by level, amount, kireaji boundaries and raw damage against the tester's own report"
   }
 }
