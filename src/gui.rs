@@ -174,28 +174,28 @@ fn read_row() -> Result<Row, u32> {
     if cache == 0 || drawables == 0 || !memory::readable(cache.wrapping_sub(8), 0x20) {
         return Err(26);
     }
-    let (Some(bar), Some(bar_parent)) = (
-        memory::word(root.wrapping_add(NODE_CHILD)),
-        memory::word(root.wrapping_add(NODE_CHILD).wrapping_add(NODE_PARENT)),
-    ) else {
+    let Some(bar) = memory::word(root.wrapping_add(NODE_CHILD)) else {
+        return Err(23);
+    };
+    let Some(bar_parent) = memory::word(bar.wrapping_add(NODE_PARENT)) else {
         return Err(23);
     };
     if bar == 0 || bar == root || bar_parent != root || !memory::writable(bar, TEXTURE_BYTES) {
         return Err(27);
     }
-    let (Some(effect), Some(effect_parent)) = (
-        memory::word(bar.wrapping_add(NODE_SIBLING)),
-        memory::word(bar.wrapping_add(NODE_SIBLING).wrapping_add(NODE_PARENT)),
-    ) else {
+    let Some(effect) = memory::word(bar.wrapping_add(NODE_SIBLING)) else {
+        return Err(23);
+    };
+    let Some(effect_parent) = memory::word(effect.wrapping_add(NODE_PARENT)) else {
         return Err(23);
     };
     if effect == 0 || effect == bar || effect_parent != root || !memory::writable(effect, TEXTURE_BYTES) {
         return Err(28);
     }
-    let (Some(edge), Some(edge_parent)) = (
-        memory::word(effect.wrapping_add(NODE_SIBLING)),
-        memory::word(effect.wrapping_add(NODE_SIBLING).wrapping_add(NODE_PARENT)),
-    ) else {
+    let Some(edge) = memory::word(effect.wrapping_add(NODE_SIBLING)) else {
+        return Err(23);
+    };
+    let Some(edge_parent) = memory::word(edge.wrapping_add(NODE_PARENT)) else {
         return Err(23);
     };
     if edge == 0 || edge == effect || edge == bar
@@ -388,6 +388,13 @@ pub fn tick() {
             // Overwrite, so a persistent gate is reported on every retry instead
             // of only the first time. The gate is the diagnosis, not a status.
             FAILURE.store(gate, Ordering::Release);
+            // 23 is an unreadable row pointer, 24 a row that is no longer the
+            // sharpness animation: both mean the captured controller belongs to a
+            // scene that ended. Drop that capture so the next walker call records
+            // the live one instead of retrying a dead object for the whole session.
+            if gate == 23 || gate == 24 {
+                hooks::clear_capture(hooks::capture().1);
+            }
             return;
         }
     };

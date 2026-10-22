@@ -112,6 +112,21 @@ pub fn gauge_instance() -> Option<(u32, u32)> {
     Some((instance, controller))
 }
 
+/// Drop a capture whose object is gone. Called when a row read fails (the row
+/// pointer is unreadable) or the row is no longer the sharpness animation, which
+/// is how the log shows a captured controller after its scene was torn down. The
+/// pair is only cleared when it is the pair that failed, so a fresh capture taken
+/// by the instance hook in the meantime stays.
+pub fn clear_capture(controller: u32) {
+    if controller == 0 {
+        return;
+    }
+    let _ = CONTROLLER.compare_exchange(controller, 0, Ordering::AcqRel, Ordering::Relaxed);
+    if CONTROLLER.load(Ordering::Relaxed) == 0 {
+        INSTANCE.store(0, Ordering::Release);
+    }
+}
+
 /// Restore only our branch words (or a partially installed original/branch
 /// pair). Foreign modifications keep their ownership; Forge keeps allocated
 /// continuations reachable for the process lifetime.

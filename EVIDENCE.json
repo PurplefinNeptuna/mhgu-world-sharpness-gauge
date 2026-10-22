@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r11",
+  "version": "r12",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r11",
+    "version": "r12",
     "status": "BUILT",
-    "nro_sha256": "11155325db0184403daaef420d0e02c63b316a65f4c84cf03ac6fc271cc21f26",
+    "nro_sha256": "01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -354,6 +354,25 @@
         "no mask inserted, nothing published: the insertion stopped before any write"
       ],
       "conclusion": "the root layout and cache contract from the walker decompile are confirmed on live data; the remaining failure is a parent read shifted by one field in my gates, fixed in r11 together with the zero-sibling closing"
+    },
+    {
+      "date": "2026-10-23",
+      "version": "r11",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "11155325db0184403daaef420d0e02c63b316a65f4c84cf03ac6fc271cc21f26",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r11-eden-2026-10-23.txt",
+      "session_seconds": 2525,
+      "our_lines": 885,
+      "observed": [
+        "230 stage-21 lines while the HUD was absent, then 277 stage-27 lines from t=936 s with a correct capture: instance=0x47fac970 controller=gauge=0x48012560",
+        "the r11 gate read root+0x68+0x70 (the root's 0xd8 word) as the bar's parent; the log prints bar 0x441b18e0 with parent=0x48012560, the controller, so the bar gate was checking the wrong word",
+        "gates 25 and 26 passed again on live data (root class cGUIObjRoot, cache 0x47fd89c0, walker drawables 3)",
+        "112 stage-23 lines from t=2504 s against controller=1142520544 (0x44168be0): the row pointer of a captured controller that a scene change removed",
+        "Long Sword t=934 s: current=250 maximum=250 tier=3, row=0x53430238, anim 4 objects 4 sequences 15 first_object 29",
+        "nothing inserted, nothing published"
+      ],
+      "conclusion": "the chain shape is confirmed a third time on live data; r12 reads each parent from its own node and clears a capture whose row read fails"
     }
   ],
   "not_proven": [
@@ -367,8 +386,8 @@
   "runtime": {
     "status": "NOT RUN",
     "date": null,
-    "binary_sha256": "11155325db0184403daaef420d0e02c63b316a65f4c84cf03ac6fc271cc21f26",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r11/delivery/modern-sharpness-gauge-r11-candidate.zip; scenario and log path in README.md",
+    "binary_sha256": "01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e",
+    "required": "user run of build/modern-sharpness-gauge/candidates/r12/delivery/modern-sharpness-gauge-r12-candidate.zip; scenario and log path in README.md",
     "correlate": "the reported MSG r4 lines against this nro_sha256 and the emulator's mod load record",
     "previous_runs": [
       "r1 Eden 2026-10-22",
