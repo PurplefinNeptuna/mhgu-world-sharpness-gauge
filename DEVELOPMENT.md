@@ -168,13 +168,22 @@ What that run proved:
   and no screenshot was recorded, so "nothing changed on screen" rests on the
   plugin's read-only design rather than on an observation.
 
-Still open, and what the r2 run must answer: tier changes, whetstones, Sharp
-Dashi buffs, Gunner sharpness, weapon changes, HUD recreation and
-`cache_flags`, hunter slots 1..3 online, the tip/hilt direction of `Txt_sharp`
-from the printed rectangles, the object and drawable counts, and whether every
-recovery path touches `+10100`/`+10104` (writer `adjustSharpness` at
-`main+0x2ad288`, gates `0x27bcd0`, `0x27c7ec`, `0x27b918`). The `cGUI+0x2c`
-object map capacity, the 16-byte cache growth per inserted object and the
+Still open, and what the r2 run must answer: tier changes across colours, the
+game's own sharpening paths (sheathe-sharpen plus whatever item the tester
+confirms exists; this build has no long or short whetstone), any meal/skill/item
+that raises sharpness or the maximum (MHGU has no Sharp Dashi meal; if this
+build offers no sharpness buff, that negative result is what to report), separate
+quests with different weapon types since MHGU carries one weapon per quest and
+cannot switch mid-quest, death and timeout states, the hub before and after
+quests and the map opened while running, hunter slots 1..3 online, the tip/hilt
+direction of `Txt_sharp` from the printed rectangles, the object and drawable
+counts and `cache_flags`. Whether a Gunner quest shows a gauge HUD at all is an
+open question for the tester to report, not an assumption. And whether every
+recovery path touches `+10100`/`+10104`: `adjustSharpness` at `main+0x2ad288`
+is the only writer found, with gates at `0x27bcd0`, `0x27c7ec` and `0x27b918`
+still unexercised. Still open for Phase 2: the `cGUI+0x2c` object map capacity,
+the 16-byte cache growth per inserted object and the riding flag (r2 prints the
+raw `input_flags` word at `+5156` for comparison and never interprets it).
 riding flag stay for Phase 2: r2 only prints the raw `input_flags` word at
 `+5156` for comparison, it does not interpret it.
 

@@ -50,20 +50,24 @@ the hook stops reading game memory for the rest of that launch.
 
 ### What to play
 
-Play 20 to 30 minutes across these states, then send the log:
+Play 20 to 30 minutes across these states, then send the log. One weapon per
+quest is how MHGU works, so weapon variety means separate quests:
 
 1. One solo quest with a melee weapon you use often. Fight until sharpness drops
-   through at least two tiers, then finish the quest.
-2. A long whetstone to full, then a short whetstone, then keep fighting until
-   the gauge turns red.
-3. One quest where you eat a Sharp Dashi meal, so the gauge gains a tier during
-   the quest.
-4. One quest on a Light Gunner or Heavy Gunner: reload, aim, let sharpness drop.
-5. Mid-quest: sheathe and draw the same weapon a few times, and switch to a
-   second weapon at the item box or in camp.
-6. Open and close the map and item screens, visit the tent, then start a quest.
-7. One online quest where you join as the second, third, or fourth hunter.
-8. End with a quest where you never draw a melee weapon.
+   through at least two colours, then finish or fail the quest.
+2. In the same quest, sheathe your weapon a few times, then keep fighting until
+   the gauge turns red. Note the numbers each time it changes.
+3. If your game has an item that sharpens, bring it and use it in one quest; if
+   it does not, say so in your report instead.
+4. One quest with a different weapon type from quest 1, played the same way.
+5. One quest where you eat before it starts, and one where you do not. Tell me
+   whether your game has any meal, item or skill that raises sharpness, and what
+   the numbers do around it.
+6. During a quest, open the map and the item screens; MHGU only opens the map
+   once you are running, so nothing before a quest should show the gauge. Do
+   this between quests too, going to the hub and starting another quest.
+7. One quest where you die or time out, then the next quest.
+8. One online quest where you join as the second, third or fourth hunter.
 
 Tell the tester anything that looked wrong on screen: a new gauge, moved text,
 flicker, or a frozen HUD. None of those are expected.

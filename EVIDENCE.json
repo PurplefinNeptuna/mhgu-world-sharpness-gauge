@@ -159,9 +159,9 @@
       ],
       "not_observed": [
         "any state after t=418.7",
-        "whetstone or meal buff",
-        "Gunner sharpness",
-        "weapon change",
+        "the game's sharpening paths",
+        "any sharpness buff, if this build has one",
+        "a second weapon type in another quest",
         "HUD recreation",
         "hunter slots 1..3",
         "any rectangle or count of the gauge tree"
@@ -175,7 +175,7 @@
     "native tier colour source; r2 prints tier and the flag words only",
     "cGUI+0x2c object map capacity, insert point and the 16-byte cache growth per object (needs a Phase 2 write test)",
     "the riding flag: r2 prints the raw word at +5156 for comparison and does not interpret it",
-    "that every recovery or buff path uses mSharpness/mMaxSharpness"
+    "that every recovery or buff path this build offers uses mSharpness/mMaxSharpness"
   ],
   "runtime": {
     "status": "NOT RUN",
