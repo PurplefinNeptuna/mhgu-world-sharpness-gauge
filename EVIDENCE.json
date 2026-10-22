@@ -188,6 +188,78 @@
         "any rectangle or count of the gauge tree"
       ],
       "report_status": "the plugin read the gauge state and the hook site as Phase 0 recorded; the tree part of r1 was wrong. The tester gave no separate note about the screen, so the absence of a drawing change rests on the log alone, not on an inspection"
+    },
+    {
+      "date": "2026-10-22",
+      "version": "r3",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
+      "matches_packaged_payload": true,
+      "log": "~/.local/share/eden/log/eden_log.txt",
+      "session_seconds": 3140,
+      "our_lines": 238,
+      "line_counts": {
+        "absent": 1,
+        "first_observed": 1,
+        "sample": 59,
+        "tree": 177
+      },
+      "budget_used": "59 of 320 across t=204.8 to t=2482.9, so the bucketed trigger covered 2278 s of play",
+      "hunts": [
+        {
+          "weapon": "Long Sword",
+          "window": "t=204.8 to 1223.2",
+          "maximum": 250,
+          "tiers_seen": "3 at 250 to 196, 2 at 189 to 115, 1 at 82 to 62, 0 at 57",
+          "recovery": "57 to 155 (tier 2) after a whetstone",
+          "hit_costs_observed": "2 to 42 points between samples",
+          "nodes": "0x47f8e030 visible 128x128 box with atlas (0,280,88,304) stepping to (0,304,88,328) and (0,328,88,352); 0x48810c10 visible with atlas (0,160,88,192); 0x47fb1600 drawable not visible with atlas (80,136,124,148)",
+          "controller_root_player": "ctrl 0x..fa3700 root 0x..f8e030 player 0x..1415e0",
+          "tier_colours": "green 250-196, yellow 189-115, orange 82-62, red 57; whetstone 57 to 155",
+          "top_tier": "top tier green (3)"
+        },
+        {
+          "weapon": "Dual Blades",
+          "window": "t=1527.4 to 2482.9",
+          "maximum": 200,
+          "tiers_seen": "3 at 200, 2 at 190 to 113, 0 at 77; 1 at 88 in the later cycle",
+          "recovery": "77 to 200 and 88 to 200 (whetstone, full)",
+          "nodes": "0x47e3df40 and 0x44286e60 visible, 0x47e2c230 drawable not visible",
+          "controller_root_player": "ctrl 0x..848550 root 0x..e3df40 player 0x..ec8150 (new HUD instance and new player object)",
+          "tier_colours": "green 200-191, yellow from 190, orange 88, red 77; whetstone restored to 200 twice",
+          "top_tier": "top tier green (3)"
+        },
+        {
+          "weapon": "Light Bowgun",
+          "window": "after t=2482.9 to the end of the session",
+          "result": "no identity match, no sample and no tree line; the tester saw no sharpness icon",
+          "meaning": "the gauge HUD is absent for this weapon type in this build, and the mod logs nothing there"
+        }
+      ],
+      "observed": [
+        "tier boundaries are per-weapon point segments, not percentages: Long Sword 250 points crossed tier 2 at 189 and tier 1 at 82, Dual Blades 200 points crossed tier 2 at 190",
+        "the same 128x128 box (own rect 110,38,238,166 and 116,32,244,160) draws both weapons, so the fill length has to come from current/max and the colour from mSharpnessType",
+        "the native gauge changes sharpness by selecting atlas rows (v 280, 304, 328 with a 24 px height) and a companion 88x32 glyph, i.e. it is frame based, not a continuous fill",
+        "the hidden edge glyph is walked as a sibling, drawable with the visibility bit clear, matching the Phase 0 note on Txt_sharpEdge",
+        "the context clip words at +0xd0..+0xdc and the effective rectangles read zero for all three nodes, so no scissor was applied to the gauge in this build",
+        "cache_flags read 0 at every sample; controller, root and player changed between quests, which is the recreated-HUD path",
+        "hunter index stayed 0 (the online part was not played)",
+        "the absent-HUD line fired once, at t=45.3 after 6002 walker calls, before any quest",
+        "the tester describes a wide green tier on the Long Sword and a thin green tier on the Dual Blades: the drawn gauge box is identical, only the point counts differ (250 and 200)"
+      ],
+      "field_notes": [
+        "the four words at node +0x10c are floats, not ints: setTextureRect stores them through a float pointer, so 1134034944 is 308.0",
+        "the word read at node +0x33 has low nibble 0 on all six gauge nodes, so that offset is not the object kind the prepaint routine tests",
+        "the observed flag words are 0x02800005 (visible, drawable, plus bit 23) and 0x02040000 (drawable, bit 22, visibility clear)"
+      ],
+      "not_observed": [
+        "a meal, skill or item that raises the maximum",
+        "hunter slots 1..3 online",
+        "the riding state",
+        "any nonzero clip or effective rectangle"
+      ],
+      "tier_colour_mapping": "0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple; supplied by the tester 2026-10-22",
+      "weapons_top_tier": "both the Long Sword and the Dual Blades used had top tier 3 (green), so tiers 4, 5 and 6 are still unmeasured"
     }
   ],
   "not_proven": [
@@ -199,10 +271,9 @@
     "that every recovery or buff path this build offers uses mSharpness/mMaxSharpness"
   ],
   "runtime": {
-    "status": "NOT RUN",
-    "date": null,
+    "status": "RUN",
+    "date": "2026-10-22",
     "binary_sha256": "c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r3/delivery/modern-sharpness-gauge-r3-candidate.zip; scenarios and log paths in README.md",
-    "correlate": "the reported MSG r2 lines against this nro_sha256 and the emulator's mod load record"
+    "correlate": "installed NRO in Eden load/0100770008DD8000/modern-sharpness-gauge hashes c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d, equal to the r3 packaged payload"
   }
 }

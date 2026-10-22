@@ -102,7 +102,10 @@ pub struct Gauge {
     pub current: i32,
     /// mMaxSharpness, signed sharpness points.
     pub maximum: i32,
-    /// mSharpnessType, native tier index (0 red .. 6 purple).
+    /// mSharpnessType, native tier index: 0 red, 1 orange, 2 yellow, 3 green,
+    /// 4 blue, 5 white, 6 purple (mapping supplied by the tester on 2026-10-22).
+    /// Each tier is a per-weapon segment of points, so a tier boundary is never a
+    /// fixed percentage of the maximum.
     pub tier: u32,
 }
 

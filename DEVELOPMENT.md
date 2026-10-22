@@ -65,7 +65,7 @@ Runtime state read by the hook:
 | `main+0x1885b58` | `sPlayer` singleton; `+0x1c + 4*index` is the local player pointer |
 | player `+10100` | `uPlayerQuest::mSharpness`, signed points |
 | player `+10104` | `uPlayerQuest::mMaxSharpness`, signed points |
-| player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index (0 red .. 4) |
+| player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index: 0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple (mapping from the tester, 2026-10-22). A tier is a per-weapon segment of points |
 | controller `+0x68/+0x80/+0x8c/+0x9c/+0xa0` | tree root, draw cache, rebuild flag, animation row, owner |
 | row `+0/+4/+0xc/+0x14` | animation id; counts packed in one word (objects low u16, sequences high u16); first object row; the word at `+0x14` is a pointer into the sequence block, not a row index |
 | node `+0x33` / `+0x42` / `+0x54` | kind word (`& 0xf`), draw-dirty byte (`& 0x30`), flag word `+0x54..+0x57` |
@@ -194,10 +194,62 @@ raw `input_flags` word at `+5156` for comparison and never interprets it).
 riding flag stay for Phase 2: r2 only prints the raw `input_flags` word at
 `+5156` for comparison, it does not interpret it.
 
+## Run log read (Eden, r3, 2026-10-22)
+
+The installed NRO hashes `c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d`,
+equal to the r3 packaged payload, so this session ran the recorded bytes. 238 of
+our lines: 1 absent, 1 first-observed, 59 samples, 177 tree lines, over a 3140 s
+session. The bucketed trigger behaved: 59 of 320 samples covered t=204 to t=2483,
+where r1 spent 60 samples in 118 s.
+
+Measured, with the tester's three hunts:
+
+Both hunts used weapons whose top tier is 3 (green), which is why no blue,
+white or purple line appears in the log. With the tester's colour mapping:
+
+- Long Sword, `maximum=250`, top tier green: green 250 down to 196, yellow 189 to
+  115, orange 82 to 62, red at 57; a whetstone moved 57 to 155 (yellow).
+- Dual Blades, `maximum=200`, top tier green: green at 200 down to 191, yellow
+  from 190, red at 77, orange at 88 in a later cycle; whetstones restored to 200
+  twice.
+- The tester's own description of these weapons, a wide green tier on the Long
+  Sword and a thin green tier on Dual Blades, matches the measured point counts
+  (250 versus 200 points in the same 128x128 box), so wide and thin is about the
+  stats, not the drawn size.
+- Light Bowgun: no identity match, no sample and no tree line for the whole
+  window after t=2483, and the tester saw no sharpness icon. The gauge HUD is
+  absent for that weapon type, and the mod reads nothing there.
+- Tier boundaries are per-weapon point segments, not percentages: 250 points
+  crossed a tier at 189 (75.6%), 200 points crossed at 190 (95%). The fill length
+  must come from `current/max` and the colour from `mSharpnessType`; a ratio can
+  never be used to pick the tier, and the tester's own note is that every weapon
+  draws the gauge the same size while the point counts differ.
+- Both weapons use the same 128x128 box: own rect `110,38,238,166` and
+  `116,32,244,160`. The gauge is drawn by two visible sprites plus one drawable
+  sprite with the visibility bit clear (the `Txt_sharpEdge` case from Phase 0),
+  walked as 3 nodes with 2 visible and 3 drawable.
+- The native gauge is frame based: the atlas rectangle at node `+0x10C` is four
+  floats and it steps `0,280,88,304` to `0,304,88,328` to `0,328,88,352` with
+  sharpness, beside a companion `0,160,88,192` glyph. Sharpness is shown by
+  picking atlas rows, not by a continuous fill, so a continuous fill needs its
+  own geometry and mod-owned resources.
+- Clip and effective rectangles are all zero: `context+0xD0..0xDC` reads 0,0,0,0
+  and node `+0xF0..+0xFC` reads zero, so no scissor was applied to the gauge. The
+  16-byte cache growth and the `cGUI+0x2c` map question stay for Phase 2.
+- `cache_flags` read 0 at every sample. Controller, root and player pointers all
+  changed between the two quests, which is the recreated-HUD path, and hunter
+  index stayed 0 because the online part was not played.
+- Field corrections from these bytes: the four words at `+0x10C` are floats, so
+  `1134034944` is `308.0` (setTextureRect writes them through a `float *`), and
+  the word at `+0x33` has low nibble 0 on all six gauge nodes, so it is not the
+  kind word prepaint tests. The observed flag words are `0x02800005` (visible,
+  drawable, bit 23) and `0x02040000` (drawable, bit 22, visibility clear).
+
 ## Phase 2 needs
 
 The user's log from the r2 archive, matched against the NRO SHA-256
-`c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d` (r3) in
+`c35bc25afbe4ed72ed91b20639aa35bef1a3156b3b294b14292f8430e4c5f47d` (r3),
+matched and recorded, in
 `DISTRIBUTION.json` and `build.json`, recorded in `EVIDENCE.json` as runtime
 evidence for r2. Phase 2 (drawing the gauge) starts once that log shows the
 counts, rectangles and tier behaviour the design needs, and nothing in it

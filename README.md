@@ -62,9 +62,9 @@ game do the changing instead of trying to:
    between fights rather than in the middle of one.
 3. One quest with a different weapon type, played the same way.
 4. One quest where you eat before it starts, and one where you do not.
-5. During a quest, open the map and the item screens. Between quests, walk
-   around the hub, then start another quest: no gauge should show outside a
-   quest.
+5. Use an item from your item slot during a quest (the game has no map screen
+   to open before a quest). Between quests, walk around the hub, then start
+   another quest: no gauge should show outside a quest.
 6. One quest where you die or run out of time, then the next quest.
 7. One online quest where you join as the second, third or fourth hunter.
 8. One quest where you never draw a melee weapon.
