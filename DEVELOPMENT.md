@@ -235,7 +235,26 @@ record) to every sample, so a line says which weapon produced it, and a tier,
 maximum or player change is now sampled at full resolution without the rate
 floor, so a boundary lands on the exact point.
 
-## Sharpness tables, read from the game's RomFS (Eden dump)
+## Gauge scope, set by the tester on 2026-10-22
+
+The bar length is `current / maximum` and nothing else. Tier boundaries, the
+kireaji thresholds, the wide-thin point counts and the tier maths are the game's
+own business: the mod does not compute a tier, does not pick a colour, and does
+not change how the native gauge behaves. `mMaxSharpness` is read live, which is
+why the level tables below are reference, not a requirement: the gauge never
+needs them.
+
+What the mod does need, and what the runs already proved:
+
+- `mSharpness` at player `+10100` and `mMaxSharpness` at `+10104`, both signed
+  points, read live: 250 and 200 on the tester's two weapons, depletion and
+  whetstone recovery visible in the log.
+- a ratio computed only from a verified positive maximum, clamped to `[0,1]`,
+  with the native HUD untouched in every unsupported state.
+- the native tier colour as the game produces it, read and reused, never
+  re-derived from the ratio.
+
+## Sharpness tables, read from the game's RomFS (Eden dump, reference only)
 
 The RomFS is at `~/.local/share/eden/dump/0100770008DD8000/romfs/nativeNX/`, and
 the sharpness layout the tier chain points at is in it.

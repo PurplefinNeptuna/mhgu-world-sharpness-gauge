@@ -310,6 +310,7 @@
     "level_tables": "weapon07LevelData.w07d 876 entries stride 15; weapon11LevelData.w11d 845 entries stride 17; header 8 bytes verified by exact file sizes",
     "dual_piercers_lv1": "unique level-1 fit: levelId 147 baseId 22 kireaji type 76 raw 80; segments red 80, orange 10, yellow 100, green 190 to 200 (10 points, the tester's thin green)",
     "hidden_saber_lv1": "two level-1 fits, both raw 130: levelId 55 baseId 8 type 1 (red 60, orange 30, yellow 100, green 190 to 250, 60 points wide) and levelId 431 baseId 61 type 65 (red 60, orange 40, yellow 90, green 60). The r3 log cannot separate them: one sample with sharpness between 90 and 99 decides",
-    "not_claimed": "no weapon base id is mapped to a weapon name from game files; the identification is by level, amount, kireaji boundaries and raw damage against the tester's own report"
+    "not_claimed": "no weapon base id is mapped to a weapon name from game files; the identification is by level, amount, kireaji boundaries and raw damage against the tester's own report",
+    "status": "reference only: the gauge uses current/mMaxSharpness and the game's own tier colour, so tier boundaries are not a mod requirement (tester's scope note, 2026-10-22)"
   }
 }
