@@ -1,6 +1,6 @@
 # Modern Sharpness Gauge
 
-r1 is a diagnostic build. It reads the native sharpness gauge and writes
+r2 is a diagnostic build. It reads the native sharpness gauge and writes
 numbers to the log. It draws nothing and changes no game value. The gauge
 itself comes in a later version, once these readings are checked.
 
@@ -12,35 +12,40 @@ itself comes in a later version, once these readings are checked.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r1-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r2-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r1`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r2`
 should be listed.
 
 ## Usage
 
 The mod works on its own. While the sharpness gauge is on screen it records up
-to 60 samples per game launch, each holding:
+to 240 samples per game launch, each holding:
 
 - the animation controller that drives the gauge, and the text objects under it;
 - your hunter's current sharpness points, maximum points, and the tier the game
   chose;
-- the fill as basis points, where 9375 means 93.75%.
+- the fill as basis points, where 9375 means 93.75%;
+- the rectangle the game draws each text object inside, and the atlas rectangle
+  that says which glyph it is.
 
-Lines are written at error level, so stock Forge shows them:
+A sample is taken when something changed, or every few seconds, so one run can
+follow a whole session. Each sample prints one summary line, then one line per
+drawn object. The shape below is an example, not a measured r2 run:
 
 ```text
-MSG r1 sample 7/60: ctrl=0x30c9a58 row=0x21f7c40 anim=4 objects=4 sequences=15 first_object=29 first_sequence=47 owner=0x2c9e250 cache=0x2c9e590 cache_flags=0x0 root=0x2c9e2a0 visited=4 visible=3 drawable=3 node=0x2c9e2c0 node_flags=0x20000001 rect_l=110 rect_t=38 rect_r=198 rect_b=62 player=0x5d63a40 current=150 maximum=160 tier=2 ratio_bp=9375
+MSG r2 sample 7/240: ctrl=0x441838b0 row=0x53020238 owner=0x47f96900 cache=0x480038e0 cache_flags=0x0 root=0x488279d0 anim=4 objects=4 sequences=15 first_object=29 hunter=0 player=0x47e92570 current=294 maximum=300 tier=3 input_flags=0x0 context=0x441839c0 clip_l=0 clip_t=0 clip_r=0 clip_b=0 visited=4 visible=3 drawable=2 truncated=0 ratio_bp=9800
+MSG r2 tree 7 n1: addr=0x48827a10 flags=0x2000001 kind=6 own=110 38 198 62 eff=110 38 198 62 tex=0 280 88 304
 ```
 
 A line ending in `ratio=unsupported` marks a state the mod will not use: no
 local player, no quest, no gauge on screen, or a maximum that is not a positive
-number. The native gauge keeps drawing in all of those cases. After 60 samples
+number. The native gauge keeps drawing in all of those cases. After 240 samples
 the hook stops reading game memory for the rest of that launch.
 
 ### What to play
@@ -86,10 +91,15 @@ mod writes no save data.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-r1 has not been run by its author, so its sample lines, the 60-sample cap and
+r2 has not been run by its author, so its sample lines, the 240-sample cap and
 the claim that nothing is drawn are build-time results, awaiting a play test.
-The sample window is small: some recovery and buff paths may produce no lines
-in a given run, and the mod has no settings to change that.
+An earlier r1 diagnostic was played: it read the sharpness numbers correctly
+(300 points maximum, dropping by three per hit) but printed no tree geometry,
+which is what r2 corrects.
+
+240 samples still cannot cover every recovery, buff and HUD state; some paths
+may produce no lines in a given run, and the mod has no settings to change
+that. The gauge itself is not part of this version.
 
 If Forge reports an incompatible loader, check that MHGU is 1.4.0 and that you
 are running Forge 1.5.1.

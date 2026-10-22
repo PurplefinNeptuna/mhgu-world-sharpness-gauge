@@ -10,15 +10,15 @@ extern crate alloc;
 use alloc::string::String;
 use core::fmt::Write as _;
 use core::sync::atomic::{AtomicBool, Ordering};
-use sharpness_gauge_core::{FIELDS, gauge_of, ratio_of_words};
+use sharpness_gauge_core::{FIELDS, HEAD_WORDS, MAX_NODES, NODE_WORDS, FIELD_VISITED, ratio_of_words};
 mod hooks;
 mod memory;
 mod sampling;
 mod signatures;
 
-/// The number of samples drained per frame. Formatting is cheap compared to
-/// the log line itself, and the budget is 60 lines per process.
-const DRAIN_PER_FRAME: usize = 2;
+/// Samples drained per frame. Each sample prints one summary line plus one
+/// line per walked node, so the drain rate is bounded well below the budget.
+const DRAIN_PER_FRAME: usize = 1;
 /// Walker calls without a gauge controller that count as "the HUD is absent".
 const ABSENT_AFTER_CALLS: u32 = 6_000;
 static REPORTED_FIRST: AtomicBool = AtomicBool::new(false);
@@ -78,42 +78,84 @@ pub extern "C" fn forge_onInit() {
     }
 }
 
-/// Pointers print in hexadecimal, counts and gauge values in decimal, so a
-/// log line is readable without losing any bits.
-fn append_field(line: &mut String, name: &str, value: u32) {
-    let hex = matches!(
+/// Pointers print in hexadecimal, screen coordinates and the signed gauge
+/// words in decimal, counts in decimal, so a log line is readable without
+/// losing any bits.
+fn append_field(line: &mut String, name: &str, word: u32) {
+    if matches!(
         name,
-        "ctrl" | "row" | "owner" | "cache" | "root" | "node" | "node_flags" | "player"
-            | "cache_flags"
-    );
-    if hex {
-        let _ = write!(line, " {name}={value:#x}");
+        "ctrl" | "row" | "owner" | "cache" | "cache_flags" | "root" | "player"
+            | "context" | "input_flags"
+    ) {
+        let _ = write!(line, " {name}={word:#x}");
+    } else if matches!(
+        name,
+        "current" | "maximum" | "clip_l" | "clip_t" | "clip_r" | "clip_b"
+    ) {
+        let _ = write!(line, " {name}={value}", value = word as i32);
     } else {
-        let _ = write!(line, " {name}={value}");
+        let _ = write!(line, " {name}={word}");
     }
 }
 
+/// One sample: identity, chain, gauge words, the live clip and the walk counts.
+/// The node blocks print separately, one line each, in `node_line`.
 fn sample_line(number: u32, words: &[u32; sampling::WORDS]) -> String {
-    let mut line = String::with_capacity(256);
+    let mut line = String::with_capacity(512);
     let _ = write!(
         line,
         concat!("MSG ", env!("MSG_VERSION"), " sample {number}/{MAX}: "),
         number = number,
         MAX = sampling::MAX_SAMPLES
     );
-    for (name, value) in FIELDS.iter().zip(words) {
-        append_field(&mut line, name, *value);
+    for index in 0..HEAD_WORDS {
+        append_field(&mut line, FIELDS[index], words[index]);
     }
-    match (gauge_of(words), ratio_of_words(words)) {
-        (Some(gauge), Some(points)) => {
-            let _ = write!(line, " ratio_bp={points} tier={}", gauge.tier);
+    match ratio_of_words(words) {
+        Some(points) => {
+            let _ = write!(line, " ratio_bp={points}");
         }
-        _ => {
+        None => {
             // Unsupported state: no player, no gauge fields, or a maximum that
             // is not verified positive. Nothing is drawn from it.
             let _ = write!(line, " ratio=unsupported");
         }
     }
+    line
+}
+
+/// One node: address, the whole flag word (bit 0 visible, 0x0200_0000 drawable,
+/// 0x0040_0000 leaf exit, 0x0000_4000 prepaint skip), the object kind, then the
+/// own rectangle and the rectangle prepaint leaves after the clip intersection.
+fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> String {
+    let base = HEAD_WORDS + index * NODE_WORDS;
+    let mut line = String::with_capacity(160);
+    let _ = write!(
+        line,
+        concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " tree {number} n{index}: addr={a:#x} flags={f:#x} kind={k}",
+            " own={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th}"
+        ),
+        number = number,
+        index = index,
+        a = words[base],
+        f = words[base + 1],
+        k = words[base + 2],
+        l = words[base + 3] as i32,
+        t = words[base + 4] as i32,
+        r = words[base + 5] as i32,
+        b = words[base + 6] as i32,
+        el = words[base + 7] as i32,
+        et = words[base + 8] as i32,
+        er = words[base + 9] as i32,
+        eb = words[base + 10] as i32,
+        tu = words[base + 11] as i32,
+        tv = words[base + 12] as i32,
+        tw = words[base + 13] as i32,
+        th = words[base + 14] as i32
+    );
     line
 }
 
@@ -132,6 +174,15 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
             ));
         }
         log::error!("{}", sample_line(number, &words));
+        let walked = words[FIELD_VISITED];
+        let limit = if walked > MAX_NODES as u32 {
+            MAX_NODES
+        } else {
+            walked as usize
+        };
+        for index in 0..limit {
+            log::error!("{}", node_line(number, index, &words));
+        }
     }
     let (calls, taken, matched) = sampling::stats();
     if matched && taken == sampling::MAX_SAMPLES && !REPORTED_FULL.swap(true, Ordering::Relaxed) {

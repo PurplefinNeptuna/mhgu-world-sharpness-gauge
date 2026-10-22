@@ -67,10 +67,21 @@ Runtime state read by the hook:
 | player `+10104` | `uPlayerQuest::mMaxSharpness`, signed points |
 | player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index (0 red .. 4) |
 | controller `+0x68/+0x80/+0x8c/+0x9c/+0xa0` | tree root, draw cache, rebuild flag, animation row, owner |
-| row `+0/+4/+6/+0xc/+0x14` | animation id, object count, sequence count, first object row, first sequence row |
-| node `+0x38/+0x54/+0x68/+0x6c/+0x70` | rect (4 s32), flags, first child, next sibling, parent |
+| row `+0/+4/+0xc/+0x14` | animation id; counts packed in one word (objects low u16, sequences high u16); first object row; the word at `+0x14` is a pointer into the sequence block, not a row index |
+| node `+0x33` / `+0x42` / `+0x54` | kind word (`& 0xf`), draw-dirty byte (`& 0x30`), flag word `+0x54..+0x57` |
+| node `+0x68/+0x6c/+0x70` | first child, next sibling, parent |
+| node `+0xE0..+0xEC` / `+0xF0..+0xFC` | own screen rect (4 signed ints), then the rect prepaint leaves after the live-clip intersection |
+| node `+0x100/+0x104/+0x10C..+0x118` | texture id, texture object, atlas rect (4 ints, identifies the glyph) |
+| context `+0xD0..+0xDC` | the live clip every drawable in this walk is intersected with |
 
-Node flag bits: `1` visible, `0x20000000` drawable. The gauge identity tuple,
+Ghidra indexes `int *` members in WORDS, so a decompiled `param_1[0x38]` sits
+at byte offset `0x38 * 4 = 0xE0`, while written pointer arithmetic (`param_1 + 0x54`)
+is already a byte offset; that is the rule behind the rect offsets above. The node
+flag word at `+0x54` covers bytes `+0x54..+0x57`: bit 0 visible (the walker skips an
+invisible subtree), `0x0200_0000` drawable, `0x0040_0000` leaf exit (byte `+0x57` bit
+1), `0x0000_4000` prepaint skip (byte `+0x56` bit 6). The r1 walk reported
+`drawable=0` because r1 tested `0x2000_0000`; r2 tests the value the walker itself
+uses. The gauge identity tuple,
 identical in every language and in HD: animation id 4, 4 objects, first object
 row 29, 15 sequences. Stamina and `pl_gauge0` rows differ, so the identity test
 is the cheap filter in front of every read. The singletons live in `.bss`, past
@@ -99,15 +110,23 @@ above and is read through the mapping query at runtime.
   above-maximum state yields no ratio; above maximum draws full, depletion
   floors at empty. Nothing is ever divided by an unverified maximum.
 
-## Static evidence for r1
+## Static evidence for r2
 
-`./build.sh test` runs 8 host fixtures (`core/tests/behavior.rs`) then
+r2 changes, all inside the diagnostic: the node masks and offsets above
+replace the r1 guesses (`0x2000_0000` drawable, rect at `+0x38`), the walk skips
+invisible subtrees like the walker does, each node prints its own, effective and
+atlas rectangles, the live clip and the walker's draw context are copied, the
+sample budget is 240 with change-driven triggers plus a periodic tick, and the
+duplicate `tier` field plus the pointer-valued `first_sequence` left the line.
+
+`./build.sh test` runs 10 host fixtures (`core/tests/behavior.rs`) then
 `verify.py`. Fixtures: partial fill, empty, full, above maximum, depleted,
 zero and negative maximum, extreme negative, the identity tuple against
 `pl_gauge0` and stamina rows, the local-player chain (index 2, index 7, null
 session, empty slot), signed gauge decode, a full controller sample carrying
 150/160 at tier 2 with three drawables, a non-gauge controller costing no
-sample, a gauge with no player, and a tree past the visit limit.
+sample, a gauge with no player, a tree past the visit limit, a hidden subtree
+that must not be walked, and the fixture walk's node-by-node shape.
 `verify.py` reports `PASSED`: 15 windows match the supplied NSO, the hook
 window is unique (1 match), exports are exactly
 `forge_onLoad/forge_onInit/forge_onUpdate/forge_onImGuiInit/forge_onImGuiRender/init/fini`,
@@ -115,33 +134,58 @@ every strong import resolves in main/sdk/forge, no settings or config import
 exists, no `msr` in the disassembly, no `DT_TEXTREL`, and the payload is the
 one NRO. `EVIDENCE.json` records the hashes.
 
-## Not proven by r1
+## Run log read (Eden, r1, 2026-10-22)
 
-Pixel behaviour of any kind: no runtime run of this binary exists. Open items
-the user run is meant to answer, in priority order:
+The r1 candidate was installed in Eden's `load/0100770008DD8000/modern-sharpness-gauge/`
+and the installed NRO hashed `9ebf36a31a23b0cca54e0e81762de1bee82620ece1780f0d64181c30ceaab92e`,
+identical to the packaged payload, so the session ran these exact bytes. Forge
+1.5.1 initialised; 63 of the 64 ERROR lines in `eden_log.txt` are ours (the other
+is an Eden shader notice). The session ran t=0 to t=751 s.
 
-1. Which sample lines appear at all, and how many. If `no sharpness gauge
-   controller seen` appears, the walker site does not run in that state and the
-   hook site is wrong.
-2. `current`/`maximum` sign and unit across depletion, whetstones, meals and
-   weapon changes, and whether every recovery path touches `+10100`/`+10104`
-   (`adjustSharpness` is the only writer found, gates at `0x27bcd0`, `0x27c7ec`,
-   `0x27b918` remain to be exercised).
-3. `tier` agreement with `mSharpnessType` at `+5104` in buffed and red states.
-4. `rect_*` of the first drawable: the screen direction of tip and hilt for
-   `Txt_sharp` (88x24 glyph, atlas rect 0,280,88,304).
-5. `visited/visible/drawable` counts, to confirm 4 objects and 3 drawables, and
-   `cache_flags` behaviour on HUD recreation.
-6. The `cGUI+0x2c` object map capacity and insert point, plus the 16-byte cache
-   growth per inserted object (needs a Phase 2 write test, not this run).
-7. Where the riding flag lives: `mInputFlags` at `+5156` and the `uPlayerQuest`
-   state words are the candidates; r1 does not read them.
+What that run proved:
+
+- the hook is reached and the identity gate works: 6001 walker calls with no
+  match printed the absent-HUD line at t=54 (before any gauge exists), then the
+  gauge controller matched at t=300 with `anim=4 objects=4 first_object=29
+  sequences=15`, `ctrl=0x441838b0 row=0x53020238 owner=0x47f96900
+  cache=0x480038e0 root=0x488279d0`, all stable across samples;
+- the local-player chain resolved: `player=0x47e92570`, hunter index 0;
+- the gauge words are points, signed: `current` 300 then 297 then 294,
+  `maximum=300`, `tier=3`, `ratio_bp` 10000, 9900, 9800: three points per hit,
+  tier unchanged in that window;
+- the sample budget behaves as written: 60 samples between t=300.6 and t=418.7,
+  then the "budget complete" line. The remaining ~330 s produced no lines, so
+  whetstones, meals, Gunner sharpness, weapon changes, HUD recreation and the
+  other hunter slots were never observed;
+- the tree walk under-reported: `visited=3 visible=2 drawable=0` and every
+  rectangle zero, because r1 tested `0x2000_0000` for drawable and never gated
+  on visibility. r2 tests the mask the walker uses, skips invisible subtrees,
+  and prints the own, effective and atlas rectangles plus the live clip;
+- `first_sequence=1392641332` (`0x52E9E154`) showed row `+0x14` is a pointer,
+  not the sequence row index Phase 0 recorded; r2 does not treat it as identity;
+- the log holds no line that could change what is drawn, and nothing in it
+  suggests a visual problem. The tester gave no separate note about the screen
+  and no screenshot was recorded, so "nothing changed on screen" rests on the
+  plugin's read-only design rather than on an observation.
+
+Still open, and what the r2 run must answer: tier changes, whetstones, Sharp
+Dashi buffs, Gunner sharpness, weapon changes, HUD recreation and
+`cache_flags`, hunter slots 1..3 online, the tip/hilt direction of `Txt_sharp`
+from the printed rectangles, the object and drawable counts, and whether every
+recovery path touches `+10100`/`+10104` (writer `adjustSharpness` at
+`main+0x2ad288`, gates `0x27bcd0`, `0x27c7ec`, `0x27b918`). The `cGUI+0x2c`
+object map capacity, the 16-byte cache growth per inserted object and the
+riding flag stay for Phase 2: r2 only prints the raw `input_flags` word at
+`+5156` for comparison, it does not interpret it.
 
 ## Phase 2 needs
 
-The user's log from this exact archive, matched against the NRO SHA-256 in
+The user's log from the r2 archive, matched against the NRO SHA-256
+`acc9c2cf4b070c5c6ba6eecead82eb329e9ed7f1bb3430243bfcdc0b91262c61` in
 `DISTRIBUTION.json` and `build.json`, recorded in `EVIDENCE.json` as runtime
-evidence for r1. Then the draw design can be built on measured numbers.
+evidence for r2. Phase 2 (drawing the gauge) starts once that log shows the
+counts, rectangles and tier behaviour the design needs, and nothing in it
+contradicts the r1 findings.
 
 ## Rules to keep
 

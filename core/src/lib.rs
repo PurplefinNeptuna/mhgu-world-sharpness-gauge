@@ -34,19 +34,19 @@ pub const SHARPNESS: u32 = 10_100;
 pub const MAX_SHARPNESS: u32 = 10_104;
 pub const SHARPNESS_TYPE: u32 = 5_104;
 
-// Animation row (nGUI::ANIM): +0 id u32, +4/+6/+8 u16 objects/sequences/
-// drawables, +12 first object row, +20 first sequence row. The gauge identity
-// tuple is identical in every inspected language archive and in the HD copy,
-// so identification never uses names, strings or a language prefix.
+// Animation row (nGUI::ANIM): +0 animation id u32; the word at +4 is two u16
+// counts (objects low, sequences high, confirmed by the r1 run); +12 is the
+// first object row index; +20 is a pointer to the first sequence block, not a
+// row index, which is why it is not part of the identity. The gauge identity
+// tuple is identical in every inspected language archive and in the HD copy, so
+// identification never uses names, strings or a language prefix.
 pub const SHARP_ANIMATION: u32 = 4;
 pub const SHARP_OBJECTS: u32 = 4;
 pub const SHARP_FIRST_OBJECT: u32 = 29;
 pub const SHARP_SEQUENCES: u32 = 15;
 pub const ROW_ID: u32 = 0x00;
-pub const ROW_OBJECTS: u32 = 0x04;
-pub const ROW_SEQUENCES: u32 = 0x06;
+pub const ROW_COUNTS: u32 = 0x04;
 pub const ROW_FIRST_OBJECT: u32 = 0x0c;
-pub const ROW_FIRST_SEQUENCE: u32 = 0x14;
 
 // Animation controller: +0x68 tree root node, +0x80 draw cache, +0x8c rebuild
 // flags (bit 0 asks the walker to rebuild), +0x9c animation row, +0xa0 owner.
@@ -56,37 +56,45 @@ pub const CONTROLLER_FLAGS: u32 = 0x8c;
 pub const CONTROLLER_ROW: u32 = 0x9c;
 pub const CONTROLLER_OWNER: u32 = 0xa0;
 
-// GUI object node, as walked by the draw walker at main+0xa494a0: +0x54 flags
-// (bit 0 visible, 0x2000_0000 drawable), +0x38..+0x44 the four integer screen
-// rectangle edges, +0x68 first child, +0x6c next sibling, +0x70 parent.
+// GUI object node, as walked by the draw walker at main+0xa494a0, painted by
+// prepaint at main+0xa4e628, and written by the two cGUIObjTexture setters at
+// main+0xa4fb58 (rect) and main+0xa4faf0 (texture). Ghidra indexes `int *`
+// parameters in WORDS, so a member written `param_1[0x38]` sits at byte
+// offset 0x38 * 4 = 0xE0; explicit `param_1 + 0x54` arithmetic is a byte
+// offset. The object's own fields:
+//   +0x54 u32   bytes +0x54..+0x57: bit 0 visible (the walker skips the whole
+//               subtree when clear), 0x0200_0000 drawable (byte 2 bit 5),
+//               0x0040_0000 byte 3 (+0x57) bit 1 leaf exit, 0x0000_4000 byte 2
+//               (+0x56) bit 6 prepaint skip
+//   +0x33 u32   low nibble is the object kind; kinds 6 and 3 take the clip path
+//   +0xE0..0xEC four signed ints: own screen rect (left, top, right, bottom)
+//   +0xF0..0xFC four signed ints: that rect after prepaint intersects it with
+//               the live clip, i.e. exactly what native code draws
+//   +0x100 u32  texture id, +0x104 texture object, +0x10C..0x118 four ints: the
+//               rectangle inside the atlas, which identifies the glyph drawn
+//   +0x42 byte  & 0x30 draw-dirty flag, +0xD0 u32 bit 0 rect-dirty, bit 1 clip
+//               applied
 pub const NODE_FLAGS: u32 = 0x54;
-pub const NODE_RECT: u32 = 0x38;
+pub const NODE_KIND: u32 = 0x33;
+pub const NODE_RECT: u32 = 0xe0;
+pub const NODE_EFFECTIVE_RECT: u32 = 0xf0;
+pub const NODE_TEXTURE_ID: u32 = 0x100;
+pub const NODE_TEXTURE_RECT: u32 = 0x10c;
 pub const NODE_CHILD: u32 = 0x68;
 pub const NODE_SIBLING: u32 = 0x6c;
 pub const NODE_PARENT: u32 = 0x70;
 pub const NODE_VISIBLE: u32 = 1;
-pub const NODE_DRAWABLE: u32 = 0x2000_0000;
+pub const NODE_DRAWABLE: u32 = 0x0200_0000;
+pub const NODE_LEAF_EXIT: u32 = 0x0040_0000;
 
-/// Local hunter's player object, or None when the quest/session state does not
-/// provide one. Every pointer in the chain is validated by the Memory impl.
-/// `base` is the loaded main module address: the two cells below are
-/// main-relative, the player pointers they yield are absolute heap addresses.
-pub fn local_player(memory: &dyn Memory, base: u32) -> Option<u32> {
-    let session = memory.word(base.checked_add(SESSION_CELL)?)?;
-    if session == 0 {
-        return None;
-    }
-    let index = memory.word(session.checked_add(SESSION_LOCAL_INDEX)?)?;
-    if index >= MAX_HUNTERS {
-        return None;
-    }
-    let array = memory.word(base.checked_add(SPLAYER_CELL)?)?;
-    if array == 0 {
-        return None;
-    }
-    let player = memory.word(array.checked_add(PLAYER_ARRAY + index.checked_mul(PLAYER_STRIDE)?)?)?;
-    (player != 0).then_some(player)
-}
+// The walker's second argument is the draw context. Its live scissor rectangle,
+// which prepaint intersects every drawable with, sits at +0xd0..+0xdc.
+pub const CONTEXT_CLIP: u32 = 0xd0;
+
+// mInputFlags in uPlayerBase, the candidate for the riding state. Unproven: the
+// r1 run and the decompilations do not locate a riding bit, so r2 only copies
+// this word for comparison.
+pub const INPUT_FLAGS: u32 = 5_156;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Gauge {
@@ -134,25 +142,36 @@ pub fn is_sharp_animation(animation: u32, objects: u32, first_object: u32, seque
         && sequences == SHARP_SEQUENCES
 }
 
-/// Bounded pre-order scan of a controller's node tree. It records counts and
-/// the first drawable node only; no pointer is retained past the call. The
-/// stack depth and visit count are fixed, so a damaged tree cannot run away.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Node {
+    pub address: u32,
+    pub flags: u32,
+    pub kind: u32,
+    /// Own screen rectangle, the rectangle prepaint leaves after the scissor
+    /// intersection, and the rectangle inside the texture atlas.
+    pub rect: [i32; 4],
+    pub effective: [i32; 4],
+    pub texture: [i32; 4],
+}
+
+/// Bounded pre-order walk of a controller's node tree. It records counts and
+/// the leading nodes; no pointer is retained past the call. The stack depth,
+/// visit count and recorded node count are fixed, so a damaged tree cannot run
+/// away.
 pub const SCAN_STACK: usize = 16;
 pub const SCAN_LIMIT: u32 = 64;
+pub const MAX_NODES: usize = 6;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct TreeScan {
+pub struct Walk {
     pub visited: u32,
     pub visible: u32,
     pub drawable: u32,
-    /// First drawable node found, with its flags and screen rectangle.
-    pub node: u32,
-    pub flags: u32,
-    pub rect: [i32; 4],
+    pub nodes: [Node; MAX_NODES],
     pub truncated: bool,
 }
 
-pub fn scan_tree(memory: &dyn Memory, root: u32) -> TreeScan {
-    let mut out = TreeScan::default();
+pub fn scan_walk(memory: &dyn Memory, root: u32) -> Walk {
+    let mut out = Walk::default();
     let mut stack = [0u32; SCAN_STACK];
     let mut top = 0usize;
     let mut overflow = false;
@@ -177,128 +196,222 @@ pub fn scan_tree(memory: &dyn Memory, root: u32) -> TreeScan {
             overflow = true;
             break;
         };
+        let visible = flags & NODE_VISIBLE != 0;
         out.visited += 1;
-        if flags & NODE_VISIBLE != 0 {
+        if visible {
             out.visible += 1;
-        }
-        if flags & NODE_DRAWABLE != 0 && out.node == 0 {
-            out.node = node;
-            out.flags = flags;
-            for index in 0..4u32 {
-                out.rect[index as usize] = memory
-                    .word(node.wrapping_add(NODE_RECT + index * 4))
-                    .unwrap_or(0) as i32;
-            }
         }
         if flags & NODE_DRAWABLE != 0 {
             out.drawable += 1;
         }
-        // Push the sibling first so the child branch is visited next, which
-        // keeps the recorded drawable near the top of the gauge subtree.
+        if out.visited as usize <= MAX_NODES {
+            let mut recorded = Node {
+                address: node,
+                flags,
+                kind: memory.word(node.wrapping_add(NODE_KIND)).unwrap_or(0) & 0xf,
+                rect: [0; 4],
+                effective: [0; 4],
+                texture: [0; 4],
+            };
+            for index in 0..4 {
+                recorded.rect[index] = memory
+                    .word(node.wrapping_add(NODE_RECT + (index as u32) * 4))
+                    .unwrap_or(0) as i32;
+                recorded.effective[index] = memory
+                    .word(node.wrapping_add(NODE_EFFECTIVE_RECT + (index as u32) * 4))
+                    .unwrap_or(0) as i32;
+                recorded.texture[index] = memory
+                    .word(node.wrapping_add(NODE_TEXTURE_RECT + (index as u32) * 4))
+                    .unwrap_or(0) as i32;
+            }
+            out.nodes[out.visited as usize - 1] = recorded;
+        }
+        // The sibling is pushed first so the child branch is taken next; the
+        // child is only reachable when this node is visible, matching the
+        // walker's skip of invisible subtrees.
         push!(memory
             .word(node.wrapping_add(NODE_SIBLING))
             .unwrap_or(0));
-        push!(memory.word(node.wrapping_add(NODE_CHILD)).unwrap_or(0));
+        if visible {
+            push!(memory.word(node.wrapping_add(NODE_CHILD)).unwrap_or(0));
+        }
     }
     out.truncated = overflow || top > 0 || out.visited >= SCAN_LIMIT;
     out
+}
+
+/// Local hunter's player object and the session's hunter index. The index is
+/// reported even when the chain has no player, so a log line can tell an absent
+/// player apart from an absent chain.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Local {
+    pub player: u32,
+    pub hunter_index: u32,
+}
+
+/// Local hunter's player object, or None when the quest/session state does not
+/// provide one. Every pointer in the chain is validated by the Memory impl.
+/// `base` is the loaded main module address: the two cells below are
+/// main-relative, the player pointers they yield are absolute heap addresses.
+pub fn local_player(memory: &dyn Memory, base: u32) -> Option<Local> {
+    let session = memory.word(base.checked_add(SESSION_CELL)?)?;
+    if session == 0 {
+        return None;
+    }
+    let index = memory.word(session.checked_add(SESSION_LOCAL_INDEX)?)?;
+    if index >= MAX_HUNTERS {
+        return None;
+    }
+    let array = memory.word(base.checked_add(SPLAYER_CELL)?)?;
+    if array == 0 {
+        return None;
+    }
+    let player = memory.word(array.checked_add(PLAYER_ARRAY + index.checked_mul(PLAYER_STRIDE)?)?)?;
+    (player != 0).then_some(Local {
+        player,
+        hunter_index: index
+    })
 }
 
 /// One bounded observation copied out inside the hot hook. All values are
 /// plain u32 words (signed fields are two's complement) so the hook performs
 /// no allocation, formatting or file access. `FIELDS` names each word in the
 /// same order as `words`, which is the log format and the ring-buffer layout.
-pub const FIELDS: [&str; 24] = [
-    "ctrl",
-    "row",
-    "anim",
-    "objects",
-    "sequences",
-    "first_object",
-    "first_sequence",
-    "owner",
-    "cache",
-    "cache_flags",
-    "root",
-    "visited",
-    "visible",
-    "drawable",
-    "node",
-    "node_flags",
-    "rect_l",
-    "rect_t",
-    "rect_r",
-    "rect_b",
-    "player",
-    "current",
-    "maximum",
-    "tier",
+pub const FIELDS: [&str; 115] = [
+    "ctrl",     "row",     "owner",     "cache",
+    "cache_flags",     "root",     "anim",     "objects",
+    "sequences",     "first_object",     "hunter",     "player",
+    "current",     "maximum",     "tier",     "input_flags",
+    "context",     "clip_l",     "clip_t",     "clip_r",
+    "clip_b",     "visited",     "visible",     "drawable",
+    "truncated",     "n0_addr",     "n0_flags",     "n0_kind",
+    "n0_l",     "n0_t",     "n0_r",     "n0_b",
+    "n0_el",     "n0_et",     "n0_er",     "n0_eb",
+    "n0_tx_u",     "n0_tx_v",     "n0_tx_w",     "n0_tx_h",
+    "n1_addr",     "n1_flags",     "n1_kind",     "n1_l",
+    "n1_t",     "n1_r",     "n1_b",     "n1_el",
+    "n1_et",     "n1_er",     "n1_eb",     "n1_tx_u",
+    "n1_tx_v",     "n1_tx_w",     "n1_tx_h",     "n2_addr",
+    "n2_flags",     "n2_kind",     "n2_l",     "n2_t",
+    "n2_r",     "n2_b",     "n2_el",     "n2_et",
+    "n2_er",     "n2_eb",     "n2_tx_u",     "n2_tx_v",
+    "n2_tx_w",     "n2_tx_h",     "n3_addr",     "n3_flags",
+    "n3_kind",     "n3_l",     "n3_t",     "n3_r",
+    "n3_b",     "n3_el",     "n3_et",     "n3_er",
+    "n3_eb",     "n3_tx_u",     "n3_tx_v",     "n3_tx_w",
+    "n3_tx_h",     "n4_addr",     "n4_flags",     "n4_kind",
+    "n4_l",     "n4_t",     "n4_r",     "n4_b",
+    "n4_el",     "n4_et",     "n4_er",     "n4_eb",
+    "n4_tx_u",     "n4_tx_v",     "n4_tx_w",     "n4_tx_h",
+    "n5_addr",     "n5_flags",     "n5_kind",     "n5_l",
+    "n5_t",     "n5_r",     "n5_b",     "n5_el",
+    "n5_et",     "n5_er",     "n5_eb",     "n5_tx_u",
+    "n5_tx_v",     "n5_tx_w",     "n5_tx_h",
+];
+
+/// Sample word layout: the head block, then `MAX_NODES` node blocks.
+pub const HEAD_WORDS: usize = 25;
+pub const NODE_WORDS: usize = 15;
+pub const FIELD_VISITED: usize = 21;
+pub const FIELD_VISIBLE: usize = 22;
+pub const FIELD_DRAWABLE: usize = 23;
+
+/// Word positions compared against the previous sample; a difference means the
+/// state changed and the sample deserves a log line. The set covers the
+/// questions Phase 1 asks: HUD recreation (controller, root), player or weapon
+/// change (hunter index, player), buff or recovery (current, maximum, tier),
+/// the clip the game draws inside (context, clip_*), the tree shape (counts,
+/// first node address and rectangle).
+pub const KEY_FIELDS: [usize; 20] = [
+    0, 5, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 25, 28, 29, 30, 31,
 ];
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Sample {
     pub controller: u32,
     pub row: u32,
-    pub animation: u32,
-    pub objects: u32,
-    pub sequences: u32,
-    pub first_object: u32,
-    pub first_sequence: u32,
     pub owner: u32,
     pub cache: u32,
     pub cache_flags: u32,
     pub root: u32,
-    pub scan: TreeScan,
-    pub player: u32,
+    pub animation: u32,
+    pub objects: u32,
+    pub sequences: u32,
+    pub first_object: u32,
+    pub local: Local,
+    pub input_flags: u32,
+    pub context: u32,
+    pub clip: [i32; 4],
     pub gauge: Option<Gauge>,
+    pub walk: Walk,
 }
 
 impl Sample {
     pub fn words(&self) -> [u32; FIELDS.len()] {
         let gauge = self.gauge.unwrap_or(Gauge::default());
-        [
+        let mut words = [0u32; FIELDS.len()];
+        let head: [u32; 25] = [
             self.controller,
             self.row,
-            self.animation,
-            self.objects,
-            self.sequences,
-            self.first_object,
-            self.first_sequence,
             self.owner,
             self.cache,
             self.cache_flags,
             self.root,
-            self.scan.visited,
-            self.scan.visible,
-            self.scan.drawable,
-            self.scan.node,
-            self.scan.flags,
-            self.scan.rect[0] as u32,
-            self.scan.rect[1] as u32,
-            self.scan.rect[2] as u32,
-            self.scan.rect[3] as u32,
-            self.player,
+            self.animation,
+            self.objects,
+            self.sequences,
+            self.first_object,
+            self.local.hunter_index,
+            self.local.player,
             gauge.current as u32,
             gauge.maximum as u32,
             gauge.tier,
-        ]
+            self.input_flags,
+            self.context,
+            self.clip[0] as u32,
+            self.clip[1] as u32,
+            self.clip[2] as u32,
+            self.clip[3] as u32,
+            self.walk.visited,
+            self.walk.visible,
+            self.walk.drawable,
+            self.walk.truncated as usize as u32,
+        ];
+        for index in 0..head.len() {
+            words[index] = head[index];
+        }
+        for index in 0..MAX_NODES {
+            let node = self.walk.nodes[index];
+            let base = HEAD_WORDS + index * NODE_WORDS;
+            words[base] = node.address;
+            words[base + 1] = node.flags;
+            words[base + 2] = node.kind;
+            for edge in 0..4 {
+                words[base + 3 + edge] = node.rect[edge] as u32;
+                words[base + 7 + edge] = node.effective[edge] as u32;
+                words[base + 11 + edge] = node.texture[edge] as u32;
+            }
+        }
+        words
     }
 }
 
 /// Read the gauge state behind one animation controller. Returns None when the
 /// controller is not the sharpness animation, so callers can ignore it cheaply.
-pub fn sample_controller(memory: &dyn Memory, controller: u32, base: u32) -> Option<Sample> {
+/// `context` is the walker's draw argument, whose live clip every drawable in
+/// the walk is intersected with before it is painted.
+pub fn sample_controller(memory: &dyn Memory, controller: u32, context: u32, base: u32) -> Option<Sample> {
     let row = memory.word(controller.checked_add(CONTROLLER_ROW)?)?;
     if row == 0 {
         return None;
     }
-    let word = |offset: u32| memory.word(row.checked_add(offset)?);
-    let (Some(animation), Some(counts), Some(first_object), Some(first_sequence)) = (
-        word(ROW_ID),
-        word(ROW_OBJECTS),
-        word(ROW_FIRST_OBJECT),
-        word(ROW_FIRST_SEQUENCE),
-    ) else {
+    let Some(animation) = memory.word(row.checked_add(ROW_ID)?) else {
+        return None;
+    };
+    let Some(counts) = memory.word(row.checked_add(ROW_COUNTS)?) else {
+        return None;
+    };
+    let Some(first_object) = memory.word(row.checked_add(ROW_FIRST_OBJECT)?) else {
         return None;
     };
     // Objects and sequences are the two u16 halves of the packed count word.
@@ -314,28 +427,38 @@ pub fn sample_controller(memory: &dyn Memory, controller: u32, base: u32) -> Opt
         objects,
         sequences,
         first_object,
-        first_sequence,
-        owner: memory.word(controller.checked_add(CONTROLLER_OWNER)?)?,
-        cache: memory.word(controller.checked_add(CONTROLLER_CACHE)?)?,
-        cache_flags: memory.word(controller.checked_add(CONTROLLER_FLAGS)?)?,
-        root: memory.word(controller.checked_add(CONTROLLER_ROOT)?)?,
+        context,
+        owner: memory.word(controller.checked_add(CONTROLLER_OWNER)?).unwrap_or(0),
+        cache: memory.word(controller.checked_add(CONTROLLER_CACHE)?).unwrap_or(0),
+        cache_flags: memory.word(controller.checked_add(CONTROLLER_FLAGS)?).unwrap_or(0),
+        root: memory.word(controller.checked_add(CONTROLLER_ROOT)?).unwrap_or(0),
         ..Sample::default()
     };
     if sample.root != 0 {
-        sample.scan = scan_tree(memory, sample.root);
+        sample.walk = scan_walk(memory, sample.root);
     }
-    sample.player = local_player(memory, base).unwrap_or(0);
-    if sample.player != 0 {
-        sample.gauge = read_gauge(memory, sample.player);
+    if context != 0 {
+        for edge in 0..4 {
+            sample.clip[edge] = memory
+                .word(context.wrapping_add(CONTEXT_CLIP + (edge as u32) * 4))
+                .unwrap_or(0) as i32;
+        }
+    }
+    if let Some(local) = local_player(memory, base) {
+        sample.local = local;
+        sample.gauge = read_gauge(memory, local.player);
+        sample.input_flags = memory
+            .word(local.player.wrapping_add(INPUT_FLAGS))
+            .unwrap_or(0);
     }
     Some(sample)
 }
 
 /// Field positions of the signed gauge words inside `Sample::words`, so the
 /// logger rebuilds the typed values from a copied sample without the game.
-pub const FIELD_CURRENT: usize = 21;
-pub const FIELD_MAXIMUM: usize = 22;
-pub const FIELD_TIER: usize = 23;
+pub const FIELD_CURRENT: usize = 12;
+pub const FIELD_MAXIMUM: usize = 13;
+pub const FIELD_TIER: usize = 14;
 
 /// Gauge values decoded from an already-copied sample.
 pub fn gauge_of(words: &[u32]) -> Option<Gauge> {

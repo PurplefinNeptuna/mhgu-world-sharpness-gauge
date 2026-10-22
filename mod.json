@@ -2,7 +2,7 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "kind": "plugin",
-  "version": "r1",
+  "version": "r2",
   "runtime_platform": "forge-switch",
   "package_name": "modern-sharpness-gauge"
 }

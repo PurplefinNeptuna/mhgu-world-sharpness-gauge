@@ -47,7 +47,7 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
         return;
     } // Installation never publishes an original of zero.
     if msg_active.load(Ordering::Acquire) {
-        sampling::observe(controller);
+        sampling::observe(controller, context);
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(controller, context) };
