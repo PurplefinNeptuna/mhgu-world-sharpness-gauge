@@ -421,26 +421,45 @@
         "zero gauge row root destroyed lines in a session that played quests"
       ],
       "conclusion": "the read-only build runs clean and confirms the node-count rule live; the map probe must read the instance hook's captured instance, which r16 does"
+    },
+    {
+      "date": "2026-10-23",
+      "version": "r16",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r16-eden-2026-10-23.txt",
+      "session_seconds": 671,
+      "our_lines": 93,
+      "observed": [
+        "user report for this run: the bar was visible",
+        "63 stage-21 lines while the HUD was absent, gauge controller seen at t=159.19, 7 samples and 21 tree lines with 3 nodes, one facts line, zero teardown lines, zero dynarmic ExceptionRaised; last plugin line t=525.92",
+        "the map: instance 0x47fdd180, instance+0xdc = 0x47fceec0 = the gauge controller, array at instance+0xd8 = 0x47f959b0 with entries [0x47fceec0 controller, 0x48008230 bar, 0x47ff7560 glow, 0x47fdda80 edge], tree_nodes = 3, so the length main+0x5456e4 indexes is exactly the array's 4 entries",
+        "controller+0xa0 and instance+0xd8 are the same pointer 0x47f959b0: r15's 0x727272 was reading +0xd8 through the array pointer, 216 bytes into a 16-byte array",
+        "authored sizes: bar mId 2 88x24, glow mId 3 88x32, edge mId 4 88x24, bar_flags 0x2800005; bar rect 110,38,238,166, glow 116,32,244,160, edge 0,0,0,0 with flags 0x2040000 (hidden)",
+        "session end is the emulator's: three maxwell_3d Critical asserts at t=658.73, ForceStop at t=670.55, host Unhandled SIGSEGV at 0x00007fdde549b8d4 at t=670.97, with zero guest exceptions"
+      ],
+      "conclusion": "the gauge row's object map is the controller plus the tree's nodes, one word each, and an inserted node needs a fifth entry; the array is shared by controller+0xa0 and instance+0xd8, and it is not inside the draw cache allocation"
     }
   ],
   "not_proven": [
-    "runtime: r16 has no run yet. Nothing is installed, activated, launched or accepted.",
+    "exact binary gameplay acceptance: the r16 run reports the bar visible, and no user has accepted a specific binary as the mod's gauge change (there is none in r16).",
+    "who allocates the gauge row's object array and who frees it: its 4 entries mirror the tree, it is not inside the draw cache allocation, and growing it to 5 words needs a block the game allocated.",
     "which pass drove mask+0xa8/+0xac to zero at t=642.30 in the r14 session. The only writer read so far is the Size setter main+0xa4ba40, reached through the vtable; the pass's identity is inference from the log, not a read function.",
-    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: zero fires in the r14 and r15 sessions, so the teardown path is unproven and no cleanup is claimed.",
-    "the contents of the row's object list at instance+0xd8: r15 read the controller's owner field and got the freed fill 0x727272. r16 prints the four entries from the captured instance.",
-    "how an added node gets a map entry: main+0x5456e4 indexes the array by main+0xa47d2c's node count + 1, and the gauge row has 4 objects for the root plus 3 nodes. The growth path is unresearched.",
+    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: zero fires in the r14, r15 and r16 sessions, so the teardown path is unproven and no cleanup is claimed.",
     "the mask's transform effect on its children: the factory leaves scale 1.0 and position 0, and no decompile shows how the parent transform enters a child's rect at +0xE0.",
     "ARM fixtures for insertion, factory failure and teardown: not written."
   ],
   "runtime": {
-    "status": "NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23",
     "date": "2026-10-23",
     "binary_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed",
-    "required": "A run on Eden with a melee weapon: the facts line with four object-list entries read from the captured instance, tree_nodes beside them, and whether the bar is visible through a whole quest and the results screen appears.",
-    "correlate": "r15's Eden run of the same day, in runs[] above, is the clean read-only baseline r16 keeps; only the facts line's source object and entry count changed.",
+    "required": "Exact binary acceptance of the mod's claim (it changes nothing on screen) is the user's, recorded separately from this log evidence.",
+    "correlate": "The r16 log's 93 plugin lines are the run's own output; the installed bytes matched the r16 candidate payload. No guest exception, the gauge row read from t=159 to t=525, and the user reported the bar visible.",
     "previous_runs": [
       "r1 Eden 2026-10-22",
-      "r3 Eden 2026-10-22"
+      "r3 Eden 2026-10-22",
+      "r15 Eden 2026-10-23: read-only baseline, clean; r14 Eden 2026-10-23: the failed insertion run"
     ]
   },
   "sharpness_chain_research": {

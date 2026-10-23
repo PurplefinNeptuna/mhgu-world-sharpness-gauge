@@ -2,7 +2,7 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r16 read-only candidate. r15 (NRO e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f) was run on Eden on 2026-10-23 with the installed bytes matching: 740 seconds of gauge with no dynarmic exception and a normal session close, tree_nodes 3 against the row's 4 objects, and a facts line that read the object list from the controller's owner field at root+0xa0 and printed 0x727272, the freed block's fill, proving that array lives on the HUD instance the instance hook records (instance+0xdc is the gauge controller), not on the controller's owner. The same run measured the draw record area at 60 bytes: the published cache sits (sequences+1)*12 = 192 into the 252-byte allocation, so 7 records fit and r14's 9-record tree wrote past the end of it. r16 reads the map fields from hooks::gauge_instance() and prints four array entries, the length main+0x5456e4 indexes with. r14 (NRO 6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d) remains the failed insertion run: the rectangle the game built from the mask had left/top 0 0 in all 2512 lines, never the requested 110,32, and the quest-end crash is main+0x5456e4 indexing the instance's array with main+0xa47d2c's node count + 1. Not approved for distribution; r16 runtime NOT RUN; r12 and r13 were packaged and never run.",
+  "reason": "r16 read-only candidate, run once on Eden 2026-10-23 with the installed bytes matching the r16 payload: 93 plugin lines, zero guest exceptions, and the user reported the bar visible. The run answered the map question r15 raised: at instance+0xd8, the same pointer the controller keeps at +0xa0, the four entries are the controller, the bar, the glow and the edge - one word per object, length tree_nodes + 1, in its own allocation outside the draw cache block. An inserted node needs a fifth entry, so the next step is static research on who allocates that array and who frees it. r15 (NRO e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f) ran clean the same day and measured the draw record area at 60 bytes: the published cache sits (sequences+1)*12 = 192 into the 252-byte allocation, so 7 records fit and r14's 9-record tree wrote past the end of it. r14 (NRO 6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d) remains the failed insertion run: the rectangle the game built from the mask had left/top 0 0 in all 2512 lines, never the requested 110,32, and the quest-end crash is main+0x5456e4 indexing the instance's array with main+0xa47d2c's node count + 1. Not approved for distribution; r12 and r13 were packaged and never run.",
   "publication": {
     "published": false,
     "url": null,
@@ -13,7 +13,7 @@
   "archive": "modern-sharpness-gauge-r16-candidate.zip",
   "candidate": "build/modern-sharpness-gauge/candidates/r16/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN",
+  "runtime_test": "RUN ONCE ON EDEN 2026-10-23 (installed bytes matching 415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed, 93 plugin lines, zero guest exceptions, user reported the bar visible)",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -66,7 +66,8 @@
     "r2 was built and never run; r3 was run once on Eden and is recorded.",
     "r14 was run once on Eden and failed as reported: the gauge was clipped away from the insertion and the game crashed at the quest end. Its log is the evidence, and the insertion is removed in r15.",
     "r15 was run once on Eden and drew the gauge normally for 740 seconds with no exception; its facts line printed tree_nodes 3 against 4 objects, and its object-list fields were read from the wrong object (the controller's owner field), which is what r16 fixes.",
-    "r16 changes nothing on screen: it reads game memory and logs. No drawing, no gauge change, and no cleanup claim (the root-destructor hook fired zero times in both sessions that logged it).",
+    "r16 changes nothing on screen: it reads game memory and logs. No drawing, no gauge change, and no cleanup claim (the root-destructor hook fired zero times in the three sessions that logged it). Its Eden run ended in Eden's own shutdown records (maxwell_3d Critical asserts, ForceStop, host SIGSEGV) with zero guest exceptions.",
+    "who allocates the gauge row's object array and who frees it is unresearched; an inserted node needs a fifth entry in it.",
     "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
     "The gauge itself is not part of r4."
   ],

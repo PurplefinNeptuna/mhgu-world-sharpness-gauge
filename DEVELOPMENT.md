@@ -1,8 +1,13 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r16 (`DISTRIBUTION.json`, DEVELOPMENT, runtime NOT RUN,
-nothing installed). r16 writes no game memory: the r14 scissor-mask insertion is gone, and the
-build prints the row/map facts the next insertion step needs. r15 (NRO
+Current state: Phase 2 candidate r16 (`DISTRIBUTION.json`, DEVELOPMENT, run once on Eden
+2026-10-23 with the bar reported visible, nothing installed by this workspace). r16 writes no
+game memory: the r14 scissor-mask insertion is gone, and the
+build prints the row/map facts the next insertion step needs. The r16 run answered the map
+question: the array at `instance+0xd8` (also at `controller+0xa0`) holds one word per object —
+controller, bar, glow, edge — length `tree_nodes + 1`, outside the draw cache allocation. The
+next step is static research on who allocates and frees that array, because a 5th entry needs
+the block it lives in. r15 (NRO
 `e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f` — the exact installed bytes
 are in EVIDENCE) was run on Eden on 2026-10-23, drew the gauge normally for 740 seconds and
 closed clean; `work/modern-sharpness-gauge/runs/r15-eden-2026-10-23.txt`. r14 (NRO
@@ -39,6 +44,10 @@ ghidra-batch10/`:
    (`objects * 16 + 8 + sequences * 12`), so the record area is 252 - 192 = 60 bytes = 7 records
    of 8 bytes. The unmodified tree emits 7 (56 bytes, 4 spare); the port emits 9 (72 bytes) for
    the tree with the r14 mask, i.e. 12 bytes past the end of that allocation.
+6. r16 read the map. At `instance+0xd8`, the same pointer the controller keeps at `+0xa0`, the
+   four entries are the controller, the bar, the glow and the edge: one word per object, length
+   `tree_nodes + 1`, in its own allocation, outside the draw cache block. An inserted node needs
+   a fifth entry, so the open question is who allocates that block and who frees it.
 
 r13 was reviewed before any run and is not installed. It linked the mask with the glow
 and the edge left as siblings of the root, so the walk ended at the root without
@@ -67,7 +76,9 @@ on Eden on 2026-10-23 with the installed bytes matching its candidate hash: the 
 inserted, the gauge was clipped away from the insertion, and the game crashed at the quest end
 with the emulator's own SIGSEGV. r15 removes the insertion and ran clean on Eden the same day
 (740 seconds of gauge, 22 samples, no dynarmic exception, session closed normally); r16 fixes
-which object the facts line reads the map from and is NOT RUN.
+which object the facts line reads the map from and ran once on Eden the same day: 93 plugin
+lines, zero guest exceptions, the bar reported visible, and the map read out as controller, bar,
+glow, edge at `instance+0xd8` with `tree_nodes = 3`.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -552,8 +563,9 @@ the instance hook records does.
 
 ## r16, built 2026-10-23: the facts read from the captured instance
 
-NRO `415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed`, runtime NOT RUN, nothing
-installed. Two changes, both in the facts line. It now takes the HUD instance from
+NRO `415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed`, run once on Eden on
+2026-10-23 with the installed bytes matching, the user reporting the bar visible; nothing
+installed by this workspace. Two changes, both in the facts line. It now takes the HUD instance from
 `hooks::gauge_instance()` (the pair the instance hook records at main+0xa39300, where
 `instance+0xdc` is the gauge controller) instead of `root+0xa0`, and it prints four entries of
 that instance's array at `+0xd8`, the length main+0x5456e4 indexes it with. `FACTS_WORDS` is 28;
@@ -563,6 +575,26 @@ else in the build moved: same three hooks, same gates 21..34, same sampler, no w
 What r16 asks the run for: the four array entries (the map's contents, which is what the next
 insertion step needs) and `tree_nodes` beside them, plus whether the bar is visible through a
 whole quest and whether the results screen appears.
+
+## r16 run 2026-10-23 (Eden): the map's contents
+
+634 log lines, sha256 `cfea8b166128bce29b4bded10c2430c9ca3b87472d393ed10bcfeb81d5edebf0`, 93
+plugin lines, zero guest exceptions, installed bytes matching the r16 payload. 63 stage-21 lines
+in the hub, gauge controller seen t=159.19, 7 samples, 21 tree lines with 3 nodes, one facts line
+at t=163.5, zero teardown lines, last plugin line t=525.92. The user's report: the bar was
+visible. Eden's own ending is in the log (three `maxwell_3d.cpp:392` Critical asserts at
+t=658.73, `ForceStop` at t=670.55, host `Unhandled SIGSEGV at 0x00007fdde549b8d4` at t=670.97,
+with no guest exception), and the r15 log of the same day has the same ForceStop and 15 Critical
+records without the SIGSEGV.
+
+The facts line: instance 0x47fdd180, `instance+0xdc` = 0x47fceec0 = the gauge controller, array
+at `instance+0xd8` = 0x47f959b0, entries `[0x47fceec0, 0x48008230, 0x47ff7560, 0x47fdda80]` =
+controller, bar, glow, edge, `tree_nodes = 3`. The array is one word per object and its length is
+`tree_nodes + 1`, exactly the number main+0x5456e4 indexes with. The controller's `+0xa0` field
+is the same 0x47f959b0 pointer, so r15's `0x727272` was reading `+0xd8` through the array pointer
+itself, 216 bytes into a 16-byte array. `cache_alloc` is 0x48013ab0, far from 0x47f959b0: the
+array is its own allocation, and its allocator/freeer are unresearched. That is the next static
+question, and it decides how a fifth entry can exist.
 
 ## Rules to keep
 
