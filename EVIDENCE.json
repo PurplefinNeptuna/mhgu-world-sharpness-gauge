@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r15",
+  "version": "r16",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r15",
+    "version": "r16",
     "status": "BUILT",
-    "nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
+    "nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -85,7 +85,7 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "91586ebfb81a3dd85fce9f5180a2def21de0c5d967e00e0595e3bd83765155c5",
+      "src/gui.rs": "12f81d0d11290e200a6bfa0995fe06a2c45655be6125aef2083a3d40fb5a89a6",
       "src/hooks.rs": "ba3012351b6f89c57b8e21ee2a45aeefe64d378a644d2e50798fed4733f8bbe1",
       "src/lib.rs": "eb7f2dc60dad400aa93bf89e2aa656d69739b5e8605564ec869d3d644e895694",
       "src/memory.rs": "e73c1c34131ad89b73b1a08f02e75e58c9c385d000f9c709bce9698bceebbdae",
@@ -101,8 +101,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
-    "elf_sha256": "e86c2b45e08ee843a3cb5dd82ecf272f8f21d0cb5280c7a9a4c1efddbdccf2d1",
+    "nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed",
+    "elf_sha256": "e608f321ceab50edfcef5853c9650dde6c8219bdbea743f6250048ebb3331942",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -202,8 +202,8 @@
       ]
     },
     "words_per_sample": 116,
-    "note": "r15: 19 host fixtures pass. New fixture the_object_array_is_sized_for_the_tree_it_was_built_with pins main+0xa47d2c's node count (+1) against this row's 4 objects: 3 tree nodes fit, r14's inserted mask makes 4 and indexes 5 entries through a 4-entry array. count_nodes in core is that port.",
-    "nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f"
+    "note": "r16: 19 host fixtures pass. r15's fixture the_object_array_is_sized_for_the_tree_it_was_built_with pins main+0xa47d2c's node count (+1) against this row's 4 objects; the r15 run measured 3 nodes against 4 objects on the unmodified row, and measured the record area at 60 bytes (published cache 192 = (sequences+1)*12 into the 252-byte allocation).",
+    "nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed"
   },
   "runs": [
     {
@@ -401,22 +401,43 @@
         "crash at t=1015.539, 1011 dynarmic ExceptionRaised records with pc stepping through nnSdk (base 0x77350000) from 0x7735001C to 0x773511CC, then the host 'Unhandled SIGSEGV at 0x00007fe0f2a9b8d4' at t=1060.168. Backtrace: nnSdk+0x20 <- main+0x5457c8 (the instance object-array loop in main+0x5456e4) <- main+0x1577fb3 <- main+0xa568a4 (mask class destructor region). R00=0x727272, a freed block's 'r' fill"
       ],
       "conclusion": "the mask was linked as designed and clipped the gauge away; the quest-end crash is main+0x5456e4 indexing the instance's object array at +0xd8 with main+0xa38ffc's tree node count + 1, which the insertion desynchronised. r15 removes the insertion and prints those map numbers"
+    },
+    {
+      "date": "2026-10-23",
+      "version": "r15",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r15-eden-2026-10-23.txt",
+      "session_seconds": 903,
+      "our_lines": 124,
+      "observed": [
+        "33 stage-21 lines while the HUD was absent, the absent-window line at t=55.83, gauge controller seen at t=159.19, 22 samples and 66 tree lines with 3 nodes to the end of the session",
+        "Long Sword 250/250 tier 3 at t=159, 126/250 tier 2 and 226/250 tier 3 later; row 0x519a0238, anim 4 objects 4 sequences 15 first_object 29, cache_flags 0 then 1 (the walker rebuild bit)",
+        "one facts line at t=163.53: ctrl=0x4800b250 tree_root=0x48016bd0 cache=0x480238e0 cache_alloc=0x48023820 row14=0x519a0534 bar_id=2 88x24, glow_id=3 88x32, edge_id=4 88x24, bar_flags=0x2800005, tree_nodes=3",
+        "tree_nodes 3 against the row's 4 objects is the unmodified row main+0x5456e4 indexes exactly; the gauge drew normally for 740 seconds, zero dynarmic exceptions, session closed normally at t=903",
+        "obj_list=0x727272 and inst_ctrl=7500402: facts read +0xd8/+0xdc from root+0xa0, the controller's owner field. That object does not carry the object array",
+        "published cache is 192 = (sequences+1)*12 bytes into the 252-byte allocation, so the draw record area is 60 bytes = 7 records; the unmodified tree's 7 fit, the r14 mask tree's 9 (72 bytes) wrote past that allocation",
+        "zero gauge row root destroyed lines in a session that played quests"
+      ],
+      "conclusion": "the read-only build runs clean and confirms the node-count rule live; the map probe must read the instance hook's captured instance, which r16 does"
     }
   ],
   "not_proven": [
-    "runtime: r15 has no run yet. Nothing is installed, activated, launched or accepted.",
-    "which pass drove mask+0xa8/+0xac to zero at t=642.30. The only writer read so far is the Size setter main+0xa4ba40, reached through the vtable; the pass's identity is inference from the log, not a read function.",
-    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: zero fires in the r14 session, so the teardown path is unproven and r15 makes no cleanup claim.",
-    "the row's object map growth path: the gauge row has 4 objects for the root plus 3 tree nodes, and main+0x5456e4 indexes the instance's array at +0xd8 by the tree's node count + 1. How an added node gets a map entry is unresearched.",
+    "runtime: r16 has no run yet. Nothing is installed, activated, launched or accepted.",
+    "which pass drove mask+0xa8/+0xac to zero at t=642.30 in the r14 session. The only writer read so far is the Size setter main+0xa4ba40, reached through the vtable; the pass's identity is inference from the log, not a read function.",
+    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: zero fires in the r14 and r15 sessions, so the teardown path is unproven and no cleanup is claimed.",
+    "the contents of the row's object list at instance+0xd8: r15 read the controller's owner field and got the freed fill 0x727272. r16 prints the four entries from the captured instance.",
+    "how an added node gets a map entry: main+0x5456e4 indexes the array by main+0xa47d2c's node count + 1, and the gauge row has 4 objects for the root plus 3 nodes. The growth path is unresearched.",
     "the mask's transform effect on its children: the factory leaves scale 1.0 and position 0, and no decompile shows how the parent transform enters a child's rect at +0xE0.",
     "ARM fixtures for insertion, factory failure and teardown: not written."
   ],
   "runtime": {
     "status": "NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
-    "required": "A run on Eden with a melee weapon: the facts line per gauge row, the sample lines, and whether the gauge HUD behaves as it does without the mod.",
-    "correlate": "r14's Eden run of the same day, recorded in runs[] above, is the failure r15 removes: the insertion is gone, so r15 allocates and writes nothing.",
+    "binary_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed",
+    "required": "A run on Eden with a melee weapon: the facts line with four object-list entries read from the captured instance, tree_nodes beside them, and whether the bar is visible through a whole quest and the results screen appears.",
+    "correlate": "r15's Eden run of the same day, in runs[] above, is the clean read-only baseline r16 keeps; only the facts line's source object and entry count changed.",
     "previous_runs": [
       "r1 Eden 2026-10-22",
       "r3 Eden 2026-10-22"

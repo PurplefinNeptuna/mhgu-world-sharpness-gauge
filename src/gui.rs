@@ -66,16 +66,16 @@ pub fn take_failure() -> u32 {
 /// the authored sizes are printed as the integers the game's floats hold. `tree_nodes`
 /// is main+0xa47d2c's count for this controller: main+0xa38ffc adds one to it and
 /// main+0x5456e4 uses that sum as the length of the instance's object array at +0xd8.
-pub const FACTS_WORDS: usize = 27;
+pub const FACTS_WORDS: usize = 28;
 pub const FACT_NAMES: [&str; FACTS_WORDS] = [
-    "ctrl", "tree_root", "cache", "ctrl_flags", "row", "owner", "cache_alloc", "anim", "counts",
+    "ctrl", "tree_root", "cache", "ctrl_flags", "row", "instance", "cache_alloc", "anim", "counts",
     "first_object", "row14", "obj_list", "inst_ctrl", "bar_id", "bar_w", "bar_h", "glow_id",
     "glow_w", "glow_h", "edge_id", "edge_w", "edge_h", "bar_flags", "obj0", "obj1", "obj2",
-    "tree_nodes",
+    "obj3", "tree_nodes",
 ];
-pub const FACT_HEX: [&str; 11] = [
-    "ctrl", "tree_root", "cache", "row", "owner", "cache_alloc", "row14", "obj_list", "obj0",
-    "obj1", "obj2",
+pub const FACT_HEX: [&str; 12] = [
+    "ctrl", "tree_root", "cache", "row", "instance", "cache_alloc", "row14", "obj_list", "obj0",
+    "obj1", "obj2", "obj3",
 ];
 
 fn word(address: u32) -> u32 {
@@ -239,15 +239,17 @@ impl sharpness_gauge_core::Memory for Read {
 }
 
 /// Copy the row, map and object words out, read-only. The array at `instance+0xd8` is
-/// read for three entries: main+0x5456e4 indexes it with `main+0xa47d2c`'s node count plus
-/// one, so this line prints both numbers next to the row's own object count (4).
-fn facts(row: &Row) -> [u32; FACTS_WORDS] {
+/// read for its four entries: main+0x5456e4 indexes it with `main+0xa47d2c`'s node count
+/// plus one, so this line prints both numbers. The r15 run of 2026-10-23 (163.5 s, gauge
+/// controller 0x4800b250) printed tree_nodes=3 against this row's 4 objects, and showed
+/// that `+0xd8` is only an array on the captured HUD instance: read from the controller's
+/// owner field at `root+0xa0` it is the freed block's fill 0x727272.
+fn facts(row: &Row, instance: u32) -> [u32; FACTS_WORDS] {
     let root = row.root;
-    let instance = word(root + 0xa0);
     let row_word = word(root + 0x9c);
     let bar = row.bar;
     let list = word(instance + 0xd8);
-    let objects = readable_words(list, 3);
+    let objects = readable_words(list, 4);
     let nodes = sharpness_gauge_core::count_nodes(&Read, root).0;
     let authored = |object: u32| -> (u32, u32, u32) {
         (
@@ -286,13 +288,14 @@ fn facts(row: &Row) -> [u32; FACTS_WORDS] {
         objects[0],
         objects[1],
         objects[2],
+        objects[3],
         nodes,
     ]
 }
 
-fn readable_words(list: u32, count: usize) -> [u32; 3] {
-    let mut out = [0u32; 3];
-    if list == 0 || !memory::readable(list, 12) {
+fn readable_words(list: u32, count: usize) -> [u32; 4] {
+    let mut out = [0u32; 4];
+    if list == 0 || !memory::readable(list, 16) {
         return out;
     }
     for (index, slot) in out.iter_mut().enumerate().take(count) {
@@ -331,7 +334,10 @@ pub fn tick() -> Option<[u32; FACTS_WORDS]> {
             return None;
         }
     };
-    let words = facts(&row);
+    let Some((instance, _)) = hooks::gauge_instance() else {
+        return None;
+    };
+    let words = facts(&row, instance);
     STATE.store(1, Ordering::Release);
     Some(words)
 }

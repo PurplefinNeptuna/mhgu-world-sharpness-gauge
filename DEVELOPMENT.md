@@ -1,12 +1,15 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r15 (`DISTRIBUTION.json`, DEVELOPMENT, runtime NOT RUN,
-nothing installed). r15 writes no game memory: the r14 scissor-mask insertion is gone, and the
-build prints the row/map facts the next insertion step needs. r14 (NRO
-`6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d`) was run on Eden on
-2026-10-23 and the report is in `work/modern-sharpness-gauge/runs/r14-eden-2026-10-23.txt`
-and in PHASE2_RESEARCH's r14 section: the gauge vanished, and the game crashed at the quest
-end. Three facts, all from that log and the decompiles in `work/modern-sharpness-gauge/
+Current state: Phase 2 candidate r16 (`DISTRIBUTION.json`, DEVELOPMENT, runtime NOT RUN,
+nothing installed). r16 writes no game memory: the r14 scissor-mask insertion is gone, and the
+build prints the row/map facts the next insertion step needs. r15 (NRO
+`e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f` — the exact installed bytes
+are in EVIDENCE) was run on Eden on 2026-10-23, drew the gauge normally for 740 seconds and
+closed clean; `work/modern-sharpness-gauge/runs/r15-eden-2026-10-23.txt`. r14 (NRO
+`6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d`) was run on Eden the same
+day and the report is in `work/modern-sharpness-gauge/runs/r14-eden-2026-10-23.txt` and in
+PHASE2_RESEARCH's r14 section: the gauge vanished, and the game crashed at the quest end.
+Five facts, from those two logs and the decompiles in `work/modern-sharpness-gauge/
 ghidra-batch10/`:
 1. The clip never covered the bar. The rectangle the game built at `mask+0xb0..+0xbc` has
    left/top `0 0` in all 2,512 lines that printed it, while the requested box was
@@ -24,6 +27,18 @@ ghidra-batch10/`:
    reads. The backtrace is that loop, R00 = `0x727272` (a freed block's `'r'` fill), and Eden
    died at t=1060.168. The row's object map, not the draw cache, is the thing an insertion has
    to grow.
+4. The r15 run measured the rule on the unmodified row: `tree_nodes = 3` against `objects = 4`,
+   with the gauge drawing normally for 740 seconds and no exception in the log. It also showed
+   where the array lives: `+0xd8`/`+0xdc` read from the controller's owner field at `root+0xa0`
+   are `0x727272`, a freed block's fill. The array is on the HUD instance the instance hook at
+   main+0xa39300 records (its `+0xdc` is the gauge controller), which is the object
+   main+0x5456e4 walks. r16 reads the facts from that captured instance and prints four array
+   entries.
+5. The record area is 7 records, not 9. The published cache sits `0xC0` = 192 =
+   `(sequences + 1) * 12` bytes into the 252-byte allocation main+0xa49b28 made
+   (`objects * 16 + 8 + sequences * 12`), so the record area is 252 - 192 = 60 bytes = 7 records
+   of 8 bytes. The unmodified tree emits 7 (56 bytes, 4 spare); the port emits 9 (72 bytes) for
+   the tree with the r14 mask, i.e. 12 bytes past the end of that allocation.
 
 r13 was reviewed before any run and is not installed. It linked the mask with the glow
 and the edge left as siblings of the root, so the walk ended at the root without
@@ -50,7 +65,9 @@ logged link words, not against another row's layout. r12 was packaged (NRO `01f0
 never reported run; r13 was packaged and never run, and the review above is why. r14 was run
 on Eden on 2026-10-23 with the installed bytes matching its candidate hash: the mask was
 inserted, the gauge was clipped away from the insertion, and the game crashed at the quest end
-with the emulator's own SIGSEGV. r15 removes the insertion and is NOT RUN.
+with the emulator's own SIGSEGV. r15 removes the insertion and ran clean on Eden the same day
+(740 seconds of gauge, 22 samples, no dynarmic exception, session closed normally); r16 fixes
+which object the facts line reads the map from and is NOT RUN.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -488,8 +505,10 @@ contradicts the r1 findings.
 
 ## r15, built 2026-10-23: the insertion is gone
 
-NRO `e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f`, runtime NOT RUN,
-nothing installed. The one change: r15 creates no GUI object and writes no game memory. It
+NRO `e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f`, run on Eden on
+2026-10-23 with the installed bytes matching (EVIDENCE's r15 run record; log
+`work/modern-sharpness-gauge/runs/r15-eden-2026-10-23.txt`). The one change: r15 creates no GUI
+object and writes no game memory. It
 keeps the three hooks (walker main+0xa494a0, instance draw entry main+0xa39300, root
 destructor main+0xa486fc), the sampler, and gates 21..34, and prints one
 `MSG r15 gauge row facts` line per gauge row: the controller's root/cache/flags/row/owner and
@@ -510,6 +529,40 @@ counter, and `memory::write_word`/`write_bits`/`call0`/`call2`. The mask geometr
 
 What r15 does not prove: any drawing. The root-destructor hook has zero fires to its name in
 the only session that logged it, so the teardown path stays unproven and no cleanup is claimed.
+
+## r15 run 2026-10-23 (Eden): clean, and two answers
+
+658 log lines, sha256 `c6cffe82380518e6b77368a1179abe0b07ffcaee4e5bc7e7c5a015bc5f9c909f`. 124
+plugin lines: 33 stage-21 lines while the HUD was absent (first at t=29.76, the hub), one
+"no sharpness gauge controller seen in 6004 walker calls" at t=55.83, the gauge controller seen
+at t=159, 22 samples (Long Sword 250/250 tier 3 → 126/250 tier 2 → 226 tier 3), 66 tree lines
+with 3 nodes, one facts line at t=163.53, zero teardown lines, zero dynarmic exceptions, and
+the session closed normally at t=903. The gauge row read the whole time: controller 0x4800b250,
+row 0x519a0238, anim 4, objects 4, sequences 15, first_object 29, `cache_flags` 0 → 1.
+
+Two answers, and one thing the build got wrong. `tree_nodes = 3` against `objects = 4` is the
+unmodified row, exactly the size main+0x5456e4 indexes, so the rule from the r14 crash holds on
+live data. The published cache sits 192 = `(sequences + 1) * 12` bytes into the 252-byte
+allocation (`cache_alloc=0x48023820`, `cache=0x480238e0`), so the record area is 60 bytes = 7
+records: the unmodified tree's 7 records fit with 4 bytes spare, and the tree with r14's mask
+(9 records, 72 bytes) wrote past the end of that allocation. The map fields came out as
+`obj_list=0x727272`, `inst_ctrl=7500402` (= 0x727272), because facts read them from
+`root+0xa0`, the controller's owner field. That object does not carry the array; the instance
+the instance hook records does.
+
+## r16, built 2026-10-23: the facts read from the captured instance
+
+NRO `415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed`, runtime NOT RUN, nothing
+installed. Two changes, both in the facts line. It now takes the HUD instance from
+`hooks::gauge_instance()` (the pair the instance hook records at main+0xa39300, where
+`instance+0xdc` is the gauge controller) instead of `root+0xa0`, and it prints four entries of
+that instance's array at `+0xd8`, the length main+0x5456e4 indexes it with. `FACTS_WORDS` is 28;
+the field named `owner` is now `instance`. 19 host fixtures pass, verify passes, and nothing
+else in the build moved: same three hooks, same gates 21..34, same sampler, no writes.
+
+What r16 asks the run for: the four array entries (the map's contents, which is what the next
+insertion step needs) and `tree_nodes` beside them, plus whether the bar is visible through a
+whole quest and whether the results screen appears.
 
 ## Rules to keep
 
