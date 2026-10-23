@@ -134,6 +134,14 @@ pub fn gauge_controller() -> u32 {
     CTRL.load(Ordering::Relaxed)
 }
 
+/// Drop the recorded gauge controller. Called from the row's root destructor
+/// (main+0xa486fc), where the object being destroyed is that controller, so the
+/// sampler stops comparing walker arguments against a freed address. Discovery
+/// starts again when a new HUD is built.
+pub fn clear_controller() {
+    CTRL.store(0, Ordering::Relaxed);
+}
+
 pub fn take() -> Option<(u32, [u32; WORDS])> {
     let taken = TAKEN.load(Ordering::Acquire);
     let read = READ.load(Ordering::Relaxed);
@@ -164,12 +172,6 @@ pub fn gauge_points() -> Option<(u32, u32)> {
     (maximum != 0 && current <= maximum).then_some((current, maximum))
 }
 
-/// Walker calls since the last accepted gauge sample. The HUD is rebuilt when a
-/// quest starts and torn down when it ends, so a long gap means the gauge the
-/// plugin captured belongs to a scene that is gone.
-pub fn gauge_age_calls() -> u32 {
-    CALLS.load(Ordering::Relaxed).wrapping_sub(LAST_CALLS.load(Ordering::Relaxed))
-}
 
 pub fn stats() -> (u32, u32, bool) {
     (

@@ -126,15 +126,6 @@ pub fn write_bits(address: u32, value: f32) -> bool {
     write_word(address, value.to_bits())
 }
 
-pub fn write_bytes(address: u32, bytes: usize) -> bool {
-    if !writable(address, bytes) {
-        return false;
-    }
-    // SAFETY: mapping checked above, length is the caller's allocation size.
-    unsafe { core::ptr::write_bytes(address as *mut u8, 0, bytes) };
-    true
-}
-
 /// Read a virtual method out of a game object's vtable, checked executable.
 pub fn method(object: u32, slot: u32) -> Option<u32> {
     let vft = word(object)?;
@@ -164,13 +155,4 @@ pub fn call2(function: u32, a: u32, b: u32) -> Option<u32> {
     }
     let f: unsafe extern "C" fn(u32, u32) -> u32 = unsafe { core::mem::transmute(function as usize) };
     Some(unsafe { f(a, b) })
-}
-
-pub fn call3(function: u32, a: u32, b: u32, c: u32) -> Option<u32> {
-    if !executable(function, 4) {
-        return None;
-    }
-    let f: unsafe extern "C" fn(u32, u32, u32) -> u32 =
-        unsafe { core::mem::transmute(function as usize) };
-    Some(unsafe { f(a, b, c) })
 }

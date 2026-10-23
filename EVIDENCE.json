@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r12",
+  "version": "r14",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r12",
+    "version": "r14",
     "status": "BUILT",
-    "nro_sha256": "01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e",
+    "nro_sha256": "6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -85,17 +85,19 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/hooks.rs": "360954c18e76e2982a6d8c284203af11be22c3fedcae26c0b7b6f236a69f5865",
-      "src/lib.rs": "2973e7ba97bf4ea5ac1372fb318d605d10097e30c5e75edddcb5f06f015b43be",
-      "src/memory.rs": "a641170e603cb80e5480fdece57f3ec5622cf42b83bdf432f0f199e540a32e10",
-      "src/sampling.rs": "cfd95f380d52d4f6d5f65f788ee33d6ffca397cc8b61f8806a88b547e4ac53bb",
-      "src/signatures.rs": "5bfb7baefccef3049e833d50d8f088a6fc4c9d8aa9f896be71eb262ebf7d1eae",
+      "src/gui.rs": "6e018fca2179030361e21a80c7ac373ac1008e339457e21fa7ab12cff8c1381e",
+      "src/hooks.rs": "ba3012351b6f89c57b8e21ee2a45aeefe64d378a644d2e50798fed4733f8bbe1",
+      "src/lib.rs": "4ce864805e9fc53c82470a568488cc525f0b6316506e6a642cb9d50a6b68c233",
+      "src/memory.rs": "f9cc687e164822c4717d8e74b94c1b0b77690c422a25c0e564ba6b892e645bbc",
+      "src/sampling.rs": "02ed5ffb24cfde4ce260d218ac9ee50ea0104af4e20f6fa0d3792266a4eeeb3e",
+      "src/signatures.rs": "519b98e360958d62d0f31e65888f6c53c51caec021f6390c89e1c54fb7962589",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "99d2ada7d0c62ec1e4d0128f718e78aa06d1c9ecc9bfb88a7d3fb85943bc1815",
-      "core/tests/behavior.rs": "39722ccc7886539593d63f18a6aad3239812de72c6d9eb0a1edbbae59769865b",
+      "core/src/lib.rs": "380bd34de20099334219e549f05e646b3301e172fa84b80e25437b4555b68f56",
+      "core/tests/behavior.rs": "36ee8990d7ceb763bcee7de565a0f487eae042bc2e3068ab7e437c589a352dac",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
-    }
+    },
+    "runtime_test": "NOT RUN"
   },
   "verify": {
     "status": "PASSED",
@@ -171,7 +173,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 10,
+    "count": 18,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
@@ -181,7 +183,11 @@
       "fixture walk node by node: group node then three text siblings with flags, kinds and rectangles",
       "non-gauge controller and null row produce no sample",
       "gauge without a player reports the tree only",
-      "tree scan truncation, dangling links, and a hidden subtree that is not walked"
+      "tree scan truncation, dangling links, and a hidden subtree that is not walked",
+      "walker port main+0xa494a0 over the gauge tree before any insertion: 5 records, 40 bytes, every drawable closed",
+      "walker port over the inserted tree: mask entered first, exited last, 7 records in the looping tier and 9 with the edge glyph visible (56 and 72 bytes, inside the row's own 72-byte cache)",
+      "the r13 shape pinned: mask with the glow and edge outside its subtree emits no exit record, so a scissor started there never ends",
+      "the mask's clip is asked for by bit 0 of mask+0xa4 (main+0xa4ba20's bit); the rectangle rebuild is bit 1"
     ],
     "sampling_budget": {
       "max_samples": 320,
@@ -194,7 +200,9 @@
         "player"
       ]
     },
-    "words_per_sample": 116
+    "words_per_sample": 116,
+    "note": "18 fixtures pass on the pinned nightly toolchain. They cover the tree before the write, the tree the write produces, the record counts and the withdrawn r13 shape. They prove no runtime behaviour.",
+    "nro_sha256": "6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d"
   },
   "runs": [
     {
@@ -376,12 +384,12 @@
     }
   ],
   "not_proven": [
-    "runtime: r2 has no run yet; the log lines, the 240-sample budget and the absence of any drawing change are static results",
-    "tip and hilt screen direction: the r1 run printed no rectangles at all, r2 will",
-    "native tier colour source; r2 prints tier and the flag words only",
-    "cGUI+0x2c object map capacity, insert point and the 16-byte cache growth per object (needs a Phase 2 write test)",
-    "the riding flag: r2 prints the raw word at +5156 for comparison and does not interpret it",
-    "that every recovery or buff path this build offers uses mSharpness/mMaxSharpness"
+    "runtime: r14 has no run yet. Nothing is installed, activated, launched or accepted.",
+    "whether a cGUIObjScissorMask with these field writes clips at all: only a screenshot at the 0/25/50/100 cycle answers it. r14 prints the requested box and the rectangle the game built at mask+0xb0..+0xbc.",
+    "whether reparenting the bar, glow and edge under the mask moved the bar's rect: read from the tree lines before and after the insertion.",
+    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: each fire logs a line, and zero fires in a session leaves the teardown path unproven.",
+    "the mask's transform effect on its children: the factory leaves scale 1.0 and position 0, and no decompile shows how the parent transform enters a child's rect at +0xE0.",
+    "ARM fixtures for insertion, factory failure and teardown: not written."
   ],
   "runtime": {
     "status": "NOT RUN",

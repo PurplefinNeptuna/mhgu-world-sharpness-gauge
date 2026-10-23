@@ -1,15 +1,25 @@
 //! Insert one `cGUIObjScissorMask` above the sharpness bar so the gauge row is
 //! clipped to current over maximum points. Colour, tier frames, sequences, atlases
 //! and vertex colours stay exactly as the game makes them; this module only builds
-//! the mask, publishes it on the row, reparents the bar under it, and sizes the
+//! the mask, links it under the row's root with the native linkers, and sizes the
 //! clip from the core decision.
 //!
-//! Every offset below is proven: the mask factory main+0xa4b6cc allocates 0xd0
-//! bytes through the DTI allocator itself, the row layout and publish order follow
-//! Key Quest Markers' working counter insertion, and the gauge chain (group,
-//! `Txt_sharp`, `Txt_sharpefx`, `Txt_sharpEdge`) is the order `hud0.gui` stores.
-//! Nothing here allocates through Forge, and no game-owned block is freed while
-//! the tree still points at it.
+//! What the code below relies on, all read from the hash-checked main NSO and
+//! recorded in `work/modern-sharpness-gauge/PHASE2_RESEARCH.md`:
+//! - the draw walker main+0xa494a0 emits an enter record (vtable 0x38, 0x3c) when it
+//!   descends into a drawable node and an exit record (vtable 0x40) when a walk pops
+//!   back out of it, and the walk ends when the next pointer is the root;
+//! - `cGUIObjScissorMask`'s vtable main+0x178fb04 answers 0x38 with main+0xa4ba94
+//!   (apply the scissor) and 0x40 with main+0xa4bcdc (restore the saved clip), so the
+//!   mask clips only while the walk both enters and exits it;
+//! - main+0xa4844c links a sibling and supplies its parent, main+0xa48460 links a
+//!   child and supplies its parent;
+//! - main+0xa49b28 sizes this row's draw cache from the row's own counts, which
+//!   covers the mask's extra records, so the cache is never replaced;
+//! - the root destructor main+0xa486fc deletes the root's child chain, and the mask
+//!   destructor main+0xa56758 deletes its own child chain, so the game frees the mask
+//!   and the three textures it covers in the same pass. Nothing here allocates
+//!   through Forge and nothing here frees a game-owned block.
 use crate::{
     hooks, memory, sampling,
     memory::BASE,
@@ -24,7 +34,6 @@ const MASK_BYTES: usize = 208;
 const TEXTURE_BYTES: usize = 304;
 const INSTANCE_BYTES: usize = 224;
 const ROOT_BYTES: usize = 176;
-const NODE_BYTES: usize = 192;
 
 // Row description fields, as Key Quest Markers reads them at root+0x9c.
 const GAUGE_ANIMATION: u32 = 4;
@@ -34,17 +43,27 @@ const GAUGE_FIRST_OBJECT: u32 = 29;
 const BAR_WIDTH: f32 = 88.0;
 const BAR_HEIGHT: f32 = 24.0;
 
-/// 0 = not inserted, 1 = inserted, 2 = failed. One insertion per plugin session:
-/// the row is a persistent HUD object and a second mask would clip twice.
+/// Mask property words, from the DTI record of `cGUIObjScissorMask` and its
+/// setters: PosX/PosY floats at +0x80/+0x84 with the position dirty bit in +0x54,
+/// the integer width/height pair at +0xa8/+0xac, and the flag word at +0xa4 whose
+/// bit 1 asks the enter record to rebuild the rectangle at +0xb0..+0xbc and whose
+/// bit 0 asks it to apply the scissor.
+const MASK_POSITION: u32 = 0x80;
+const MASK_SIZE: u32 = 0xa8;
+const MASK_FLAGS: u32 = 0xa4;
+const MASK_RECT: u32 = 0xb0;
+const MASK_POSITION_DIRTY: u32 = 0x2_0000;
+const MASK_SIZE_DIRTY: u32 = 1 << 1;
+const MASK_ENABLE: u32 = 1;
+
+/// 0 = not inserted, 1 = inserted, 2 = failed. One insertion per gauge HUD: the
+/// row is a persistent HUD object and a second mask would clip twice. The game's
+/// own teardown of the row deletes the mask, which resets this state (see
+/// `on_teardown`).
 static STATE: AtomicU8 = AtomicU8::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
-static OLD_CACHE: AtomicU32 = AtomicU32::new(0);
 static BAR_NODE: AtomicU32 = AtomicU32::new(0);
-static GROUP_NODE: AtomicU32 = AtomicU32::new(0);
-static CACHE_BLOCK: AtomicU32 = AtomicU32::new(0);
 static FAILURE: AtomicU32 = AtomicU32::new(0);
-/// The row's map length and cache size at the moment of insertion, for the log.
-static SIZES: AtomicU32 = AtomicU32::new(0);
 
 pub fn take_failure() -> u32 {
     FAILURE.swap(0, Ordering::Relaxed)
@@ -52,22 +71,25 @@ pub fn take_failure() -> u32 {
 pub fn inserted() -> bool {
     STATE.load(Ordering::Relaxed) == 1
 }
-/// (mask, old map length, old cache bytes) for the log line.
+/// The bar's live width and the authored-size flags, for the log line.
 pub fn bar_width() -> (u32, u32) {
     (BAR_W.load(Ordering::Relaxed), AUTHORED.load(Ordering::Relaxed))
 }
 
-/// root+0x50 as read, and the walker's drawable count the cache length uses.
+/// root+0x8c as read, and the walker's own drawable count for the last sample.
 pub fn row_flags() -> (u32, u32) {
     (AUTHORED50.load(Ordering::Relaxed), sampling::drawables())
 }
 
-pub fn applied() -> (u32, u32, u32) {
-    let sizes = SIZES.load(Ordering::Relaxed);
+/// (mask, mask child, mask sibling, mask parent) for the insertion line: the three
+/// links the walk follows on the node this insertion adds.
+pub fn applied() -> (u32, u32, u32, u32) {
+    let mask = MASK.load(Ordering::Relaxed);
     (
-        MASK.load(Ordering::Relaxed),
-        sizes & 0xffff,
-        sizes >> 16,
+        mask,
+        memory::word(mask + NODE_CHILD).unwrap_or(0),
+        memory::word(mask + NODE_SIBLING).unwrap_or(0),
+        memory::word(mask + NODE_PARENT).unwrap_or(0),
     )
 }
 
@@ -86,40 +108,40 @@ fn is_type(object: u32, dti: u32) -> bool {
 fn word(address: u32, value: u32) -> bool {
     memory::write_word(address, value)
 }
+/// Call one of the native linkers and read back the two words it writes, so a
+/// published tree is a tree this code has seen in memory.
+fn link(offset: u32, node: u32, other: u32) -> Option<()> {
+    memory::call2(base() + offset, node, other)?;
+    Some(())
+}
 
 /// The gauge row as the game currently holds it. Every field is checked against
 /// the archive's structure, and the bar is identified by its authored size.
 struct Row {
     root: u32,
-    instance: u32,
-    map: u32,
-    cache: u32,
-    group: u32,
     bar: u32,
     effect: u32,
-    width: i32,
+    edge: u32,
 }
 
 /// Read and validate the gauge row. Each gate has its own stage code so a single
 /// run says which check failed: 21 no captured instance pair, 22 instance or
 /// controller not writable, 23 a field read failed, 24 row counts do not match the
-/// gauge animation, 25 the controller has no usable draw cache,
-/// 26 controller+0x68 is missing, equals the controller, or is not writable, 27 the
-/// bar's siblings are not two distinct objects, 28 an object in the chain is not
-/// writable, 29 the bar's parent group is missing, is the controller, the edge's
-/// parent differs, or its first child is not the bar, 31 the bar is not a
-/// cGUIObjTexture, 32 the bar's live width is outside 1..=1024, 33 a DTI is missing.
+/// gauge animation, 25 the controller has no usable draw cache, 26 the bar link is
+/// missing, equals the controller, or is not writable, 27 the bar's parent link is
+/// not the controller, 28 the glow is not a distinct writable sibling of the bar,
+/// 29 the edge is not a distinct writable sibling of the glow, 30 the chain does not
+/// close at the controller, 31 the bar is not a cGUIObjTexture, 32 the bar's live
+/// width is outside 1..=1024, 33 a DTI is missing, 34 no live sharpness gauge.
+/// These gates describe the tree before the insertion; the tree after it is checked
+/// in `apply`, and `core::draw_plan` proves the walk over the tree this write
+/// produces.
 fn read_row() -> Result<Row, u32> {
-    let Some((instance, root)) = hooks::gauge_instance() else {
-        return Err(21);
-    };
+    let (instance, root) = hooks::gauge_instance().ok_or(21u32)?;
     if !memory::writable(instance, INSTANCE_BYTES) || !memory::writable(root, ROOT_BYTES) {
         return Err(22);
     }
-    let (Some(map), Some(description)) = (
-        memory::word(instance.wrapping_add(0xd8)),
-        memory::word(root.wrapping_add(0x9c)),
-    ) else {
+    let Some(description) = memory::word(root.wrapping_add(0x9c)) else {
         return Err(23);
     };
     let (Some(cache), Some(cache_flags)) = (
@@ -128,10 +150,7 @@ fn read_row() -> Result<Row, u32> {
     ) else {
         return Err(23);
     };
-    // drawables() reads the walker's own count word in the cache header, so the
-    // cache we allocate is sized from what the tree produced this frame.
-    let drawables = sampling::drawables();
-    if cache == 0 || drawables == 0 || !memory::readable(cache.wrapping_sub(8), 0x20) {
+    if cache == 0 || !memory::readable(cache, 8) {
         return Err(26);
     }
     let (Some(objects), Some(sequences)) = (
@@ -148,9 +167,8 @@ fn read_row() -> Result<Row, u32> {
     };
     // The gauge row is identified by the fields the sampler already proves on every
     // sample line: animation 4, 4 objects, 15 sequences, first object 29. The row
-    // carries no drawable count, so the cache length comes from the walker's count
-    // (sampling::drawables), not from the row. root+0x50 is recorded, not required:
-    // it is a counter-row fact from Key Quest Markers, not a gauge-row fact.
+    // carries no drawable count. root+0x8c is recorded, not required: its bit 0 is the
+    // walker's rebuild flag, which this code sets after linking.
     AUTHORED50.store(cache_flags, Ordering::Release);
     if anim != GAUGE_ANIMATION
         || objects != GAUGE_OBJECTS
@@ -163,17 +181,14 @@ fn read_row() -> Result<Row, u32> {
     // The walk root is a cGUIObjRoot: the bar's parent (bar 0x488aa9b0 has
     // parent=0x48898ec0, the controller on every sample line), the draw cache
     // lives at root+0x80, root+0x8c bit 0 is the dirty bit the walker clears after
-    // rebuilding, and the walk ends when a sibling pointer comes back to the root.
+    // rebuilding, and the walk ends when the next pointer comes back to the root.
     // The three sharpness textures are direct siblings of the root, so the mask
-    // enters as the root's first child, keeps the glow and the edge as its own
-    // siblings, and takes the bar as its child.
+    // enters as the root's first child and takes all three under it: the walk has
+    // to leave the mask through its exit record, or the scissor never ends.
     // A sharpness gauge must be live. The hub has no gauge, a quest that ended
     // tears its HUD down, and weapons without sharpness (bowguns, the prowler
     // rig) never build the gauge row at all, so there is nothing to clip there.
     sampling::gauge_points().ok_or(34u32)?;
-    if sampling::gauge_age_calls() > STALE_CALLS {
-        return Err(34);
-    }
     let root_dti = MtDti::find("cGUIObjRoot").ok_or(33u32)?;
     if !is_type(root, root_dti as *const _ as u32) {
         return Err(25);
@@ -184,7 +199,10 @@ fn read_row() -> Result<Row, u32> {
     let Some(bar_parent) = memory::word(bar.wrapping_add(NODE_PARENT)) else {
         return Err(23);
     };
-    if bar == 0 || bar == root || bar_parent != root || !memory::writable(bar, TEXTURE_BYTES) {
+    if bar == 0 || bar == root || !memory::writable(bar, TEXTURE_BYTES) {
+        return Err(26);
+    }
+    if bar_parent != root {
         return Err(27);
     }
     let Some(effect) = memory::word(bar.wrapping_add(NODE_SIBLING)) else {
@@ -193,7 +211,10 @@ fn read_row() -> Result<Row, u32> {
     let Some(effect_parent) = memory::word(effect.wrapping_add(NODE_PARENT)) else {
         return Err(23);
     };
-    if effect == 0 || effect == bar || effect_parent != root || !memory::writable(effect, TEXTURE_BYTES) {
+    if effect == 0 || effect == bar || !memory::writable(effect, TEXTURE_BYTES) {
+        return Err(28);
+    }
+    if effect_parent != root {
         return Err(28);
     }
     let Some(edge) = memory::word(effect.wrapping_add(NODE_SIBLING)) else {
@@ -203,23 +224,20 @@ fn read_row() -> Result<Row, u32> {
         return Err(23);
     };
     if edge == 0 || edge == effect || edge == bar
-        || edge_parent != root
         || !memory::writable(edge, TEXTURE_BYTES)
+        || edge_parent != root
     {
         return Err(29);
     }
     // How the walk closes, from main+0xa494a0: a sibling equal to the root breaks
-    // the loop, and a zero sibling pops to node+0x70, which the gate above proves
+    // the loop, and a zero sibling pops to node+0x70, which the gates above prove
     // is the root. Both closings are valid, any other pointer is not the end of
     // this chain. The r10 log shows the edge glyph closing with sibling 0.
     let terminator = memory::word(edge.wrapping_add(NODE_SIBLING)).ok_or(23u32)?;
     if terminator != 0 && terminator != root {
         return Err(30);
     }
-    let group = root;
-    let Some(texture) = MtDti::find("cGUIObjTexture") else {
-        return Err(33);
-    };
+    let texture = MtDti::find("cGUIObjTexture").ok_or(33u32)?;
     if !is_type(bar, texture as *const _ as u32) {
         return Err(31);
     }
@@ -241,121 +259,148 @@ fn read_row() -> Result<Row, u32> {
         ((width == BAR_WIDTH.to_bits()) as u32) | (((height == BAR_HEIGHT.to_bits()) as u32) << 1),
         Ordering::Release,
     );
+    // instance+0xd8 is read and logged, not gated: this HUD has no animation map
+    // list to grow, so nothing here indexes it.
     Ok(Row {
         root,
-        instance,
-        map,
-        cache,
-        group,
         bar,
         effect,
-        width: live_width,
+        edge,
     })
 }
 
-/// Build the mask, grow the row's map and draw cache, publish them, then reparent
-/// the bar under the mask. A failure at any stage publishes nothing.
+/// Build the mask and link it as the root's first child with the bar, the glow and
+/// the edge under it, in that order, closing with a zero sibling on the edge and on
+/// the mask. Every link is written by the native linkers, which also supply the
+/// parent of the node they attach. The mask is published first, so each later link
+/// hangs under a node that already reaches the root: at no point is there a parent
+/// cycle, a parent chain ending at 0, or a node whose parent is unreachable from the
+/// root, any of which a walker rebuild running on another thread would follow.
+/// A mask linked in and then rejected by the link checks below stays in the tree
+/// inert (no Enable bit, no children), and insertion is terminal.
 fn insert(row: &Row) -> Result<u32, u32> {
-    // 1. The mask. Its factory allocates through the mask DTI's own MT allocator,
-    // so the game's destructor owns the block from the moment it returns.
+    // The mask. Its factory allocates through the mask DTI's own MT allocator, so
+    // the game's destructor owns the block from the moment it returns.
+    // shortcut: a mask that fails verification below is never linked, and the
+    // factory has no release path, so it stays unreachable in the mask DTI's
+    // allocator. Insertion failure is terminal (STATE = 2), so this cannot repeat.
     let mask = memory::call0(base() + 0xa4b6cc).ok_or(1u32)?;
     let dti = MtDti::find("cGUIObjScissorMask").ok_or(18u32)? as *const _ as u32;
     if mask == 0 || mask & 3 != 0 || !memory::writable(mask, MASK_BYTES) || !is_type(mask, dti) {
         return Err(2);
     }
-    // 2. The cache allocation goes through the root object's own pair of methods,
-    // vtable 0x58 to take and 0x5c to release. That is proven for this class: the
-    // root is a cGUIObjRoot (gate 25), the same class the quest row publishes, and
-    // the native destructor releases the block through the same slot.
-    let allocate = method(row.root, 0x58).ok_or(4u32)?;
-    let free = method(row.root, 0x5c).ok_or(5u32)?;
-    // 3. The draw cache grows by one begin/end pair: the walker emits an enter
-    // entry and an exit entry for the new child, and the terminator stays last.
-    // Entries are (kind, node) word pairs, eight bytes each, so one more drawable
-    // is exactly sixteen more bytes plus the eight-byte terminator, and the header
-    // sits eight bytes below the entry pointer the root publishes at +0x80.
-    let cache_bytes = (sampling::drawables() + 1) * 16 + 8;
-    let new_cache = memory::call2(allocate, row.root, cache_bytes).ok_or(10u32)?;
-    if new_cache == 0
-        || new_cache & 15 != 0
-        || !memory::write_bytes(new_cache.wrapping_sub(8), (cache_bytes + 8) as usize)
-    {
-        return Err(11);
-    }
-    CACHE_BLOCK.store(new_cache, Ordering::Release);
-    // 4. The mask takes the root's first-child slot and the bar becomes its child.
-    // The mask's siblings stay the glow and the edge, so the walk visits
-    // mask -> bar -> glow -> edge and the scissor covers all three. The mask needs
-    // visible and drawable set, because those are the two bits the walker emits on:
-    // bit 0 selects the enter path, 0x0200_0000 selects the entry itself.
+    // The mask needs visible and drawable set: bit 0 is the visibility the walker
+    // tests before descending, and 0x0200_0000 is the bit that makes it emit the
+    // enter and exit records the mask's clip and restore hang off.
     if !word(mask + 0x50, MOD_ID)
-        || !word(mask + NODE_CHILD, row.bar)
-        || !word(mask + NODE_SIBLING, row.effect)
-        || !word(mask + NODE_PARENT, row.group)
         || !word(
             mask + NODE_FLAGS,
             memory::word(mask + NODE_FLAGS).ok_or(12u32)? | NODE_VISIBLE | NODE_DRAWABLE,
         )
-        || !word(row.bar + NODE_PARENT, mask)
-        || !word(row.group + NODE_CHILD, mask)
     {
-        memory::call2(free, row.root, new_cache);
-        return Err(15);
+        return Err(13);
     }
-    // 5. Publish the gauge cache pointer. The counter mod writes map aliases at
-    // root+0xa0/+0xa4 and a cache alias at root+0x9c; the gauge uses none of them
-    // (controller+0x9c is the animation row and +0xa0/+0xa4 stay 0), so writing
-    // them here would corrupt the row. Bit 0 of root+0x8c is the dirty flag the
-    // walker clears when it rebuilds, so that is the only bit to set.
-    let published = word(row.root + 0x80, new_cache)
-        && word(
-            row.root + 0x8c,
-            memory::word(row.root + 0x8c).ok_or(16u32)? | 1,
-        );
-    if !published {
+    // Publish the mask first, as the root's first child: the linker writes
+    // mask.parent = root. Every later link then hangs under a node that already
+    // reaches the root, which is what keeps a rebuild during this sequence safe. A
+    // node whose parent chain ends at 0 is fatal here, because the walker pops to
+    // node+0x70 and dereferences it, and a parent cycle is fatal the same way.
+    link(0xa48460, row.root, mask).ok_or(16u32)?;
+    if memory::word(row.root.wrapping_add(NODE_CHILD)) != Some(mask)
+        || memory::word(mask.wrapping_add(NODE_PARENT)) != Some(row.root)
+    {
         return Err(17);
     }
-    // The originals stay allocated and reachable; the plugin keeps them for
-    // restore, and the game's own cleanup counts the published tree.
-    OLD_CACHE.store(row.cache, Ordering::Release);
-    SIZES.store(
-        (GAUGE_OBJECTS as u32) | ((row.cache_bytes()) << 16),
-        Ordering::Release,
-    );
+    // mask.child = bar, and the linker writes bar.parent = mask. The bar leaves the
+    // root's own chain at this point: the gauge is not drawn between the two lines
+    // above and this one, which is the price for a chain that is never half-built.
+    link(0xa48460, mask, row.bar).ok_or(14u32)?;
+    // bar.sibling = glow, and the linker writes glow.parent = bar.parent = mask.
+    link(0xa4844c, row.bar, row.effect).ok_or(14u32)?;
+    // glow.sibling = edge, and the linker writes edge.parent = glow.parent = mask.
+    link(0xa4844c, row.effect, row.edge).ok_or(14u32)?;
+    // The mask's child chain ends with a zero sibling, so the walk pops from the
+    // edge back to the mask and emits the mask's exit record. The mask's own
+    // sibling is 0 from the factory (main+0xa4b6cc zeroes +0x5c).
+    link(0xa4844c, row.edge, 0).ok_or(14u32)?;
+    // Read every link back. The walk visits mask -> bar -> glow -> edge -> mask.
+    let links_ok = memory::word(mask.wrapping_add(NODE_CHILD)) == Some(row.bar)
+        && memory::word(mask.wrapping_add(NODE_SIBLING)) == Some(0)
+        && memory::word(row.bar.wrapping_add(NODE_PARENT)) == Some(mask)
+        && memory::word(row.bar.wrapping_add(NODE_SIBLING)) == Some(row.effect)
+        && memory::word(row.effect.wrapping_add(NODE_PARENT)) == Some(mask)
+        && memory::word(row.effect.wrapping_add(NODE_SIBLING)) == Some(row.edge)
+        && memory::word(row.edge.wrapping_add(NODE_PARENT)) == Some(mask)
+        && memory::word(row.edge.wrapping_add(NODE_SIBLING)) == Some(0);
+    if !links_ok {
+        return Err(15);
+    }
+    // Bit 0 of root+0x8c asks the walker to rebuild the cache over the new tree; it
+    // clears the bit itself. The row's own cache is kept, because main+0xa49b28
+    // sized it from the row counts and the mask's extra records fit in it.
+    let flags = memory::word(row.root + 0x8c).ok_or(17u32)?;
+    if !word(row.root + 0x8c, flags | 1) {
+        return Err(17);
+    }
     BAR_NODE.store(row.bar, Ordering::Release);
-    GROUP_NODE.store(row.group, Ordering::Release);
     Ok(mask)
 }
 
-impl Row {
-    fn cache_bytes(&self) -> u32 {
-        ((sampling::drawables() + 1) * 16 + 8) & 0xffff
-    }
-}
-
-/// Write the clip for one ratio. Position is a float pair with the dirty bit the
-/// game's own setters set, size is the integer pair the consumer at main+0xa4ba94
-/// reads once bit 1 of +0xa4 is on.
-pub fn apply(ratio_bp: u32) -> Option<[i32; 4]> {
+/// Write the clip for one ratio. Position is the float pair with the dirty bit the
+/// game's own setter sets, size is the integer pair, and both dirty bits are set in
+/// the mask flag word: bit 1 makes the enter record rebuild the mask rectangle at
+/// +0xb0..+0xbc, bit 0 makes it apply the scissor. The mask's exit record restores
+/// the clip the game had before, so masking ends with the mask.
+///
+/// The tree is re-checked in the shape this insertion produced: the bar's parent is
+/// the mask, the mask's child is the bar, and the mask's own parent is the row's
+/// root. A row read written for the tree before the insertion is not used here.
+/// Returns the requested box and the rectangle the game built from it.
+pub fn apply(ratio_bp: u32) -> Option<([i32; 4], [i32; 4])> {
     if STATE.load(Ordering::Relaxed) != 1 {
         return None;
     }
     let mask = MASK.load(Ordering::Relaxed);
-    let row = read_row().ok()?;
-    let box_ = sharpness_gauge_core::mask_box(rect(&row.bar)?, ratio_bp, row.width);
-    if !memory::write_bits(mask + 0x80, box_[0] as f32)
-        || !memory::write_bits(mask + 0x84, box_[1] as f32)
-        || !word(mask + 0x54, memory::word(mask + 0x54)? | 0x2_0000)
-        || !word(mask + 0xa8, box_[2] as u32)
-        || !word(mask + 0xac, box_[3] as u32)
-        || !word(mask + 0xa4, memory::word(mask + 0xa4)? | 2)
+    let bar = BAR_NODE.load(Ordering::Relaxed);
+    // The instance hook records this pair only from the game's own draw path, so
+    // the controller the insertion linked into is the one the game is drawing now.
+    let (_, root) = hooks::gauge_instance()?;
+    if bar == 0
+        || memory::word(bar.wrapping_add(NODE_PARENT)) != Some(mask)
+        || memory::word(mask.wrapping_add(NODE_CHILD)) != Some(bar)
+        || memory::word(mask.wrapping_add(NODE_PARENT)) != Some(root)
     {
         return None;
     }
-    Some(box_)
+    let rect = rect(&bar)?;
+    let box_ = sharpness_gauge_core::mask_box(rect, ratio_bp, BAR_W.load(Ordering::Relaxed) as i32);
+    if !memory::write_bits(mask + MASK_POSITION, box_[0] as f32)
+        || !memory::write_bits(mask + MASK_POSITION + 4, box_[1] as f32)
+        || !word(
+            mask + 0x54,
+            memory::word(mask + 0x54)? | MASK_POSITION_DIRTY,
+        )
+        || !word(mask + MASK_SIZE, box_[2] as u32)
+        || !word(mask + MASK_SIZE + 4, box_[3] as u32)
+        || !word(
+            mask + MASK_FLAGS,
+            memory::word(mask + MASK_FLAGS)? | MASK_SIZE_DIRTY | MASK_ENABLE,
+        )
+    {
+        return None;
+    }
+    let built = [
+        memory::word(mask + MASK_RECT).unwrap_or(0) as i32,
+        memory::word(mask + MASK_RECT + 4).unwrap_or(0) as i32,
+        memory::word(mask + MASK_RECT + 8).unwrap_or(0) as i32,
+        memory::word(mask + MASK_RECT + 12).unwrap_or(0) as i32,
+    ];
+    Some((box_, built))
 }
 
-/// The bar's own rect, as the game keeps it at +0xe0.
+/// The bar's own rect, as the game keeps it at +0xe0. The sprite prepaint at
+/// main+0xa4e628 intersects this rect with the live clip at context+0xd0, so the
+/// two are in the same units and so is the mask's own rectangle.
 fn rect(bar: &u32) -> Option<[i32; 4]> {
     let left = memory::word(bar.checked_add(0xe0)?)? as i32;
     let top = memory::word(bar.checked_add(0xe4)?)? as i32;
@@ -366,35 +411,19 @@ fn rect(bar: &u32) -> Option<[i32; 4]> {
 
 /// Insert once, from the plugin's update callback (the game's own thread, outside
 /// the walker). A row that is not present yet is not a failure: the gauge HUD row
-/// exists only while a weapon-owning player is in a quest, so stage 20 reports once
-/// and keeps retrying at a slow cadence. A hard failure (mask factory, allocation
-/// or publish) is terminal, because retrying an allocation path that already
-/// failed is not how this row gets built.
+/// exists only while a weapon-owning player is in a quest, so stage 21 reports and
+/// keeps retrying at a slow cadence. A hard failure (mask factory, linker call or
+/// publish) is terminal, because the row is not rebuilt by retrying a path that
+/// already failed.
 const RETRY_EVERY: u32 = 240;
-/// Walker calls after which an accepted gauge sample is stale. The walker runs
-/// for every animation controller, so a few thousand calls is a few seconds.
-const STALE_CALLS: u32 = 3_000;
 static TRIES: AtomicU32 = AtomicU32::new(0);
 /// The bar's live width, and bit 0/1 for "the authored 88 and 24 match".
 static BAR_W: AtomicU32 = AtomicU32::new(0);
 static AUTHORED: AtomicU32 = AtomicU32::new(0);
-/// root+0x50 as read, recorded because it is not a gate for this row.
+/// root+0x8c as read, recorded because the insertion sets its rebuild bit.
 static AUTHORED50: AtomicU32 = AtomicU32::new(0);
 
 pub fn tick() {
-    if STATE.load(Ordering::Relaxed) == 1 {
-        // The gauge HUD is torn down when a quest ends. Undo the insertion while
-        // the objects are still the ones we linked, then let the next quest start
-        // a fresh insertion against the controller the hook captures then.
-        if sampling::gauge_age_calls() > STALE_CALLS {
-            if restore() {
-                hooks::clear_capture(hooks::capture().1);
-                STATE.store(0, Ordering::Release);
-                FAILURE.store(0, Ordering::Release);
-            }
-        }
-        return;
-    }
     if STATE.load(Ordering::Relaxed) != 0 {
         return;
     }
@@ -430,47 +459,14 @@ pub fn tick() {
     }
 }
 
-fn restore_links(old_cache: u32, root: u32) -> Option<()> {
-    let bar = BAR_NODE.load(Ordering::Relaxed);
-    if bar == 0 || !word(bar + NODE_PARENT, root) || !word(root + NODE_CHILD, bar) {
-        return None;
-    }
-    if !word(root + 0x80, old_cache) {
-        return None;
-    }
-    let flags = memory::word(root + 0x8c)?;
-    if !word(root + 0x8c, flags | 1) {
-        return None;
-    }
-    Some(())
-}
-
-/// Undo the insertion: restore the row's links, publish the original map and
-/// cache back, then let the game's destructor free the mask. The map the plugin
-/// allocated is freed last, after nothing points at it.
-pub fn restore() -> bool {
-    if STATE.load(Ordering::Relaxed) != 1 {
-        return true;
-    }
-    let (mask, _, _) = applied();
-    let old_cache = OLD_CACHE.load(Ordering::Relaxed);
-    let Some((_, root)) = hooks::gauge_instance() else {
-        return false;
-    };
-    if old_cache == 0 || restore_links(old_cache, root).is_none() {
-        return false;
-    }
-    let block = CACHE_BLOCK.load(Ordering::Relaxed);
-    if let Some(destroy) = method(mask, 0x04) {
-        memory::call1(destroy, mask);
-    }
-    // The cache block the root handed us is released through the root's own
-    // release slot, the same pair the native cleanup uses.
-    if let Some(free) = method(root, 0x5c) {
-        if block != 0 {
-            memory::call2(free, root, block);
-        }
-    }
-    STATE.store(2, Ordering::Release);
-    true
+/// The row's root is being destroyed: the game's root destructor walks the child
+/// chain, so the mask and the three textures are freed by this call, right after it
+/// returns. Nothing is written to the tree from here on, and the state goes back to
+/// "not inserted" so the next quest's HUD is inserted fresh.
+pub fn on_teardown() {
+    MASK.store(0, Ordering::Release);
+    BAR_NODE.store(0, Ordering::Release);
+    STATE.store(0, Ordering::Release);
+    FAILURE.store(0, Ordering::Release);
+    TRIES.store(0, Ordering::Release);
 }

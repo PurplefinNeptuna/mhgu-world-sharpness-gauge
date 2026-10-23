@@ -3,13 +3,13 @@ use sharpness_gauge_core::{
     boundary, kept, prototype_ratio,
     BAR_INK_LEFT, BAR_INK_TRACK, CLIP_HEIGHT, CLIP_TOP, mask_box,
     CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
-    CONTROLLER_ROW, FIELDS, FIELD_CURRENT, FIELD_DRAWABLE, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED,
+    CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_DRAWABLE, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED,
     FIELD_VISIBLE, Gauge, Sample,
     HEAD_WORDS, INPUT_FLAGS, KEY_FIELDS, Local, MAX_NODES, MAX_SHARPNESS,
     Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS, NODE_KIND,
     NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE, NODE_WORDS,
     PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
-    SHARPNESS_TYPE, SPLAYER_CELL, basis_points, fill_ratio, gauge_of,
+    SHARPNESS_TYPE, SPLAYER_CELL, basis_points, draw_plan, fill_ratio, gauge_of,
     is_sharp_animation, local_player, ratio_of_words, read_gauge, sample_controller,
     scan_walk,
 };
@@ -426,4 +426,95 @@ fn the_fill_track_scales_with_the_live_bar_width() {
     assert_eq!(boundary(sword, 0, 176), 110 + 36);
     assert_eq!(boundary(sword, 5_000, 176), 110 + 36 + 62);
     assert_eq!(mask_box(sword, 10_000, 176)[2], 160);
+}
+
+/// The gauge tree as the runs show it, with every link the walker follows: the
+/// bar, glow and edge are siblings whose parent is the walk root, and the edge
+/// closes the chain with a zero sibling (r10/r11 Eden logs).
+fn gauge_tree(fake: &mut Fake, edge_visible: bool) -> (u32, u32, u32, u32) {
+    let (root, sharp, efx, edge) = (0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32);
+    fake.put(sharp + NODE_PARENT, root);
+    fake.put(efx + NODE_PARENT, root);
+    fake.put(edge + NODE_PARENT, root);
+    fake.put(edge + NODE_SIBLING, 0);
+    // The r10 log prints the edge glyph as `child=0 sibling=0 parent=controller`,
+    // so the gauge tree has nothing below it.
+    fake.put(edge + NODE_CHILD, 0);
+    if edge_visible {
+        fake.put(edge + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    }
+    (root, sharp, efx, edge)
+}
+
+#[test]
+fn the_walk_plan_closes_every_drawable_it_opens() {
+    // The port of main+0xa494a0 over the tree before any insertion: enter and exit
+    // for the bar and the glow, nothing for the hidden edge glyph, then the
+    // terminator. 5 records is the 40 bytes the r9-r11 logs show, inside the 72-byte
+    // cache main+0xa49b28 sizes for this row.
+    let mut fake = gauge_fixture();
+    let (root, ..) = gauge_tree(&mut fake, false);
+    let plan = draw_plan(&fake, root);
+    assert_eq!(plan.kinds[..plan.count as usize], [0, 1, 0, 1, 2]);
+    assert!(!plan.overflow);
+    assert_eq!(plan.count * 8, 40);
+}
+
+#[test]
+fn the_inserted_mask_gets_its_exit_record() {
+    // The inserted shape: mask as the root's first child, bar under it, glow and
+    // edge as the bar's siblings inside the mask's subtree, and a zero sibling on
+    // the edge and on the mask. The walk pops from the edge back to the mask, so the
+    // mask's own exit record is emitted, which is what ends the scissor.
+    let mut fake = gauge_fixture();
+    let (root, sharp, efx, edge) = gauge_tree(&mut fake, false);
+    let mask = 0x7500u32;
+    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(mask + NODE_CHILD, sharp);
+    fake.put(mask + NODE_SIBLING, 0);
+    fake.put(root + NODE_CHILD, mask);
+    fake.put(mask + NODE_PARENT, root);
+    fake.put(sharp + NODE_PARENT, mask);
+    fake.put(efx + NODE_PARENT, mask);
+    fake.put(edge + NODE_PARENT, mask);
+    // Normal looping state: the edge glyph is hidden, so it emits nothing. The mask
+    // is entered first and exited last, and that exit is the end of the scissor.
+    let plan = draw_plan(&fake, root);
+    assert_eq!(plan.kinds[..plan.count as usize], [0, 0, 1, 0, 1, 1, 2]);
+    assert!(!plan.overflow);
+    assert_eq!(plan.count * 8, 56);
+    // Static tier: the edge glyph is visible, so it enters and its exit comes out
+    // inline (byte 0x57 bit 1 is word bit 25, the drawable bit the r10 log shows as
+    // 0x2040000). 9 records is 72 bytes, exactly the block main+0xa49b28 sized from
+    // this row's counts, so the insertion never needs a bigger cache.
+    fake.put(edge + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    let full = draw_plan(&fake, root);
+    assert_eq!(full.kinds[..full.count as usize], [0, 0, 1, 0, 1, 0, 1, 1, 2]);
+    assert_eq!(full.count * 8, 72);
+    assert!(!full.overflow && (full.count as usize) <= ENTRIES);
+}
+
+#[test]
+fn a_mask_left_open_never_stops_clipping() {
+    // The r13 shape: the mask takes the bar as its child but keeps the glow and the
+    // edge as siblings whose parent is the root, so the pop from the edge jumps to
+    // the root and ends the walk. The mask gets an enter record and no exit record,
+    // which is a scissor that never ends. Pinned so this shape cannot come back.
+    let mut fake = gauge_fixture();
+    let (root, sharp, efx, _edge) = gauge_tree(&mut fake, false);
+    let mask = 0x7500u32;
+    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(mask + NODE_CHILD, sharp);
+    fake.put(mask + NODE_SIBLING, efx);
+    fake.put(mask + NODE_PARENT, root);
+    fake.put(root + NODE_CHILD, mask);
+    fake.put(sharp + NODE_PARENT, mask);
+    let plan = draw_plan(&fake, root);
+    let kinds = &plan.kinds[..plan.count as usize];
+    // The mask is entered first and the walk ends at the root without ever
+    // returning to it, so no exit record for the mask: a scissor that never ends.
+    assert_eq!(kinds, [0, 0, 1, 0, 1, 2]);
+    assert_eq!(kinds[0], 0);
+    assert_eq!(&kinds[1..5], [0, 1, 0, 1]);
+    assert_eq!(plan.count * 8, 48);
 }

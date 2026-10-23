@@ -25,6 +25,7 @@ const ABSENT_AFTER_CALLS: u32 = 6_000;
 static REPORTED_FIRST: AtomicBool = AtomicBool::new(false);
 static REPORTED_ABSENT: AtomicBool = AtomicBool::new(false);
 static REPORTED_FULL: AtomicBool = AtomicBool::new(false);
+static LAST_TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 
 // forge-rs exposes only the six-byte version prefix. The matching native loader
 // also owns name[64] at offset 6 and hides empty names in its Loaded Plugins
@@ -126,8 +127,9 @@ fn sample_line(number: u32, words: &[u32; sampling::WORDS]) -> String {
 }
 
 /// One node: address, the whole flag word (bit 0 visible, 0x0200_0000 drawable,
-/// 0x0040_0000 leaf exit, 0x0000_4000 prepaint skip), the object kind, then the
-/// own rectangle and the rectangle prepaint leaves after the clip intersection.
+/// which is also the leaf-exit bit the walker tests for a childless node,
+/// 0x0001_0000 cleared on exit, 0x0000_4000 prepaint skip), the object kind, then
+/// the own rectangle and the rectangle prepaint leaves after the clip intersection.
 fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> String {
     let base = HEAD_WORDS + index * NODE_WORDS;
     let mut line = String::with_capacity(160);
@@ -189,16 +191,16 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         gauge = sampling::gauge_controller());
     }
     if gui::inserted() && !REPORTED_INSERT.swap(true, Ordering::Relaxed) {
-        let (mask, objects, cache) = gui::applied();
+        let (mask, child, sibling, parent) = gui::applied();
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " scissor mask inserted; row map {objects} bindings, draw cache {cache} bytes, mask {mask}"
-        ), objects = objects, cache = cache, mask = mask);
+            " scissor mask inserted; mask {mask} child={child} sibling={sibling} parent={parent}, links written by main+0xa4844c and main+0xa48460"
+        ), mask = mask, child = child, sibling = sibling, parent = parent);
     }
     if gui::inserted() && seconds > GRACE_SECONDS {
         let ratio = sharpness_gauge_core::prototype_ratio(seconds - GRACE_SECONDS);
-        if let Some(box_) = gui::apply(ratio) {
+        if let Some((box_, built)) = gui::apply(ratio) {
             let key = (box_[2] as u32) << 16 | (ratio & 0xffff);
             if LAST_BOX.swap(key, Ordering::Relaxed) != key {
                 log::error!(concat!(
@@ -216,6 +218,18 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
                 authored = gui::bar_width().1,
                 row_flags = gui::row_flags().0,
                 drawables = gui::row_flags().1);
+                // The rectangle the mask's enter record built from that position and
+                // size, at mask+0xb0..+0xbc: the units question is answered by
+                // comparing these four with the bar rect in the tree lines.
+                log::error!(concat!(
+                    "MSG ",
+                    env!("MSG_VERSION"),
+                    " mask rect {l} {t} {r} {b}"
+                ),
+                l = built[0],
+                t = built[1],
+                r = built[2],
+                b = built[3]);
             }
         }
     }
@@ -242,6 +256,17 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         }
     }
     let (calls, taken, matched) = sampling::stats();
+    // The row's root destructor is the only teardown evidence this plugin has. Each
+    // fire means the game freed the mask and its children, and insertion starts
+    // again on the next HUD.
+    let tears = hooks::teardowns();
+    if tears > LAST_TEARDOWNS.swap(tears, Ordering::Relaxed) {
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " gauge row root destroyed ({tears} times); mask state cleared"
+        ), tears = tears);
+    }
     if matched && taken == sampling::MAX_SAMPLES && !REPORTED_FULL.swap(true, Ordering::Relaxed) {
         log::error!(concat!(
             "MSG ",

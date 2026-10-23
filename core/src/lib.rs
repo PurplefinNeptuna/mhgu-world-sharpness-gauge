@@ -63,9 +63,12 @@ pub const CONTROLLER_OWNER: u32 = 0xa0;
 // offset 0x38 * 4 = 0xE0; explicit `param_1 + 0x54` arithmetic is a byte
 // offset. The object's own fields:
 //   +0x54 u32   bytes +0x54..+0x57: bit 0 visible (the walker skips the whole
-//               subtree when clear), 0x0200_0000 drawable (byte 2 bit 5),
-//               0x0040_0000 byte 3 (+0x57) bit 1 leaf exit, 0x0000_4000 byte 2
-//               (+0x56) bit 6 prepaint skip
+//               subtree when clear), 0x0200_0000 drawable (byte 2 bit 5, and the
+//               same word bit as byte 0x57 bit 1, which is the bit the walker
+//               tests twice: to emit the enter record, and to emit a childless
+//               node's exit record inline), 0x0001_0000 cleared by the consumer
+//               after each exit record, 0x0000_4000 byte 2 (+0x56) bit 6 prepaint
+//               skip
 //   +0x33 u32   low nibble is the object kind; kinds 6 and 3 take the clip path
 //   +0xE0..0xEC four signed ints: own screen rect (left, top, right, bottom)
 //   +0xF0..0xFC four signed ints: that rect after prepaint intersects it with
@@ -85,7 +88,6 @@ pub const NODE_SIBLING: u32 = 0x6c;
 pub const NODE_PARENT: u32 = 0x70;
 pub const NODE_VISIBLE: u32 = 1;
 pub const NODE_DRAWABLE: u32 = 0x0200_0000;
-pub const NODE_LEAF_EXIT: u32 = 0x0040_0000;
 
 // The walker's second argument is the draw context. Its live scissor rectangle,
 // which prepaint intersects every drawable with, sits at +0xd0..+0xdc.
@@ -311,6 +313,98 @@ pub fn scan_walk(memory: &dyn Memory, root: u32) -> Walk {
         }
     }
     out.truncated = overflow || top > 0 || out.visited >= SCAN_LIMIT;
+    out
+}
+
+/// The draw cache the walker at main+0xa494a0 writes for a tree, as the entry kinds
+/// in the order it writes them: 0 = enter (the consumer calls vtable 0x38 and 0x3c),
+/// 1 = exit (it calls 0x40 and clears 0x0001_0000 in the node's flag word), 2 = the
+/// terminator. Ported from the decompile at `main+0xa494a0` instruction for
+/// instruction: the walk enters at `root+0x68`, descends `+0x68`, takes `+0x6c`
+/// siblings, pops through `+0x70` when a sibling is 0, and ends when the next pointer
+/// is the root. A drawable node with no child emits its exit entry inline (byte 0x57
+/// bit 1 is word bit 25, the same drawable bit). Bounded by ENTRIES: a tree that
+/// emits more entries than the row's cache can hold is reported as overflow, because
+/// the walker writes with no bounds check of its own.
+pub const ENTRIES: usize = 16;
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Plan {
+    pub kinds: [u32; ENTRIES],
+    pub count: u32,
+    /// The walk ran past ENTRIES, past SCAN_LIMIT visits, or a read failed.
+    pub overflow: bool,
+}
+
+fn emit(plan: &mut Plan, kind: u32) {
+    if (plan.count as usize) < ENTRIES {
+        plan.kinds[plan.count as usize] = kind;
+    } else {
+        plan.overflow = true;
+    }
+    plan.count += 1;
+}
+
+pub fn draw_plan(memory: &dyn Memory, root: u32) -> Plan {
+    let mut out = Plan::default();
+    let mut node = match memory.word(root.wrapping_add(NODE_CHILD)) {
+        Some(node) if node != 0 => node,
+        _ => {
+            emit(&mut out, 2);
+            return out;
+        }
+    };
+    let mut popped = false;
+    for _ in 0..=SCAN_LIMIT {
+        let Some(flags) = memory.word(node.wrapping_add(NODE_FLAGS)) else {
+            out.overflow = true;
+            break;
+        };
+        let drawable = flags & NODE_DRAWABLE != 0;
+        let mut next;
+        if popped {
+            if drawable {
+                emit(&mut out, 1);
+            }
+            popped = false;
+            next = memory.word(node.wrapping_add(NODE_SIBLING)).unwrap_or(0);
+            if next == 0 {
+                next = memory.word(node.wrapping_add(NODE_PARENT)).unwrap_or(0);
+                popped = true;
+            }
+        } else if flags & NODE_VISIBLE == 0 {
+            next = memory.word(node.wrapping_add(NODE_SIBLING)).unwrap_or(0);
+            if next == 0 {
+                next = memory.word(node.wrapping_add(NODE_PARENT)).unwrap_or(0);
+                popped = true;
+            }
+        } else {
+            if drawable {
+                emit(&mut out, 0);
+            }
+            let child = memory.word(node.wrapping_add(NODE_CHILD)).unwrap_or(0);
+            if child != 0 {
+                next = child;
+            } else {
+                if drawable {
+                    emit(&mut out, 1);
+                }
+                next = memory.word(node.wrapping_add(NODE_SIBLING)).unwrap_or(0);
+                if next == 0 {
+                    next = memory.word(node.wrapping_add(NODE_PARENT)).unwrap_or(0);
+                    popped = true;
+                }
+            }
+        }
+        if next == root {
+            break;
+        }
+        if next == 0 {
+            out.overflow = true;
+            break;
+        }
+        node = next;
+    }
+    emit(&mut out, 2);
     out
 }
 

@@ -1,33 +1,56 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 prototype candidate r13 (`DISTRIBUTION.json`, DEVELOPMENT).
-r10 inserts a `cGUIObjScissorMask` as the gauge root's first child and clips the bar,
-the glow and the edge with it; the fill cycles 0/25/50/100 percent, 20 seconds each,
-as a fixed prototype. The gauge layout it writes against is the decompiled draw walker
-at main+0xa494a0 plus the r9 Eden log, recorded in
-`work/modern-sharpness-gauge/PHASE2_RESEARCH.md`: the walk root is a `cGUIObjRoot`
-whose `+0x68` is the bar, whose `+0x80` is the draw cache, whose `+0x8c` bit 0 is the
-rebuild flag, and whose `+0x9c` is the animation row. The three sharpness textures are
-direct siblings of that root and the walk closes on a sibling that points back at it,
-so gate 30 accepts both closings: a sibling equal to the root, or a zero sibling that pops through the node's own parent. This HUD has no animation map list:
-`instance+0xd8` and `root+0xa0/+0xa4` are zero, so the map growth from the quest row
-contract is deliberately not applied here.
+Current state: Phase 2 prototype candidate r14 (`DISTRIBUTION.json`, DEVELOPMENT,
+runtime NOT RUN, nothing installed). r14 inserts a `cGUIObjScissorMask` as the gauge
+root's first child with the bar, the glow and the edge under it, so the draw walker
+enters the mask, clips the three textures, and leaves it again; the fill cycles
+0/25/50/100 percent, 20 seconds each, as a fixed prototype. The links are written by
+the native linkers main+0xa48460 (child, supplies its parent) and main+0xa4844c
+(sibling, supplies its parent), the child chain ends with a zero sibling on the edge
+and on the mask, and the clip is asked for by bit 0 of the mask's flag word at
+`mask+0xa4` (the Enable bit main+0xa4ba20 writes) together with bit 1, the rectangle
+rebuild. The row's own draw cache is kept: main+0xa49b28 sizes it from the row's
+counts and the mask's extra records fit. The plugin frees nothing.
+`work/modern-sharpness-gauge/PHASE2_RESEARCH.md` records every cited instruction.
+
+r13 was reviewed before any run and is not installed. It linked the mask with the glow
+and the edge left as siblings of the root, so the walk ended at the root without
+emitting the mask's exit record: a scissor that never ends. It set the rectangle bit
+and not the Enable bit, so no scissor was asked for at all. Its `apply()` re-read the
+row with the gates written for the tree before the insertion, so it returned None after
+the insertion. Its cleanup was a 3000-walker-call timer, which is not a liveness proof
+and writes into a HUD the game may already have destroyed. All five are fixed in r14,
+together with the "Every offset below is proven" header that was still in `gui.rs`.
+
+Capture lifetime (plan step 3): r14 hooks the `cGUIObjRoot` destructor main+0xa486fc,
+vtable slot 0x04 of main+0x178f9bc, which frees the row's cache and deletes the root's
+child chain; the mask's own destructor main+0xa56758 deletes the chain below it, so the
+game frees the mask and the three textures in the same pass. When the destructor's
+argument is the captured controller, r14 drops the capture, the sampler's controller and
+the insertion state before the original runs, and logs the fire. A session with no fire
+line means this teardown path was never proven, and no cleanup claim is made for it.
+`restore()`, `restore_links()` and the staleness timer are gone.
 
 Run history: r5 stage 20, r6 stage 20, r7 stage 24, r8 stage 26, r9 stage 29, r10 stage 27 (107 lines: gates 25 and 26 passed, the parent word was read from the root instead of the bar), r11 stage 27 again (277 lines: the fix chained root+0x68+0x70, which is the root+0xd8 word, not the bar's parent) plus 112 stage-23 lines after a scene change on a capture whose row was gone. r8 and r9 both failed on gates copied from
 Key Quest Markers whose model the logs refuted, so r10 follows playbook P3 step 4: every
 gate is now written against the walker decompile, the `cGUIObjRoot` DTI record, and the
 logged link words, not against another row's layout. r12 was packaged (NRO `01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e`) and never reported run;
-r13 runtime is NOT RUN.
+r13 was packaged and never run, and the review above is why. r14 runtime is NOT RUN.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
 match: stage 21 in bulk while no gauge exists, and a stage-23 streak after a scene change.
-r13 gates insertion on a live sharpness gauge (stage 34) and restores on staleness.
+The live-gauge gate (stage 34, a sample with a positive maximum) stays in r14; the
+staleness half of it is gone, because a call counter proves nothing about an object.
 
-Open items: the mask property (`mMask`) value the game needs before it writes a scissor
-is unproven, so only a screenshot can confirm clipping; `restore()` has no caller because
-Forge has no plugin unload step; the ARM fixtures for insertion, allocation failure and
-cleanup are not written.
+Open items: whether the mask clips at all is a screenshot question, and r14's log
+prints both the box it asked for and the rectangle the game built at `mask+0xb0..+0xbc`,
+next to the bar's rect, so a units offset shows up as a number. Whether reparenting
+moved the bar is read from the tree lines before and after the insertion. Forge has no
+plugin unload step, so nothing is undone at plugin removal: the game's own teardown of
+the row is the only cleanup, which is what the destructor hook is for. Host fixtures
+cover the tree before the insertion, the tree after it, the record counts and the
+r13 shape; the ARM fixtures for insertion and allocation failure are not written.
 
 ## Commands
 
@@ -77,7 +100,13 @@ against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0x3f8398` | local hunter index reader over the session singleton | batch 3 |
 | `0x276278` | `sPlayer::getMainPlayer` | batch 3 |
 | `0xa4faf0`, `0xa4fb58` | `cGUIObjTexture` setTexture / setTextureRect | batch 3 |
-| `0xa4ba20`, `0xa4ba40` | `cGUIObjScissorMask` Enable / Size setters | batch 3 |
+| `0xa4ba20`, `0xa4ba40` | `cGUIObjScissorMask` Enable / Size setters | batch 3; Enable writes bit 0 of `+0xa4` (`bfc r2,#0,#1` + `bfi r2,r1,#0,#1`), Size stores `+0xa8`/`+0xac` |
+| `0xa4844c`, `0xa48460` | native sibling / child linkers, each supplies the attached node's parent | instruction words in `PHASE2_RESEARCH.md`; no `bl` and no stored word for either address in main (`scripts/xref.py`, `scripts/find_word.py`) |
+| `0xa4ba94` | mask enter record handler: builds the mask rect at `+0xb0..+0xbc` when `+0xa4 & 2`, applies the scissor when `+0xa4 & 1` | vftable word at `0x178fb3c` (= `cGUIObjScissorMask` slot 0x38), batch 7 |
+| `0xa4bcdc` | mask exit record handler: restores the clip saved at `+0xc0..+0xcc`, returns unless `+0xa4 & 1` | vftable word at `0x178fb44` (slot 0x40), instruction words in `PHASE2_RESEARCH.md` |
+| `0xa486fc` | `cGUIObjRoot` destructor (slot 0x04 of `0x178f9bc`): frees the row cache, then deletes the root's child chain. The r14 hook | instruction words, `find_word.py`; window signature |
+| `0xa56758` | `cGUIObjScissorMask` destructor: deletes its own child chain, so the game frees the mask and the three textures together | instruction words in `PHASE2_RESEARCH.md` |
+| `0xa4b6cc` | `cGUIObjScissorMask` factory: 0xd0 bytes through the mask DTI's MT allocator, `+0x5c` (sibling) zeroed | batch 7 decompile |
 
 Runtime state read by the hook:
 

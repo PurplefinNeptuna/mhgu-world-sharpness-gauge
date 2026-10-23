@@ -8,6 +8,10 @@ pub const HOOK: u32 = 0xa494a0;
 /// cGUIInstance that owns the row's controller at instance+0xdc.
 /// Same 12-word pattern as the SIGNATURES entry for 0xa39300, from original main.
 pub const INSTANCE_HOOK: u32 = 0xa39300;
+/// The cGUIObjRoot destructor main+0xa486fc, vtable slot 0x04 of main+0x178f9bc.
+/// It is the gauge row's teardown: it frees the row's draw cache and deletes the
+/// root's child chain, which is where the inserted mask and its children are freed.
+pub const ROOT_DESTRUCTOR_HOOK: u32 = 0xa486fc;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     // main+0xa494a0: draw walker entry; the hook target. push {r4,r5,r11,lr} prologue, unique 12-word pattern
     (0xa494a0, [
@@ -113,5 +117,38 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         208, 32, 193, 225, 5, 48, 35, 224,
         4, 80, 34, 224, 3, 48, 149, 225,
         48, 136, 189, 8, 168, 32, 128, 229,
+    ]),
+    // main+0xa4844c: native sibling linker, `str r1,[r0,#0x6c]` then a copy of
+    // r0's parent into the attached node. main+0xa48460 is the native child linker,
+    // `str r1,[r0,#0x68]` then `str r0,[r1,#0x70]`. The insertion calls both.
+    (0xa4844c, [
+        108, 16, 128, 229, 0, 0, 81, 227,
+        112, 0, 144, 21, 112, 0, 129, 21,
+        30, 255, 47, 225, 0, 0, 81, 227,
+        104, 16, 128, 229, 112, 0, 129, 21,
+    ]),
+    (0xa48460, [
+        0, 0, 81, 227, 104, 16, 128, 229,
+        112, 0, 129, 21, 30, 255, 47, 225,
+        48, 72, 45, 233, 96, 32, 144, 229,
+        1, 64, 160, 225, 92, 16, 144, 229,
+    ]),
+    // main+0xa4b6cc: cGUIObjScissorMask factory; it allocates 0xd0 bytes through the
+    // mask DTI's own MT allocator. Called, never hooked.
+    (0xa4b6cc, [
+        16, 64, 45, 233, 40, 0, 159, 229,
+        0, 64, 159, 231, 4, 0, 160, 225,
+        102, 123, 245, 235, 0, 16, 144, 229,
+        28, 48, 148, 229, 16, 32, 160, 227,
+    ]),
+    // main+0xa486fc: cGUIObjRoot destructor, vtable slot 0x04 of main+0x178f9bc. It
+    // frees the row's draw cache and then deletes the root's child chain. Hook
+    // target: push {r4,r5,r11,lr} then mov r4,r0, so the relocated window has no
+    // PC-relative operand.
+    (0xa486fc, [
+        48, 72, 45, 233, 0, 64, 160, 225,
+        144, 0, 159, 229, 0, 0, 159, 231,
+        8, 0, 128, 226, 0, 0, 132, 229,
+        164, 80, 148, 229, 0, 0, 85, 227,
     ]),
 ];

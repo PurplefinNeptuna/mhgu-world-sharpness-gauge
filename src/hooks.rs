@@ -6,9 +6,10 @@
 //! signature window is checked before any write, and a failure restores the
 //! originals it touched.
 use crate::{
+    gui,
     memory,
     sampling,
-    signatures::{HOOK, INSTANCE_HOOK, SIGNATURES},
+    signatures::{HOOK, INSTANCE_HOOK, ROOT_DESTRUCTOR_HOOK, SIGNATURES},
 };
 use alloc::vec::Vec;
 use core::{
@@ -19,7 +20,8 @@ use forge::patch::Patch;
 
 core::arch::global_asm!(
     ".hidden msg_walker\n.hidden msg_walker_original\n.hidden msg_active\n\
-     .hidden msg_instance\n.hidden msg_instance_original\n.hidden msg_instance_active"
+     .hidden msg_instance\n.hidden msg_instance_original\n.hidden msg_instance_active\n\
+     .hidden msg_root_dtor\n.hidden msg_root_dtor_original\n.hidden msg_root_dtor_active"
 );
 #[unsafe(no_mangle)]
 pub static msg_walker_original: AtomicU32 = AtomicU32::new(0);
@@ -29,6 +31,10 @@ pub static msg_active: AtomicBool = AtomicBool::new(false);
 pub static msg_instance_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
 pub static msg_instance_active: AtomicBool = AtomicBool::new(false);
+#[unsafe(no_mangle)]
+pub static msg_root_dtor_original: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static msg_root_dtor_active: AtomicBool = AtomicBool::new(false);
 // The instance whose +0xdc is the gauge controller, recorded as plain integers.
 // Game pointers never leave this module; readers only use them synchronously
 // on the same thread that the game called them on.
@@ -93,6 +99,41 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(instance, context) };
 }
+
+/// The row's root is being destroyed. cGUIObjRoot's vtable slot 0x04 is main+
+/// +0xa486fc: it frees the row's draw cache, then walks root+0x68 and each +0x6c
+/// sibling and calls slot 0x04 on every one of them, which is how the mask and the
+/// three textures this insertion linked into that chain get freed. The gauge HUD's
+/// teardown is therefore this call, on this thread, with the object as its argument.
+/// The capture is dropped before the original runs, so nothing in this plugin
+/// touches the tree, the mask or the cache once the game owns them again. Roots
+/// other than the captured controller are untouched.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn msg_root_dtor(root: u32) {
+    let original = msg_root_dtor_original.load(Ordering::Acquire);
+    if original == 0 {
+        return;
+    }
+    if msg_root_dtor_active.load(Ordering::Acquire)
+        && root != 0
+        && root == sampling::gauge_controller()
+    {
+        TEARDOWNS.fetch_add(1, Ordering::Relaxed);
+        gui::on_teardown();
+        clear_capture(root);
+        sampling::clear_controller();
+    }
+    let f: unsafe extern "C" fn(u32) = unsafe { core::mem::transmute(original as usize) };
+    unsafe { f(root) };
+}
+
+/// Times the captured gauge row's root destructor ran. Zero for a whole session
+/// means this hook never proved the row's teardown, and the plugin kept no
+/// assumption that it did.
+pub fn teardowns() -> u32 {
+    TEARDOWNS.load(Ordering::Relaxed)
+}
+static TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 
 /// The raw recorded pair, for the log line. Zeros mean the instance hook never
 /// saw a controller matching the gauge controller.
@@ -214,34 +255,53 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
             return Err("MHGU 1.4.0 code mismatch at a required function");
         }
     }
-    // Plant the walker hook first: the gauge row must be identifiable before the
-    // instance pair is of any use, and the instance capture only records pairs.
-    let walker = plant(base, HOOK, msg_walker as *const () as u32, &msg_walker_original)?;
-    let instance = plant(
-        base,
-        INSTANCE_HOOK,
-        msg_instance as *const () as u32,
-        &msg_instance_original,
-    );
-    let patches = match instance {
-        Ok(patch) => {
-            msg_active.store(true, Ordering::Release);
-            msg_instance_active.store(true, Ordering::Release);
-            alloc::vec::Vec::from_iter([walker, patch])
-        }
-        Err(message) => {
-            // The walker hook is live and armed; disarm it, roll it back, and hand
-            // the caller the patch that was touched.
-            msg_active.store(false, Ordering::Release);
-            let mut walker = walker;
-            let restored = rollback(&mut walker) && memory::sync_code(base + HOOK, 8);
-            let patches = alloc::vec::Vec::from_iter([walker]);
+    // The walker is planted first: the gauge row must be identifiable before the
+    // instance pair is of any use, and the instance capture only records pairs. The
+    // root destructor is last, because clearing a capture is only useful once the
+    // other two hooks can produce one. A failure restores every patch this call
+    // planted, newest first, and publishes nothing.
+    let plan = [
+        (
+            HOOK,
+            msg_walker as *const () as u32,
+            &msg_walker_original as &AtomicU32,
+            &msg_active as &AtomicBool,
+        ),
+        (
+            INSTANCE_HOOK,
+            msg_instance as *const () as u32,
+            &msg_instance_original,
+            &msg_instance_active,
+        ),
+        (
+            ROOT_DESTRUCTOR_HOOK,
+            msg_root_dtor as *const () as u32,
+            &msg_root_dtor_original,
+            &msg_root_dtor_active,
+        ),
+    ];
+    let mut planted: Vec<Patch> = Vec::new();
+    for (offset, detour, published, armed) in plan {
+        if let Err(message) = plant(base, offset, detour, published) {
+            armed.store(false, Ordering::Release);
+            let mut restored = true;
+            for patch in planted.iter_mut().rev() {
+                restored = rollback(patch) && restored;
+            }
             return Err(if restored {
                 message
             } else {
-                "second hook failed and the walker hook could not be restored; restart required"
+                "hook rollback failed; restart required"
             });
         }
-    };
-    Ok(patches)
+        if let Some(patch) = planted.last() {
+            if !memory::sync_code(patch.addr(), 8) {
+                return Err("hook continuation not live; restart required");
+            }
+        }
+    }
+    msg_active.store(true, Ordering::Release);
+    msg_instance_active.store(true, Ordering::Release);
+    msg_root_dtor_active.store(true, Ordering::Release);
+    Ok(planted)
 }
