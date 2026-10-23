@@ -92,8 +92,8 @@ pub fn copy(address: u32, out: &mut [u8]) -> bool {
     true
 }
 
-/// Permission bit 1 (read) plus 2 (write): the insertion only touches spans the
-/// kernel reports as writable, so a stray pointer can never hit code or a
+/// Permission bit 1 (read) plus 2 (write): a write target is accepted only where the
+/// kernel reports the span as writable, so a stray pointer can never hit code or a
 /// read-only page.
 /// Read one halfword; the row description stores object and sequence counts as
 /// 16-bit fields, so they need their own checked read.
@@ -110,35 +110,11 @@ pub fn writable(address: u32, bytes: usize) -> bool {
     mapped(address, bytes, 3)
 }
 
-/// Write one word after alignment and writable-mapping checks. No reference is
-/// formed to a game-owned object, so no aliasing assumption is imposed on it.
-pub fn write_word(address: u32, value: u32) -> bool {
-    if address & 3 != 0 || !writable(address, 4) {
-        return false;
-    }
-    // SAFETY: mapping checked above; the caller holds the native object's
-    // lifetime for the whole insertion sequence.
-    unsafe { core::ptr::write_volatile(address as *mut u32, value) };
-    true
-}
-
-pub fn write_bits(address: u32, value: f32) -> bool {
-    write_word(address, value.to_bits())
-}
-
 /// Read a virtual method out of a game object's vtable, checked executable.
 pub fn method(object: u32, slot: u32) -> Option<u32> {
     let vft = word(object)?;
     let f = word(vft.checked_add(slot)?)?;
     executable(f, 4).then_some(f)
-}
-
-pub fn call0(function: u32) -> Option<u32> {
-    if !executable(function, 4) {
-        return None;
-    }
-    let f: unsafe extern "C" fn() -> u32 = unsafe { core::mem::transmute(function as usize) };
-    Some(unsafe { f() })
 }
 
 pub fn call1(function: u32, a: u32) -> Option<u32> {
@@ -147,12 +123,4 @@ pub fn call1(function: u32, a: u32) -> Option<u32> {
     }
     let f: unsafe extern "C" fn(u32) -> u32 = unsafe { core::mem::transmute(function as usize) };
     Some(unsafe { f(a) })
-}
-
-pub fn call2(function: u32, a: u32, b: u32) -> Option<u32> {
-    if !executable(function, 4) {
-        return None;
-    }
-    let f: unsafe extern "C" fn(u32, u32) -> u32 = unsafe { core::mem::transmute(function as usize) };
-    Some(unsafe { f(a, b) })
 }

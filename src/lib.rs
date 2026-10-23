@@ -1,10 +1,15 @@
 //! Modern sharpness gauge: a read-only diagnostic candidate.
 //!
-//! One hook, at the draw walker entry (main+0xa494a0), observes the native
-//! sharpness gauge controller, the local player's sharpness fields and the
-//! gauge node tree. It never writes game memory, never creates GUI objects and
-//! never changes what is drawn. Forge supplies lifecycle, allocation and
-//! logging; stock Forge filters log levels below ERROR.
+//! Three hooks: the draw walker entry (main+0xa494a0), which observes the native
+//! sharpness gauge controller, the local player's sharpness fields and the gauge
+//! node tree; the instance draw entry (main+0xa39300), which records the gauge
+//! row's instance; and the row root's destructor (main+0xa486fc), which clears
+//! that capture. The build reads game memory and logs: it never writes game
+//! memory, never creates GUI objects and never changes what is drawn. r14
+//! inserted a scissor mask and the Eden run of 2026-10-23 shows why that is
+//! gone; `src/gui.rs` names the log lines and the native code behind them.
+//! Forge supplies lifecycle, allocation and logging; stock Forge filters log
+//! levels below ERROR.
 #![no_std]
 extern crate alloc;
 use alloc::string::String;
@@ -166,72 +171,38 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
     line
 }
 
-/// The prototype ratio cycle runs here, outside the hook: the mask is inserted once
-/// and its clip is written from the elapsed wall clock of the plugin's own frames.
-static ELAPSED: AtomicU32 = AtomicU32::new(0);
-static LAST_BOX: AtomicU32 = AtomicU32::new(0);
-static REPORTED_INSERT: AtomicBool = AtomicBool::new(false);
-const GRACE_SECONDS: u32 = 6;
-
 /// Logging runs here, outside the hook, formatted from the copied words.
 #[unsafe(no_mangle)]
 pub extern "C" fn forge_onUpdate(delta: f32) {
-    let seconds = ELAPSED.fetch_add((delta * 1_000.0).max(0.0) as u32, Ordering::Relaxed) / 1_000;
-    gui::tick();
+    let _ = delta;
+    if let Some(words) = gui::tick() {
+        let mut line = String::with_capacity(512);
+        for index in 0..gui::FACTS_WORDS {
+            let name = gui::FACT_NAMES[index];
+            let value = words[index];
+            if gui::FACT_HEX.contains(&name) {
+                let _ = write!(line, " {name}={value:#x}");
+            } else {
+                let _ = write!(line, " {name}={value}");
+            }
+        }
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " gauge row facts:{line}"
+        ), line = line);
+    }
     let stage = gui::take_failure();
     if stage != 0 {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " mask insertion failed at stage {stage}: instance={instance} controller={controller} gauge={gauge}"
+            " gauge row check stopped at stage {stage}: instance={instance} controller={controller} gauge={gauge}"
         ),
         stage = stage,
         instance = hooks::capture().0,
         controller = hooks::capture().1,
         gauge = sampling::gauge_controller());
-    }
-    if gui::inserted() && !REPORTED_INSERT.swap(true, Ordering::Relaxed) {
-        let (mask, child, sibling, parent) = gui::applied();
-        log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
-            " scissor mask inserted; mask {mask} child={child} sibling={sibling} parent={parent}, links written by main+0xa4844c and main+0xa48460"
-        ), mask = mask, child = child, sibling = sibling, parent = parent);
-    }
-    if gui::inserted() && seconds > GRACE_SECONDS {
-        let ratio = sharpness_gauge_core::prototype_ratio(seconds - GRACE_SECONDS);
-        if let Some((box_, built)) = gui::apply(ratio) {
-            let key = (box_[2] as u32) << 16 | (ratio & 0xffff);
-            if LAST_BOX.swap(key, Ordering::Relaxed) != key {
-                log::error!(concat!(
-                    "MSG ",
-                    env!("MSG_VERSION"),
-                    " clip x={x} y={y} width={width} height={height} ratio={ratio}bp seconds={seconds} bar_width={bar_width} authored={authored} row_flags={row_flags} drawables={drawables}"
-                ),
-                x = box_[0],
-                y = box_[1],
-                width = box_[2],
-                height = box_[3],
-                ratio = ratio,
-                seconds = seconds,
-                bar_width = gui::bar_width().0,
-                authored = gui::bar_width().1,
-                row_flags = gui::row_flags().0,
-                drawables = gui::row_flags().1);
-                // The rectangle the mask's enter record built from that position and
-                // size, at mask+0xb0..+0xbc: the units question is answered by
-                // comparing these four with the bar rect in the tree lines.
-                log::error!(concat!(
-                    "MSG ",
-                    env!("MSG_VERSION"),
-                    " mask rect {l} {t} {r} {b}"
-                ),
-                l = built[0],
-                t = built[1],
-                r = built[2],
-                b = built[3]);
-            }
-        }
     }
     for _ in 0..DRAIN_PER_FRAME {
         let Some((number, words)) = sampling::take() else {
@@ -256,15 +227,16 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         }
     }
     let (calls, taken, matched) = sampling::stats();
-    // The row's root destructor is the only teardown evidence this plugin has. Each
-    // fire means the game freed the mask and its children, and insertion starts
-    // again on the next HUD.
+    // The row's root destructor main+0xa486fc is the only teardown evidence this plugin
+    // has, and it fired zero times in the r14 session that played quests. Each fire means
+    // the game freed the gauge row and its objects, and the row facts start over on the
+    // next HUD.
     let tears = hooks::teardowns();
     if tears > LAST_TEARDOWNS.swap(tears, Ordering::Relaxed) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " gauge row root destroyed ({tears} times); mask state cleared"
+            " gauge row root destroyed ({tears} times); row facts cleared"
         ), tears = tears);
     }
     if matched && taken == sampling::MAX_SAMPLES && !REPORTED_FULL.swap(true, Ordering::Relaxed) {

@@ -1,17 +1,29 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 prototype candidate r14 (`DISTRIBUTION.json`, DEVELOPMENT,
-runtime NOT RUN, nothing installed). r14 inserts a `cGUIObjScissorMask` as the gauge
-root's first child with the bar, the glow and the edge under it, so the draw walker
-enters the mask, clips the three textures, and leaves it again; the fill cycles
-0/25/50/100 percent, 20 seconds each, as a fixed prototype. The links are written by
-the native linkers main+0xa48460 (child, supplies its parent) and main+0xa4844c
-(sibling, supplies its parent), the child chain ends with a zero sibling on the edge
-and on the mask, and the clip is asked for by bit 0 of the mask's flag word at
-`mask+0xa4` (the Enable bit main+0xa4ba20 writes) together with bit 1, the rectangle
-rebuild. The row's own draw cache is kept: main+0xa49b28 sizes it from the row's
-counts and the mask's extra records fit. The plugin frees nothing.
-`work/modern-sharpness-gauge/PHASE2_RESEARCH.md` records every cited instruction.
+Current state: Phase 2 candidate r15 (`DISTRIBUTION.json`, DEVELOPMENT, runtime NOT RUN,
+nothing installed). r15 writes no game memory: the r14 scissor-mask insertion is gone, and the
+build prints the row/map facts the next insertion step needs. r14 (NRO
+`6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d`) was run on Eden on
+2026-10-23 and the report is in `work/modern-sharpness-gauge/runs/r14-eden-2026-10-23.txt`
+and in PHASE2_RESEARCH's r14 section: the gauge vanished, and the game crashed at the quest
+end. Three facts, all from that log and the decompiles in `work/modern-sharpness-gauge/
+ghidra-batch10/`:
+1. The clip never covered the bar. The rectangle the game built at `mask+0xb0..+0xbc` has
+   left/top `0 0` in all 2,512 lines that printed it, while the requested box was
+   `x=110 y=32` in 1,352 of them; the bar's own rect is `110,38,238,166`. The mask's position
+   pair at `+0x80/+0x84` never reaches that build, so the mask clipped the gauge away from the
+   insertion.
+2. From t=642.30 the built rectangle is `0 0 0 0` for the last 1,119 lines while the plugin
+   kept writing widths 18/33/49/80: the mask's authored size at `+0xa8/+0xac` is game-owned
+   and was taken away at the row's layout change (the bar's rect became the authored
+   `0,-6,88,18` on the same line, `cmd_tbl_id` 1000 → 9999 → 2003).
+3. The crash is the row's object array indexed by the tree. main+0x5456e4 loops over the
+   instance's array at `+0xd8` with `main+0xa38ffc`'s length = main+0xa47d2c's node count + 1.
+   The gauge row has 4 objects for the root plus its 3 tree nodes; the mask made 4 nodes, so
+   that pass walks 5 entries through a 4-entry array and calls vtable slot 0x50 on what it
+   reads. The backtrace is that loop, R00 = `0x727272` (a freed block's `'r'` fill), and Eden
+   died at t=1060.168. The row's object map, not the draw cache, is the thing an insertion has
+   to grow.
 
 r13 was reviewed before any run and is not installed. It linked the mask with the glow
 and the edge left as siblings of the root, so the walk ended at the root without
@@ -34,8 +46,11 @@ line means this teardown path was never proven, and no cleanup claim is made for
 Run history: r5 stage 20, r6 stage 20, r7 stage 24, r8 stage 26, r9 stage 29, r10 stage 27 (107 lines: gates 25 and 26 passed, the parent word was read from the root instead of the bar), r11 stage 27 again (277 lines: the fix chained root+0x68+0x70, which is the root+0xd8 word, not the bar's parent) plus 112 stage-23 lines after a scene change on a capture whose row was gone. r8 and r9 both failed on gates copied from
 Key Quest Markers whose model the logs refuted, so r10 follows playbook P3 step 4: every
 gate is now written against the walker decompile, the `cGUIObjRoot` DTI record, and the
-logged link words, not against another row's layout. r12 was packaged (NRO `01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e`) and never reported run;
-r13 was packaged and never run, and the review above is why. r14 runtime is NOT RUN.
+logged link words, not against another row's layout. r12 was packaged (NRO `01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e`) and
+never reported run; r13 was packaged and never run, and the review above is why. r14 was run
+on Eden on 2026-10-23 with the installed bytes matching its candidate hash: the mask was
+inserted, the gauge was clipped away from the insertion, and the game crashed at the quest end
+with the emulator's own SIGSEGV. r15 removes the insertion and is NOT RUN.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -470,6 +485,31 @@ The user's log from the r2 archive, matched against the NRO SHA-256
 evidence for r2. Phase 2 (drawing the gauge) starts once that log shows the
 counts, rectangles and tier behaviour the design needs, and nothing in it
 contradicts the r1 findings.
+
+## r15, built 2026-10-23: the insertion is gone
+
+NRO `e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f`, runtime NOT RUN,
+nothing installed. The one change: r15 creates no GUI object and writes no game memory. It
+keeps the three hooks (walker main+0xa494a0, instance draw entry main+0xa39300, root
+destructor main+0xa486fc), the sampler, and gates 21..34, and prints one
+`MSG r15 gauge row facts` line per gauge row: the controller's root/cache/flags/row/owner and
+cache-allocation words, the row's anim/counts/first_object/+0x14, the instance's object-array
+pointer and its first three entries, each texture's mId at +0x50 and authored size at
++0xb4/+0xb8, the bar's flag word, and `tree_nodes` = main+0xa47d2c's count for this
+controller. The line answers one question in numbers: `tree_nodes + 1` against the row's
+object count, which is what main+0x5456e4 indexes its array with, and what r14 broke.
+
+Host fixtures: 19, adding `the_object_array_is_sized_for_the_tree_it_was_built_with` (3 tree
+nodes + 1 = this row's 4 objects; r14's shape is 4 nodes, so that pass indexes 5 entries
+through a 4-entry array). `core` gained `count_nodes`, the port of main+0xa47d2c.
+
+Deleted with the insertion: the factory call and the four link writes in `gui.rs`,
+`apply`/`rect`/`link`, the per-second clip write and the mask-rect log lines, the elapsed-time
+counter, and `memory::write_word`/`write_bits`/`call0`/`call2`. The mask geometry helpers in
+`core` stay: they are measured from hud0, tested, and the next step reuses them.
+
+What r15 does not prove: any drawing. The root-destructor hook has zero fires to its name in
+the only session that logged it, so the teardown path stays unproven and no cleanup is claimed.
 
 ## Rules to keep
 

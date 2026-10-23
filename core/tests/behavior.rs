@@ -11,7 +11,7 @@ use sharpness_gauge_core::{
     PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
     SHARPNESS_TYPE, SPLAYER_CELL, basis_points, draw_plan, fill_ratio, gauge_of,
     is_sharp_animation, local_player, ratio_of_words, read_gauge, sample_controller,
-    scan_walk,
+    scan_walk, count_nodes, SHARP_OBJECTS,
 };
 use std::collections::BTreeMap;
 
@@ -458,6 +458,35 @@ fn the_walk_plan_closes_every_drawable_it_opens() {
     assert_eq!(plan.kinds[..plan.count as usize], [0, 1, 0, 1, 2]);
     assert!(!plan.overflow);
     assert_eq!(plan.count * 8, 40);
+}
+
+#[test]
+fn the_object_array_is_sized_for_the_tree_it_was_built_with() {
+    // main+0xa47d2c counts every node in the child and sibling chains under
+    // controller+0x68 and tests no visibility bit; main+0xa38ffc returns that count plus
+    // one; main+0x5456e4 uses the sum as the length of the instance's array at +0xd8 and
+    // calls vtable slot 0x50 on every entry. This row's 4 objects are the root plus its
+    // 3 textures, so the tree it was built with is exactly the size that pass expects.
+    // r14 added a fourth node, the scissor mask, and left the array at 4: that pass then
+    // walks 5 entries through a 4-entry array. The r14 Eden run of 2026-10-23 ended in
+    // that loop, with a freed block's fill (0x727272) as the object pointer, in the
+    // teardown after the quest. Pinned so an insertion is never shipped without the map.
+    let mut fake = gauge_fixture();
+    let (root, ..) = gauge_tree(&mut fake, false);
+    let (plain, plain_cut) = count_nodes(&fake, root);
+    assert_eq!((plain, plain_cut), (3, false));
+    assert_eq!(plain + 1, SHARP_OBJECTS, "the row is built for the tree it has");
+    let mask = 0x7500u32;
+    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(mask + NODE_CHILD, 0x7100);
+    fake.put(mask + NODE_SIBLING, 0);
+    fake.put(root + NODE_CHILD, mask);
+    let (grown, grown_cut) = count_nodes(&fake, root);
+    assert_eq!((grown, grown_cut), (4, false));
+    assert!(
+        grown + 1 > SHARP_OBJECTS,
+        "5 indexed entries against a 4-object row"
+    );
 }
 
 #[test]

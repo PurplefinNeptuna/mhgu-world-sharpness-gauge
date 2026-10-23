@@ -2,16 +2,16 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r14 prototype candidate, one structural change: the scissor mask becomes the gauge root's first child with the bar, the glow and the edge under it, closed by zero siblings on the edge and on the mask, linked by the native linkers main+0xa48460 and main+0xa4844c. The mask's exit record is emitted by that shape, which is what ends the scissor; the clip is asked for with bit 0 (Enable) plus bit 1 (rectangle rebuild) of mask+0xa4. The row's own draw cache is kept, so nothing is allocated, published or freed by the plugin; the cGUIObjRoot destructor main+0xa486fc frees the mask and its children, and that hook is where the capture is dropped. r13 is withdrawn unrun: it left the glow and the edge as siblings of the root, so the walk never emitted the mask's exit record (a scissor that never ends); it set the rectangle bit only and asked for no scissor; its apply() re-read the row with pre-insertion gates and returned None; its cleanup was a 3000-walker-call timer, which is not a liveness proof. Not approved for distribution; r14 runtime NOT RUN; r12 and r13 were packaged and never run.",
+  "reason": "r15 read-only candidate: the r14 scissor-mask insertion is removed. r14 (NRO 6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d) was run on Eden on 2026-10-23, installed bytes matching that hash, and the report is work/modern-sharpness-gauge/runs/r14-eden-2026-10-23.txt: the rectangle the game built from the mask (left/top 0 0 in all 2512 lines, never the requested 110,32) never covered the bar's own rect 110,38,238,166, so the gauge was clipped away; the mask's authored size at +0xa8/+0xac was driven to zero from t=642.30 while the plugin kept writing widths; and the quest-end crash is main+0x5456e4 looping over the instance's object array at +0xd8 with main+0xa38ffc's length (main+0xa47d2c's tree node count + 1), the row having 4 objects for the root plus 3 tree nodes, so the loop read a freed block's fill (0x727272) as an object pointer and Eden died at t=1060.168. r13 remains withdrawn unrun (mask left open, no Enable bit, apply() re-read with pre-insertion gates, a 3000-call cleanup timer). r15 creates no GUI object, writes no game memory, and prints one gauge row facts line per gauge row with the map numbers an insertion needs. Not approved for distribution; r15 runtime NOT RUN; r12 and r13 were packaged and never run.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r14",
+  "version": "r15",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r14-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r14/delivery",
+  "archive": "modern-sharpness-gauge-r15-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r15/delivery",
   "candidate_builder": "scripts/build.py",
   "runtime_test": "NOT RUN",
   "runtime_active": true,
@@ -64,6 +64,8 @@
   "limitations": [
     "r4 has no runtime test; its lines, the 320-sample budget and the absence of any drawing change are static results.",
     "r2 was built and never run; r3 was run once on Eden and is recorded.",
+    "r14 was run once on Eden and failed as reported: the gauge was clipped away from the insertion and the game crashed at the quest end. Its log is the evidence, and the insertion is removed in r15.",
+    "r15 changes nothing on screen: it reads game memory and logs. No drawing, no gauge change, and no cleanup claim (the root-destructor hook fired zero times in the one session that logged it).",
     "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
     "The gauge itself is not part of r4."
   ],

@@ -230,6 +230,45 @@ pub fn mask_box(rect: [i32; 4], ratio_bp: u32, bar_width: i32) -> [i32; 4] {
     [rect[0], rect[1] + CLIP_TOP, column - rect[0], CLIP_HEIGHT]
 }
 
+/// The node count of main+0xa47d2c: every node in the child and sibling chains below
+/// `controller+0x68`, visibility ignored (that function tests neither bit). main+0xa38ffc
+/// returns it plus one, and main+0x5456e4 uses that sum as the length of the instance's
+/// object array at `+0xd8`, calling vtable slot 0x50 on every entry it walks. So the row's
+/// object array is sized for the tree it was built with: the gauge row has 4 objects for
+/// 3 tree nodes plus the root, and a tree with more nodes than the row has objects makes
+/// that pass read past the array. Returns (count, truncated); truncated means the bound
+/// was hit, and the count is then a floor.
+pub fn count_nodes(memory: &dyn Memory, controller: u32) -> (u32, bool) {
+    let mut count = 0u32;
+    let mut truncated = false;
+    let mut stack = [0u32; SCAN_STACK];
+    let mut top = 0usize;
+    let mut next = memory.word(controller.wrapping_add(NODE_CHILD)).unwrap_or(0);
+    loop {
+        while next != 0 {
+            if count == SCAN_LIMIT {
+                return (count, true);
+            }
+            count += 1;
+            let child = memory.word(next.wrapping_add(NODE_CHILD)).unwrap_or(0);
+            if child != 0 {
+                if top == SCAN_STACK {
+                    truncated = true;
+                } else {
+                    stack[top] = child;
+                    top += 1;
+                }
+            }
+            next = memory.word(next.wrapping_add(NODE_SIBLING)).unwrap_or(0);
+        }
+        if top == 0 {
+            return (count, truncated);
+        }
+        top -= 1;
+        next = stack[top];
+    }
+}
+
 pub const SCAN_STACK: usize = 16;
 pub const SCAN_LIMIT: u32 = 64;
 pub const MAX_NODES: usize = 6;

@@ -1,14 +1,12 @@
 # Modern Sharpness Gauge
 
-r14 is a test build of the gauge bar. It adds a clipping mask over the game's
-own sharpness gauge so the bar shows your current points against the maximum for
-the weapon you are holding. The game keeps drawing the gauge, keeps its colours,
-keeps its tier frames and keeps its effects; this mod only decides where the bar
-stops.
+r15 is a test build and it changes nothing you can see. The gauge looks the way the
+game draws it. r15 reads the gauge and writes lines to the log, and the log is the
+point of this build.
 
-The fill is a fixed cycle in this build, not a live reading: the bar is clipped
-to 0%, then 25%, then 50%, then full, 20 seconds each, repeating. That is how the
-clipping gets checked before the mod starts following real sharpness.
+It follows r14, which added a clipping mask over the gauge bar. On the reported Eden
+run that mask hid the bar, and the game crashed at the end of the quest. The mask is
+gone in r15.
 
 ## Requirements
 
@@ -18,35 +16,25 @@ clipping gets checked before the mod starts following real sharpness.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r14-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r15-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r14`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r15`
 should be listed.
 
 ## Usage
 
-Start a quest with a melee weapon that has sharpness. The gauge appears as it
-always does. After about six seconds the mask takes over and the bar starts
-cycling: empty, a quarter, half, full, 20 seconds at each step.
+Start a quest with a melee weapon that has sharpness and play it to the results
+screen. The gauge is the game's own gauge. What this build needs from you:
 
-Take one screenshot at each of the four steps. What matters:
-
-1. The bar fills from the hilt side (left) and the tip side is the part that
-   disappears.
-2. The glow and the edge line stay lined up with the bar, clipped at the same
-   place.
-3. Nothing appears on the empty side of the bar.
-4. No other part of the HUD changes. The map, your health and stamina, the item
-   icons and the quest text must look exactly as they do without the mod.
-5. The colour of the bar stays the colour the game chose.
-
-If the gauge is missing for a whole step, the mask was not added. If anything
-else on screen is cut off, that is a real bug and worth reporting in detail.
+1. Whether the gauge bar is visible the whole time, and whether anything else on the
+   HUD changed.
+2. Whether the quest ends normally, with the results screen.
+3. Which weapons you carried, and whether you switched weapons during the quest.
 
 This build has no settings, so there is nothing to change in the overlay.
 
@@ -59,47 +47,52 @@ have one:
 - Ryujinx-Nextendo: the newest file in `portable/Logs/`
 - Forge log, if enabled: `forge.log` next to your game data
 
-Say which emulator you used and describe the hunt in the order you played it.
-The lines that matter start with `MSG r14`. A line saying
-`scissor mask inserted` means the mask was added; a line saying
-`mask insertion failed at stage` followed by a number says where it stopped.
-Lines saying `clip x= ... width= ... ratio= ...` are the mask sizes the mod
-applied, one for each step of the cycle, with the bar's live width at the end, and
-the line after it says `mask rect l t r b`, the box the game built from that size.
-The stage number says which check stopped the mod: 21 means no gauge instance was
-found, 24 the row counts, 25 the root object's class, 26 the gauge's draw cache,
-27 the bar under it (its parent must be the root), 28 the glow beside the bar, 29 the
-edge beside the glow, 30 a chain that does not close back on the root, 31 the bar's class, 32 the bar's live
-width, 33 a missing class record, 34 no sharpness gauge to clip (the hub, a finished
-quest, or a weapon with no sharpness), 14/15/16/17 the links the mod writes through the
-game's own linking code. Report the number exactly as printed. Tree lines
-print each node's child, sibling and parent pointer so a failed chain can be read
-off the log. A line saying `gauge row root destroyed` means the game freed the gauge
-HUD and the mod stopped using it; a session with quests that ends with no such line is
-worth mentioning.
+Say which emulator you used and describe the hunt in the order you played it. The
+lines that matter start with `MSG r15`.
+
+`gauge row facts:` is one line per gauge HUD. It prints the pointers and counts the
+mod reads: the gauge controller, its draw cache and the cache block the game
+allocated for it, the animation row and its counts, the HUD instance and its object
+list with the first three objects, each of the three gauge textures' id and authored
+size, and `tree_nodes`, the number of nodes the game finds under the controller.
+That last number is the one to watch: this row has 4 objects, and r14 had 4 tree
+nodes.
+
+`gauge row check stopped at stage` followed by a number says which check stopped the
+mod. 21 means no gauge HUD (the hub, a finished quest, a weapon with no sharpness),
+24 the row counts, 25 the root object's class, 26 the gauge's draw cache, 27 the bar
+under it (its parent must be the root), 28 the glow beside the bar, 29 the edge
+beside the glow, 30 a chain that does not close back on the root, 31 the bar's class,
+32 the bar's authored width, 33 a missing class record, 34 no sharpness gauge to read.
+Report the number exactly as printed.
+
+`sample N/320` lines carry the sharpness points, the tier, the maximum, the weapon id
+and the walked nodes, and `tree N` lines print each node's child, sibling and parent
+pointer. `no sharpness gauge controller seen in 6004 walker calls` means the gauge
+HUD never appeared in that window. A line saying `gauge row root destroyed` means the
+game freed the gauge HUD and the mod stopped using it; a session that plays quests
+and ends with no such line is worth mentioning.
 
 ## Update and removal
 
 Close the emulator before updating or removing the mod. To update, replace the
-`modern-sharpness-gauge` folder with the one from the new ZIP. To remove it,
-disable the package or delete the folder from the emulator's mod directory. The
-mod writes no save data. Removing it while the game runs leaves the mask in place
-until you restart, because the game's plugin loader has no unload step.
+`modern-sharpness-gauge` folder with the one from the new ZIP. To remove it, disable
+the package or delete the folder from the emulator's mod directory. The mod writes no
+save data. Removing it while the game runs leaves the hooks in place until you
+restart, because the game's plugin loader has no unload step.
 
 ## Compatibility and known issues
 
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-The mask is added once per game launch and is not removed while the game runs.
-The bar size in this build comes from the gauge's own drawing area, measured from
-the game's files, so a weapon whose bar the game draws at a different size will
-look short or long in this cycle; the screenshots are how that gets caught.
-Nothing has been confirmed on a native console.
+r15 reads game memory and writes nothing to it, so no part of the HUD is supposed to
+change. If the gauge bar is missing while this mod is enabled, say so: r14's mask was
+the last version that touched the gauge, and it hid the bar.
 
-Earlier builds of this mod only logged the gauge: r1 read the sharpness numbers,
-r3 measured the gauge tree, and r4 recorded the equipped weapon's id with every
-sample. Those readings are what this build is built on.
+Earlier builds of this mod only logged the gauge: r1 read the sharpness numbers, r3
+measured the gauge tree, and r4 recorded the equipped weapon's id with every sample.
+Those readings are what this build reports on.
 
 Linked components: MHGU Forge by Fexty; Original Forge by Jeffi and the Skyline
 Project; forge-rs by Fexty; libnx by Hydrosphere Developers.

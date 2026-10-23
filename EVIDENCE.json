@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r14",
+  "version": "r15",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r14",
+    "version": "r15",
     "status": "BUILT",
-    "nro_sha256": "6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d",
+    "nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": false,
@@ -85,15 +85,15 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "6e018fca2179030361e21a80c7ac373ac1008e339457e21fa7ab12cff8c1381e",
+      "src/gui.rs": "91586ebfb81a3dd85fce9f5180a2def21de0c5d967e00e0595e3bd83765155c5",
       "src/hooks.rs": "ba3012351b6f89c57b8e21ee2a45aeefe64d378a644d2e50798fed4733f8bbe1",
-      "src/lib.rs": "4ce864805e9fc53c82470a568488cc525f0b6316506e6a642cb9d50a6b68c233",
-      "src/memory.rs": "f9cc687e164822c4717d8e74b94c1b0b77690c422a25c0e564ba6b892e645bbc",
-      "src/sampling.rs": "02ed5ffb24cfde4ce260d218ac9ee50ea0104af4e20f6fa0d3792266a4eeeb3e",
+      "src/lib.rs": "eb7f2dc60dad400aa93bf89e2aa656d69739b5e8605564ec869d3d644e895694",
+      "src/memory.rs": "e73c1c34131ad89b73b1a08f02e75e58c9c385d000f9c709bce9698bceebbdae",
+      "src/sampling.rs": "e202526f1ec6d723ea9d05d434fd62b08be5fd954d74a34453c4491a47e693fc",
       "src/signatures.rs": "519b98e360958d62d0f31e65888f6c53c51caec021f6390c89e1c54fb7962589",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "380bd34de20099334219e549f05e646b3301e172fa84b80e25437b4555b68f56",
-      "core/tests/behavior.rs": "36ee8990d7ceb763bcee7de565a0f487eae042bc2e3068ab7e437c589a352dac",
+      "core/src/lib.rs": "b2033bcdebc1001ff03c8da97da860b5ebee1ba3670cd7b57c65a08c9838aeec",
+      "core/tests/behavior.rs": "bef815f87658449cb5a9e436e8d237de3afc2bc31b547092d6bb4a4129ce8109",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -101,8 +101,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992",
-    "elf_sha256": "49449a172283ef4ba2a38c41c317c00979304ce1119f74c45c82d718502bcff5",
+    "nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
+    "elf_sha256": "e86c2b45e08ee843a3cb5dd82ecf272f8f21d0cb5280c7a9a4c1efddbdccf2d1",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -143,7 +143,11 @@
       "0xa4faf0",
       "0xa4fb58",
       "0xa4ba20",
-      "0xa4ba40"
+      "0xa4ba40",
+      "0xa4844c",
+      "0xa48460",
+      "0xa4b6cc",
+      "0xa486fc"
     ],
     "hook_address": "0xa494a0",
     "hook_window_words": 12,
@@ -164,16 +168,13 @@
       "gauge node tree counts",
       "local player sharpness fields"
     ],
-    "runtime_test": "NOT RUN",
-    "payload_files": [
-      "romfs/nativeNX/plugins/modern_sharpness_gauge.nro"
-    ]
+    "runtime_test": "NOT RUN"
   },
   "host_tests": {
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 18,
+    "count": 19,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
@@ -201,8 +202,8 @@
       ]
     },
     "words_per_sample": 116,
-    "note": "18 fixtures pass on the pinned nightly toolchain. They cover the tree before the write, the tree the write produces, the record counts and the withdrawn r13 shape. They prove no runtime behaviour.",
-    "nro_sha256": "6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d"
+    "note": "r15: 19 host fixtures pass. New fixture the_object_array_is_sized_for_the_tree_it_was_built_with pins main+0xa47d2c's node count (+1) against this row's 4 objects: 3 tree nodes fit, r14's inserted mask makes 4 and indexes 5 entries through a 4-entry array. count_nodes in core is that port.",
+    "nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f"
   },
   "runs": [
     {
@@ -381,22 +382,41 @@
         "nothing inserted, nothing published"
       ],
       "conclusion": "the chain shape is confirmed a third time on live data; r12 reads each parent from its own node and clears a capture whose row read fails"
+    },
+    {
+      "date": "2026-10-23",
+      "version": "r14",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r14-eden-2026-10-23.txt",
+      "session_seconds": 1060,
+      "our_lines": 5156,
+      "observed": [
+        "insertion happened at t=191.79: mask 0x47fec310 child=0x47fe4710 sibling=0 parent=0x47fd9b10; the tree lines after it show mask -> bar -> glow -> edge with every parent 0x47fec310 and the edge closing with sibling 0, walker 4 visited / 3 visible / 4 drawable to the end",
+        "the user's report is in the log: the gauge was clipped away from the insertion. mask rect (mask+0xb0..+0xbc) reads left/top 0 0 in all 2512 lines while the requested box was x=110 y=32 in 1352 lines, and the bar's own rect is 110,38,238,166, so the clip and the bar never overlapped",
+        "from t=642.303 mask rect is 0 0 0 0 for the last 1119 lines while the plugin kept writing widths 18/33/49/80; on the same line the bar's rect became the authored 0,-6,88,18 and cmd_tbl_id read 2003 (1000 and 9999 earlier)",
+        "35 sample lines only, last at sample 35/320: the sampler's controller match ended while STATE stayed inserted and clip lines continued to t=1014.99",
+        "zero 'gauge row root destroyed' lines in a session that played quests: the r14 teardown path is unproven",
+        "crash at t=1015.539, 1011 dynarmic ExceptionRaised records with pc stepping through nnSdk (base 0x77350000) from 0x7735001C to 0x773511CC, then the host 'Unhandled SIGSEGV at 0x00007fe0f2a9b8d4' at t=1060.168. Backtrace: nnSdk+0x20 <- main+0x5457c8 (the instance object-array loop in main+0x5456e4) <- main+0x1577fb3 <- main+0xa568a4 (mask class destructor region). R00=0x727272, a freed block's 'r' fill"
+      ],
+      "conclusion": "the mask was linked as designed and clipped the gauge away; the quest-end crash is main+0x5456e4 indexing the instance's object array at +0xd8 with main+0xa38ffc's tree node count + 1, which the insertion desynchronised. r15 removes the insertion and prints those map numbers"
     }
   ],
   "not_proven": [
-    "runtime: r14 has no run yet. Nothing is installed, activated, launched or accepted.",
-    "whether a cGUIObjScissorMask with these field writes clips at all: only a screenshot at the 0/25/50/100 cycle answers it. r14 prints the requested box and the rectangle the game built at mask+0xb0..+0xbc.",
-    "whether reparenting the bar, glow and edge under the mask moved the bar's rect: read from the tree lines before and after the insertion.",
-    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: each fire logs a line, and zero fires in a session leaves the teardown path unproven.",
+    "runtime: r15 has no run yet. Nothing is installed, activated, launched or accepted.",
+    "which pass drove mask+0xa8/+0xac to zero at t=642.30. The only writer read so far is the Size setter main+0xa4ba40, reached through the vtable; the pass's identity is inference from the log, not a read function.",
+    "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: zero fires in the r14 session, so the teardown path is unproven and r15 makes no cleanup claim.",
+    "the row's object map growth path: the gauge row has 4 objects for the root plus 3 tree nodes, and main+0x5456e4 indexes the instance's array at +0xd8 by the tree's node count + 1. How an added node gets a map entry is unresearched.",
     "the mask's transform effect on its children: the factory leaves scale 1.0 and position 0, and no decompile shows how the parent transform enters a child's rect at +0xE0.",
     "ARM fixtures for insertion, factory failure and teardown: not written."
   ],
   "runtime": {
     "status": "NOT RUN",
-    "date": null,
-    "binary_sha256": "01f06b9602fb57c2750e786efe757ca467a30483864a4faa3ac3c73198b5f22e",
-    "required": "user run of build/modern-sharpness-gauge/candidates/r12/delivery/modern-sharpness-gauge-r12-candidate.zip; scenario and log path in README.md",
-    "correlate": "the reported MSG r4 lines against this nro_sha256 and the emulator's mod load record",
+    "date": "2026-10-23",
+    "binary_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
+    "required": "A run on Eden with a melee weapon: the facts line per gauge row, the sample lines, and whether the gauge HUD behaves as it does without the mod.",
+    "correlate": "r14's Eden run of the same day, recorded in runs[] above, is the failure r15 removes: the insertion is gone, so r15 allocates and writes nothing.",
     "previous_runs": [
       "r1 Eden 2026-10-22",
       "r3 Eden 2026-10-22"

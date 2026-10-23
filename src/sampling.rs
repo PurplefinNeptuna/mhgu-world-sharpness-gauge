@@ -9,7 +9,7 @@
 use crate::memory;
 use core::sync::atomic::{AtomicU32, Ordering};
 use sharpness_gauge_core::{FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER,
-    FIELDS, FIELD_DRAWABLE, MAX_SHARPNESS, Memory, SHARPNESS, SHARPNESS_TYPE, sample_controller};
+    FIELDS, MAX_SHARPNESS, Memory, SHARPNESS, SHARPNESS_TYPE, sample_controller};
 
 pub const MAX_SAMPLES: u32 = 320;
 /// Walker calls between discovery attempts, before the gauge controller is
@@ -45,7 +45,6 @@ static CTRL: AtomicU32 = AtomicU32::new(0);
 static PLAYER: AtomicU32 = AtomicU32::new(0);
 /// Walker call count of the last emitted sample, so the rate floor can work.
 static LAST_CALLS: AtomicU32 = AtomicU32::new(0);
-static LAST_DRAWABLE: AtomicU32 = AtomicU32::new(0);
 /// The last accepted sample's sharpness points, packed 10 bits current, 10 bits
 /// maximum, 6 bits tier. A gauge of 0/0 is not a sharpness weapon.
 static LAST_GAUGE: AtomicU32 = AtomicU32::new(0);
@@ -114,7 +113,6 @@ pub fn observe(controller: u32, context: u32) {
     for (index, word) in words.iter().enumerate() {
         RING_WORDS[slot * WORDS + index].store(*word, Ordering::Relaxed);
     }
-    LAST_DRAWABLE.store(words[FIELD_DRAWABLE as usize], Ordering::Relaxed);
     LAST_GAUGE.store(
         (words[FIELD_CURRENT as usize] & 0x3ff)
             | ((words[FIELD_MAXIMUM as usize] & 0x3ff) << 10)
@@ -154,12 +152,6 @@ pub fn take() -> Option<(u32, [u32; WORDS])> {
     }
     READ.store(read + 1, Ordering::Relaxed);
     Some((read + 1, words))
-}
-
-/// The drawable count of the last accepted sample. The row has no drawable field,
-/// so the cache length the row needs is the number the walker reported.
-pub fn drawables() -> u32 {
-    LAST_DRAWABLE.load(Ordering::Relaxed)
 }
 
 /// Current and maximum sharpness points of the last accepted sample, when that
