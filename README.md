@@ -1,15 +1,16 @@
 # Modern Sharpness Gauge
 
-r23 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
+r24 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
 the bar shows the current sharpness ratio: at full sharpness you see the whole bar,
 and as sharpness drops the bar is cut back from the right. The glow and the edge
 glyph stay where the game puts them. Nothing else on the HUD changes.
 
-The mod writes into the game's gauge, and in four runs that hid the gauge: the clip
-box came out as a strip with no width, so the bar drew nothing. The game keeps a
-small setting that says how a mask is measured, and it was left unset for a mask the
-mod builds, which makes its width zero. r23 sets it. A missing bar is the known
-failure of this build, and the log says whether it happened.
+The mod writes into the game's gauge, and in five runs that hid the gauge: the clip
+box came out as a strip with no width, so the bar drew nothing. The box is measured
+from the mask's own measurement setting and a scale value in its transform, and both
+are left unset when a mask is built the way the mod builds it. r24 sets them. A
+missing bar is the known failure of this build, and the log says whether it
+happened.
 A quest is split into areas with a loading screen between them, and each area builds
 its own gauge. The mask goes into each area's gauge as it appears.
 
@@ -21,14 +22,14 @@ its own gauge. The mask goes into each area's gauge as it appears.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r23-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r24-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r23`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r24`
 should be listed.
 
 ## Usage
@@ -61,7 +62,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r23`.
+lines that matter start with `MSG r24`.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -81,7 +82,9 @@ the rectangle that is in the object at that moment, the measurement setting, and
 bar's rectangle it is meant to cover. The first four numbers are left, top, right,
 bottom: if the left and right are equal (for example `110 32 110 64`) the clip has no
 width, which is what a missing gauge looks like in the log. `anchors=` should read
-with its low digits as `0` (`0xff0`); a low digit of `c` is the broken measurement.
+with its low digits as `0` (`0xf0`), and `mat=` should start with `0x3f800000`, the
+scale 1.0: a low digit of `c` in the first, or `0x0` at the start of the second, is
+the missing measurement the bar needs to be visible.
 
 `gauge row facts:` is one line per gauge HUD: the controller, its draw cache, the
 animation row and both of its count pairs, the HUD instance, the instance's object
@@ -115,11 +118,11 @@ unload step.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-The mask has gone into the gauge in four runs and hid the gauge every time, with a
+The mask has gone into the gauge in five runs and hid the gauge every time, with a
 clip box of no width; in one of those runs the game also crashed at the quest end. The
-cause is now read out of the game's own code: a mask's measurement setting is left
-uninitialised when the mask is built directly, and one of its values makes the width
-zero. r23 sets it to the normal value and lets the game do the measurement. Report a
+cause is read out of the game's own code: a mask built directly keeps an
+uninitialised measurement setting, and its transform has no horizontal scale, so the
+box has no width. r24 sets both and lets the game do the measurement. Report a
 missing bar with the log, and the drawing can be taken out again.
 
 Linked components: MHGU Forge by Fexty; Original Forge by Jeffi and the Skyline

@@ -1,9 +1,10 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r23 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r23 sets the mask's anchor modes, the one field that explains all
-four runs where the gauge vanished: the game's quad builder collapses the x axis when the x
-anchor mode is 3, and the class factory leaves those two bits as the allocator handed them. r22
+Current state: Phase 2 candidate r24 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r24 writes the transform's x scale, which the r23 run pinned as
+the reason the clip has no width: the builder multiplies the authored width by the word at
+`mask+0x10`, and the factory's matrix template leaves that zero. r23 cleared the mask's anchor
+modes, a real defect (its run read `anchors=0xfffffff0`), and the width stayed 0. r22
 adds the reacquire path the Forge skill's GUI reference asks for: the draw walker checks the
 inserted mask and re-arms the row path when it is gone, so the next area's HUD gets its own
 mask. r21 removes a box cache that made r20's clip box be written
@@ -146,9 +147,11 @@ quests cross areas through loading screens and each area's HUD is its own row. r
 day: the insertion completed again, the gauge disappeared, 206 of 206 probe lines at left ==
 right, and no links-lost line - the box was written once, because the build cached the box it
 had written and sharpness never moved. r21 removes that cache and is not run. r22 puts a read-only mask check in the draw walker, the callback that keeps running when a mask dies with its row, so the next area's gauge row is reacquired and inserted. r22 ran the same day: 225 of 225 probe lines at
-left == right with sharpness moving, and the links-lost line fired once and re-armed correctly;
-the gauge was clipped away the whole quest. The cause is in the mask's anchor modes at +0xa0,
-which r23 clears.
+left == right with sharpness moving, and the links-lost line fired once and re-armed correctly.
+r23 cleared the anchor modes and ran the same day: the anchors read back cleared, the width
+stayed 0, and the run pinned the remaining inputs (origin from the parent, authored width
+multiplied by a transform x scale of 0). r24 writes that x scale and the bar-height authored
+pair, and logs every input the builder reads.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -927,6 +930,29 @@ signature (left == right, top = position, bottom = position + the height written
 prints the anchor word, so a run can read the modes back next to the rectangle.
 
 20 host fixtures pass; verify PASSED with 21 signature windows. r23 is not run.
+
+## r23 run 2026-10-24 (Eden) and r24, built 2026-10-24: the width is the transform's x row
+
+Log `work/modern-sharpness-gauge/runs/r23-eden-2026-10-24.txt` (sha256
+`c1430d156508031d883b5d572a3b73dad597c1615d1bc57a93f785f607896ba0`), installed bytes
+`909dd7fa281cc8863c79fef6d91b49cd5ecd2da837ee30ad6d5ed01f7befc225`. The user: "still disappeared
+at start". 76 plugin lines, insertion at t=159, 14 clip lines, 5 samples.
+
+`clip mask rect=110 38 110 70 flags=0x1 anchors=0xfffffff0 bar rect=110 38 238 166`: the anchor
+clear landed (low nibble 0) and the width is still 0. The rect's origin is `110 38`, the row
+root's own origin (the tree line reads `own=110 38 238 166` for the root, `116 32 244 160` for
+the bar) while the plugin wrote position `110, 32` - the `PosX`/`PosY` DTI properties reach the
+matrix only through the row's layout, which has no entry for this node. The authored pair
+contributed its height (32) and no width, which against main+0xa4b390's composition
+(`x = (+0x40) + (+0x20)*y + (+0x10)*x + (+0x30)`) means the width row `+0x10/+0x14` is (0, 0)
+and the height row is (0, 1): the factory's matrix template has no x scale.
+
+r24 writes `+0x10 = 1.0f`, `+0x14 = 0`, the authored pair (ratio width, the bar's rect height,
+so the clip spans the bar top to bottom), keeps the anchor clear, and sets `+0xa4 = 3`; the
+position writes are gone as inert. The probe logs the builder's inputs and the bar's same fields
+next to the rectangle, so the next run reads each input back rather than inferring it.
+
+20 host fixtures pass; verify PASSED with 21 signature windows. r24 is not run.
 
 ## Rules to keep
 

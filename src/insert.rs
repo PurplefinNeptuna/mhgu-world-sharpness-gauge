@@ -39,7 +39,8 @@ pub const MARKER: u32 = 0x4d534731;
 const MASK_ID: u32 = 0x50;
 const MASK_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
 const MASK_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
-const MASK_POS: u32 = 0x80; // PosX/PosY floats
+const MASK_POS: u32 = 0x80; // PosX/PosY floats, a DTI property the layout resolves per animation
+const MASK_X_SCALE: u32 = 0x10; // the transform's x row: the builder multiplies the width by it
 const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
@@ -244,30 +245,36 @@ pub fn enter(mask: u32) {
         return;
     };
     let box_words = mask_box(rect, ratio, width);
-    // The anchor modes decide what the game's quad builder (main+0xa4b390) makes of the authored
-    // pair: it reads `mask+0xa0 & 3` as the y mode and `& 0xc` as the x mode, where 0 spans
-    // 0..size, 1 centres, 2 spans -size..0 and 3 collapses the extent to zero. The class factory
-    // forces bits 4-11 and leaves bits 0-3 as the allocator handed them, and the game's own masks
-    // get those bits from the row builder's resource record, which a factory-built mask has
-    // none of. Bits 0-3 clear, the authored pair and the position are what the rebuild reads,
-    // and the rectangle the handler applies comes out of that.
-    //
-    // This is the cause of the four failed runs: r14, r18, r20 and r22 all printed the same
-    // signature (left == right, top/bottom = pos and pos + our height), which is the x axis
-    // collapsed and the y axis spanning 0..size. It is also why writing the rectangle itself
-    // did not help: the handler rebuilds it from the quad every frame.
+    // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
+    // are the writes that matter. The r23 run read the rectangle 225 times with width 0 and
+    // height 32 at the parent's origin (110,38), against authored 128x32, which pins each input:
+
+    // 1. The anchor modes, bits 0-3 of +0xa0: `& 0xc` is x and `& 3` is y, mode 0 spans
+    //    0..size, 1 centres, 2 spans -size..0, 3 collapses the axis. The factory writes
+    //    (word & 0xfffff000) | 0xff0 and leaves bits 0-3 as the block came from the allocator,
+    //    and the class has no Anchor property in its DTI record, so bits 0-3 are recycled.
+    //    r23 cleared them (its run read anchors=0xfffffff0) and the width stayed 0.
     if let Some(anchors) = memory::word(mask + MASK_ANCHORS) {
         if anchors & 0xf != 0 {
             let _ = memory::write_word(mask + MASK_ANCHORS, anchors & !0xf);
         }
     }
-    // No cache of the last box: the game rewrites its derived rectangle every frame, so the
-    // inputs have to be written every frame. r20 wrote them once, because a remembered box
-    // skipped the rest, and the gauge stayed hidden.
+    // 2. The transform's x row, at +0x10/+0x14. The builder multiplies the authored width by
+    //    +0x10 for x and by +0x14 for y, and the authored height by +0x20/+0x24. The r23 numbers
+    //    (width 0 from an authored 128, height 32 from an authored 32) say the height row is
+    //    (0,1) and the width row is (0,0): the factory copies its matrix template, and that
+    //    template carries no x scale. Set the x scale to 1.0 and the authored width reaches the
+    //    rectangle.
+    let _ = memory::write_word(mask + MASK_X_SCALE, 1.0f32.to_bits());
+    let _ = memory::write_word(mask + MASK_X_SCALE + 4, 0f32.to_bits());
+    // 3. The authored pair. The height is the bar's own rect height, so the clip spans the bar
+    //    top to bottom; the width is the ratio's share of it. The position at +0x80 is a DTI
+    //    property that the row's layout resolves into the matrix for animated nodes, and this
+    //    node has no animation entry, so writing it does nothing: the rectangle's origin comes
+    //    from the parent's transform, which is the gauge's own corner (110,38 in r22/r23).
+    let height = (rect[3] - rect[1]).max(1);
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
-    let _ = memory::write_word(mask + MASK_SIZE + 4, box_words[3] as u32);
-    let _ = memory::write_bits(mask + MASK_POS, box_words[0] as f32);
-    let _ = memory::write_bits(mask + MASK_POS + 4, box_words[1] as f32);
+    let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
 }
 
@@ -364,26 +371,33 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     })
 }
 
-/// The mask's rectangle, flags and anchor modes as the game holds them between frames, next to
-/// the bar's rect: the readback that shows what the layout pass left behind after the enter hook
-/// wrote. Zeros mean nothing is inserted.
-pub fn probe() -> [u32; 10] {
+/// The quad builder's inputs as the game holds them between frames, plus the bar's same fields
+/// for comparison (the bar draws correctly, so its values are the working ones): the transform's
+/// first two rows at +0x10, the position floats at +0x80, the authored pair at +0xa8, the anchor
+/// word, the flags, and the built rectangle. Zeros mean nothing is inserted.
+pub fn probe() -> [u32; 20] {
     let mask = MASK.load(Ordering::Relaxed);
     let bar = BAR.load(Ordering::Relaxed);
-    let mut out = [0u32; 10];
+    let mut out = [0u32; 20];
     if mask == 0 {
         return out;
     }
-    for index in 0..4 {
-        out[index] = memory::word(mask + MASK_RECT + index as u32 * 4).unwrap_or(0);
-    }
-    out[4] = memory::word(mask + MASK_FLAGS).unwrap_or(0);
-    // The anchor modes as the game holds them: bits 0-1 y, bits 2-3 x, both 0 for a full quad.
-    out[9] = memory::word(mask + MASK_ANCHORS).unwrap_or(0);
-    if bar != 0 {
-        for index in 0..4 {
-            out[5 + index] = memory::word(bar + 0xe0 + index as u32 * 4).unwrap_or(0);
+    let mut at = |fields: &[(usize, u32, u32)], base: u32| {
+        for (index, offset, _) in fields {
+            out[*index] = memory::word(base.wrapping_add(*offset)).unwrap_or(0);
         }
+    };
+    const MASK_FIELDS: [(usize, u32, u32); 16] = [
+        (0, 0x10, 0), (1, 0x14, 0), (2, 0x18, 0), (3, 0x1c, 0),
+        (4, MASK_POS, 0), (5, MASK_POS + 4, 0), (6, MASK_SIZE, 0), (7, MASK_SIZE + 4, 0),
+        (8, MASK_ANCHORS, 0), (9, MASK_FLAGS, 0),
+        (10, MASK_RECT, 0), (11, MASK_RECT + 4, 0), (12, MASK_RECT + 8, 0), (13, MASK_RECT + 12, 0),
+        (14, 0x20, 0), (15, 0x24, 0),
+    ];
+    const BAR_FIELDS: [(usize, u32, u32); 4] = [(16, 0x10, 0), (17, MASK_POS, 0), (18, MASK_SIZE, 0), (19, MASK_ANCHORS, 0)];
+    at(&MASK_FIELDS, mask);
+    if bar != 0 {
+        at(&BAR_FIELDS, bar);
     }
     out
 }

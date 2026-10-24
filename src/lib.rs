@@ -276,15 +276,19 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
     }
     // The rectangle the layout pass left in the mask between frames, next to the bar's rect.
     let probe = insert::probe();
-    if probe[0] | probe[1] | probe[2] | probe[3] != 0 && CLIP_LOG.tick() {
+    if probe[10] | probe[11] | probe[12] | probe[13] != 0 && CLIP_LOG.tick() {
+        // The rect, then the quad builder's inputs (transform rows, position floats, authored
+        // pair, anchors) and the bar's same fields: the readback that names which input is zero.
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " clip mask rect={a} {b} {c} {d} flags={flags:#x} anchors={anchors:#x} bar rect={l} {t} {r} {bb}"
+            " clip mask rect={a} {b} {c} {d} flags={flags:#x} anchors={anchors:#x} mat={m0:#x},{m1:#x},{m2:#x},{m3:#x},{m4:#x},{m5:#x} pos={p0:#x},{p1:#x} size={w},{h} bar mat={bm:#x} pos={bp:#x} size={bw} anchors={ba:#x}"
         ),
-        a = probe[0] as i32, b = probe[1] as i32, c = probe[2] as i32, d = probe[3] as i32,
-        flags = probe[4], anchors = probe[9],
-        l = probe[5] as i32, t = probe[6] as i32, r = probe[7] as i32, bb = probe[8] as i32);
+        a = probe[10] as i32, b = probe[11] as i32, c = probe[12] as i32, d = probe[13] as i32,
+        flags = probe[9], anchors = probe[8],
+        m0 = probe[0], m1 = probe[1], m2 = probe[2], m3 = probe[3], m4 = probe[14], m5 = probe[15],
+        p0 = probe[4], p1 = probe[5], w = probe[6] as i32, h = probe[7] as i32,
+        bm = probe[16], bp = probe[17], bw = probe[18] as i32, ba = probe[19]);
     }
     let (calls, taken, matched) = sampling::stats();
     // Each fire means the game freed the gauge row; it has fired zero times in six sessions,
