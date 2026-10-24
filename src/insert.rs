@@ -41,6 +41,9 @@ const MASK_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
 const MASK_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
 const MASK_POS: u32 = 0x80; // PosX/PosY floats, a DTI property the layout resolves per animation
 const MASK_X_SCALE: u32 = 0x10; // the transform's x row: the builder multiplies the width by it
+/// The class's DTI `Enable` setter (main+0xa4ba20, from the DTI record), the native way to
+/// stop a scissor mask clipping.
+const ENABLE_SETTER: u32 = 0xa4ba20;
 const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
@@ -221,17 +224,26 @@ pub fn enter(mask: u32) {
     if !alive {
         // The links that made this mask ours are gone: an area's loading screen has taken the
         // row. Drop the addresses and re-arm discovery, so the new HUD row gets its own mask.
+        //
+        // Ask the mask to stop clipping on the way out: the game is calling its handler right
+        // now, so the object is live at this point. r24's run ended the other way - at the area
+        // transition (t=149.89) the links broke, the plugin dropped its addresses and stopped
+        // writing, and the mask went on applying its last rectangle, so the gauge vanished in
+        // the new area. Disabling it here leaves the gauge drawing as the game builds it, until
+        // the next row is inserted.
         MISSES.fetch_add(1, Ordering::Relaxed);
+        let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
         crate::hooks::teardown_gauge_row(root);
         return;
     }
-    let Some((current, maximum)) = sampling::gauge_points() else {
+    // The tier travels with the points; each tier is its own segment of the bar.
+    let Some((current, maximum, tier)) = sampling::gauge_points() else {
         return;
     };
     let Some(ratio) = basis_points(Gauge {
         current: current as i32,
         maximum: maximum as i32,
-        tier: 0,
+        tier,
     }) else {
         return;
     };

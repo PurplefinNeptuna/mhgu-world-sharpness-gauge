@@ -1,9 +1,10 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r24 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r24 writes the transform's x scale, which the r23 run pinned as
-the reason the clip has no width: the builder multiplies the authored width by the word at
-`mask+0x10`, and the factory's matrix template leaves that zero. r23 cleared the mask's anchor
+Current state: Phase 2 candidate r25 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r25 stops a mask from clipping once its row's links are gone, the
+failure the r24 run showed at an area transition; r24's run is the first where the mod's mask did
+not hide the gauge, so the geometry is right and this is the lifecycle's turn. r24 writes the
+transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor
 modes, a real defect (its run read `anchors=0xfffffff0`), and the width stayed 0. r22
 adds the reacquire path the Forge skill's GUI reference asks for: the draw walker checks the
 inserted mask and re-arms the row path when it is gone, so the next area's HUD gets its own
@@ -151,8 +152,10 @@ left == right with sharpness moving, and the links-lost line fired once and re-a
 r23 cleared the anchor modes and ran the same day: the anchors read back cleared, the width
 stayed 0, and the run pinned the remaining inputs (origin from the parent, authored width
 multiplied by a transform x scale of 0). r24 writes that x scale and the bar-height authored
-pair, and logs every input the builder reads.
-
+pair, and logs every input the builder reads. r24 ran the same day: the gauge drew from the
+quest start (the first run where the mask did not hide it) and vanished at an area transition,
+where the mask kept clipping after its links broke. r25 turns that mask off, from the mask's own
+enter handler, through the class's DTI `Enable` setter.
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
 match: stage 21 in bulk while no gauge exists, and a stage-23 streak after a scene change.
@@ -953,6 +956,29 @@ position writes are gone as inert. The probe logs the builder's inputs and the b
 next to the rectangle, so the next run reads each input back rather than inferring it.
 
 20 host fixtures pass; verify PASSED with 21 signature windows. r24 is not run.
+
+## r24 run 2026-10-24 (Eden) and r25, built 2026-10-24: the gauge draws, and a stale mask hides it
+
+Log `work/modern-sharpness-gauge/runs/r24-eden-2026-10-24.txt` (sha256
+`97ef795e301a30fce7cbeaefcf3b14c55cc7878d04b38ad13d98a1fd92656e7d`), installed bytes
+`6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b`. The user: shown at quest
+start, then disappeared on area changes. Insertion at t=91.17, 29 clip lines to t=147.2,
+`inserted mask's links lost (1 times)` at t=149.89, stage-21 lines to the end at t=162.0.
+
+Every r24 write read back: `anchors=0xff0`, `mat` starting `0x3f800000` (the x scale), the
+rectangle `110 38 110 166` with the bottom on the bar's own bottom. The authored width reads 0
+between frames (`size=0,128`) because the row's layout zeroes it each frame; the width the
+scissor receives is the one written in the mask's enter call, which is where the plugin writes it.
+
+The disappearance is the mask outliving the plugin: at the transition the links broke, the
+walker's check dropped the addresses and stopped writing, and the mask went on applying its last
+rectangle, hiding the gauge in the new area. r25 disables the scissor at that point, from the
+mask's own enter handler where the game has handed over a live object, through
+`main+0xa4ba20` - the class's DTI `Enable` setter, read from the NSO bytes as
+`ldr r2,[r0,#0xa4]; bfc r2,#0,#1; bfc; str; bx lr`: it clears the enable bits and ignores the
+second argument. The walker's check stays read-only, as the rules require.
+
+20 host fixtures pass; verify PASSED with 21 signature windows. r25 is not run.
 
 ## Rules to keep
 

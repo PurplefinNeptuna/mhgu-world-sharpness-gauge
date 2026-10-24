@@ -157,11 +157,14 @@ pub fn take() -> Option<(u32, [u32; WORDS])> {
 /// Current and maximum sharpness points of the last accepted sample, when that
 /// sample carried a sharpness gauge at all. Weapons without sharpness (bowguns,
 /// the prowler rig) produce no gauge row, so there is nothing to accept.
-pub fn gauge_points() -> Option<(u32, u32)> {
+/// The last sampled sharpness triple. The tier is part of it: each tier is its own segment of
+/// points, so the fill ratio inside the bar is a function of the tier as much as the points.
+pub fn gauge_points() -> Option<(u32, u32, u32)> {
     let packed = LAST_GAUGE.load(Ordering::Relaxed);
     let current = packed & 0x3ff;
     let maximum = (packed >> 10) & 0x3ff;
-    (maximum != 0 && current <= maximum).then_some((current, maximum))
+    let tier = (packed >> 20) & 0x3f;
+    (maximum != 0 && current <= maximum).then_some((current, maximum, tier))
 }
 
 

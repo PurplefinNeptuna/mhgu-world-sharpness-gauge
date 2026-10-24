@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r24 writes the transform's x scale, which r23's run pinned as the reason the clip has no width. The mask's rectangle is built by the game: its enter handler (main+0xa4ba94) rebuilds +0xb0..+0xbc from the node's quad whenever bit 1 of +0xa4 is set, and the quad comes from main+0xa4b390, which composes x = (+0x40) + (+0x20)*yExtent + (+0x10)*xExtent + (+0x30) and y = (+0x44) + (+0x24)*yExtent + (+0x14)*xExtent + (+0x34). r23's run read the rectangle as 110 38 110 70 with authored 128x32 and anchors 0xfffffff0: the authored height contributed 32, the authored width contributed nothing, and the origin came from the parent's transform (110,38, the row root's own origin) while the plugin's position writes were inert. So the width row at mask+0x10/+0x14 is (0,0), the factory's matrix template having no x scale. r24 writes 1.0f at +0x10 and 0 at +0x14, sets the authored pair to (ratio width, the bar's rect height), keeps the anchor clear from r23 (bits 0-3 of +0xa0, mode 3 collapsing an axis, the factory leaving those bits as the allocator handed them), drops the inert position writes, and asks for the game's rebuild and apply (+0xa4 = 3). The probe now logs every input the builder reads, next to the bar's same fields. The insertion has completed four times (r18, r20, r22, r23) with the 5-word object array through the cGUIInstance DTI's MT allocator, the draw block resized through the root's vtable slot 0x58 with main+0xa49b28's arithmetic, the class factory's object, and the native linkers; r22's walker liveness check fired once and re-armed. Quests are split into areas with a loading screen between them (the tester's account of 2026-10-24). Not approved for distribution; r12 and r13 were packaged and never run.",
+  "reason": "r25 answers the area-change failure that r24's run showed. r24 (NRO 6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b, Eden 2026-10-24, installed bytes matching) is the first run where the mod's mask did not hide the gauge: the probe read anchors=0xff0, mat starting 0x3f800000 (the transform x scale r24 writes), authored height 128 and a rectangle of 110,38,110,166 with its bottom on the bar's bottom, and the user reported the gauge shown from the quest start. It then disappeared on an area change: at t=149.89 the walker's link check dropped the addresses, the plugin stopped writing, and the mask kept applying its last rectangle, so the new area's gauge was clipped away. r25 disables the scissor on that path, from the mask's own enter handler where the game has handed over a live object, by calling main+0xa4ba20, the class's DTI Enable setter, decoded from the NSO bytes as ldr r2,[r0,#0xa4]; bfc r2,#0,#1; bfc; str; bx lr (it clears the enable bits and ignores the second argument). The draw walker's check stays read-only, per the workspace rule that a write to a game object needs a native lookup in the same callback. The geometry r24 established stays: the rectangle is the game's to build (main+0xa4ba94 rebuilds +0xb0..+0xbc from the quad when bit 1 of +0xa4 is set), the quad comes from main+0xa4b390 with the anchor modes at +0xa0 bits 0-3 and the authored pair multiplied by the transform rows at +0x10/+0x20, and the row's layout zeroes the authored width every frame, so the enter-call write is the width the scissor receives. The insertion has completed five times (r18, r20, r22, r23, r24) with the 5-word object array through the cGUIInstance DTI's MT allocator, the draw block resized through the root's vtable slot 0x58 with main+0xa49b28's arithmetic, and the native linkers. Quests are split into areas with a loading screen between them (the tester's account of 2026-10-24). Not approved for distribution; r12 and r13 were packaged and never run.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r24",
+  "version": "r25",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r24-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r24/delivery",
+  "archive": "modern-sharpness-gauge-r25-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r25/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r24 writes 1.0f at mask+0x10, the transform row the game multiplies the authored width by, and sets the authored height to the bar's rect height. r23 ran on Eden 2026-10-24 (installed bytes 909dd7fa281cc8863c79fef6d91b49cd5ecd2da837ee30ad6d5ed01f7befc225): the anchor clear read back as anchors=0xfffffff0 and all 14 clip lines still showed a zero width at the parent's origin. r22/r20/r18/r14 each completed an insertion and hid the gauge. r17/r16/r15 ran clean.",
+  "runtime_test": "NOT RUN: r25 stops a mask clipping once its row's links are gone, through the class's DTI Enable setter (main+0xa4ba20). r24 ran on Eden 2026-10-24 (installed bytes 6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b): the gauge drew from the quest start - the first run where the mask did not hide it - and vanished at an area transition, with links-lost at t=149.89 and the mask keeping its last rectangle. r23/r22/r20/r18/r14 hid the gauge from the insertion.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -70,7 +70,7 @@
     "the game's destructor is assumed to free the map block r17 publishes through the cGUIInstance DTI's MT allocator; that free has not been observed, and r17 frees the old 4-word block itself",
     "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
     "The gauge itself is not part of r4.",
-    "r24 has not been run. Five completed insertions (r14, r18, r20, r22, r23) have hidden the gauge; r23 proved the anchor clear lands and that the transform's x row is the width's missing input, and no run has read mask+0x10 back. The mask's position properties are inert for this node, so the clip's origin is the gauge's own corner"
+    "r25 has not been run. r24's run drew the gauge from the quest start and lost it at an area change, where a mask kept clipping after its links broke; the disable-on-loss path has no runtime evidence, and a mask inserted into a second area's row has never been observed (r24's log ends 12 s after the transition, gauge HUD absent)"
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
