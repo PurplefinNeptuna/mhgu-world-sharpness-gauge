@@ -1,8 +1,10 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r19 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r19 moves the clip box to the mask's own enter hook and adds the
-liveness check the r18 run proved necessary. r18 was r17's insertion with one gate comparison
+Current state: Phase 2 candidate r20 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r20 makes a lost mask re-arm the whole row path, because a hunt
+crosses quest areas through loading screens and each area's HUD is a row of its own. r19 moves
+the clip box to the mask's own enter hook and adds the liveness check the r18 run proved
+necessary. r18 was r17's insertion with one gate comparison
 corrected, and its run is the first completed insertion this mod has had: the mask went in with
 a 5-entry map and a 9-record cache, the bar, glow and edge stopped drawing, and the probe lines
 showed why - the clip box came back as a zero-width strip, because the node's rectangle is the
@@ -119,7 +121,11 @@ expansions and ran on Eden on 2026-10-24: its own gate stopped it at stage 48, t
 normally, and the log carried the sizing pair that showed the gate's rule was the wrong one.
 r18 fixed that comparison, ran the same day, inserted the mask, and the gauge disappeared:
 the clip box was a zero-width strip. r19 writes the box in the mask's enter hook, not in the
-draw walker, and drops its addresses when the mask's links are gone.
+draw walker, and drops its addresses when the mask's links are gone. r18 ran on Eden the same
+day: the insertion completed (5-entry map, 9-record cache) and the gauge disappeared with a
+zero-width clip box, 376 of 383 probe lines at left == right, and the session's last 90 s of
+writes into a freed mask. r19 is not run; r20 re-arms the row path on a lost mask, because
+quests cross areas through loading screens and each area's HUD is its own row.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -778,6 +784,28 @@ unchanged); verify PASSED with 21 signature windows. r19 is not run. The open qu
 run is the one r18 posed: is a rectangle written in the enter call the rectangle the scissor
 gets. If it is, the bar shows at the live ratio; if the gauge is missing again, the probe lines
 say whether the box was right at the moment the handler ran.
+
+## r20, built 2026-10-24: one mask per gauge row, across the areas of a hunt
+
+The tester's account of 2026-10-24: MHGU quests are not seamless, the map is divided into
+areas, and moving between areas goes through a loading screen. Every run of this mod matches it
+(PHASE2_RESEARCH.md's section on it): stage-21 stretches where the gauge HUD is absent, r18's
+bar rect moving from `110,38,238,166` to `220,70,348,198` at t=236, and its tail from t=873 with
+the bar's rect `0 0 0 0` and the mask's words garbage while the plugin kept writing.
+
+So a gauge row is a per-area object, and the mask, the 5-word map and the 9-record cache belong
+to one row. r19's link check noticed the death and dropped the insertion's addresses, which
+stopped the writes into freed memory, and left the rest pointing at the dead row: `gui`'s
+reading state (so the row facts and the insertion never ran again), the sampler's gauge
+controller, and the instance capture. r20's failed check calls `hooks::teardown_gauge_row`, the
+same re-arm the root destructor hook does: controller, capture, facts state and the insertion's
+addresses all cleared, so the next HUD row is found, read and inserted like the first.
+`insert::misses()` counts the losses and the log prints one line per change:
+`inserted mask's links lost (N times)`. The root destructor hook stays, six sessions of zero
+fires notwithstanding, because it names the documented teardown.
+
+20 host fixtures pass; verify PASSED with 21 signature windows. r20 is not run: the enter-hook
+write site and this re-arm are both without runtime evidence.
 
 ## Rules to keep
 

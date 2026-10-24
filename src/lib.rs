@@ -29,6 +29,7 @@ static REPORTED_FIRST: AtomicBool = AtomicBool::new(false);
 static REPORTED_ABSENT: AtomicBool = AtomicBool::new(false);
 static REPORTED_FULL: AtomicBool = AtomicBool::new(false);
 static LAST_TEARDOWNS: AtomicU32 = AtomicU32::new(0);
+static LAST_MISSES: AtomicU32 = AtomicU32::new(0);
 /// A 120-update divider (about two seconds of frames) for the one clip probe line.
 const CLIP_LOG_EVERY: u32 = 120;
 static CLIP_LOG: Counter = Counter::new(CLIP_LOG_EVERY);
@@ -295,6 +296,16 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
             env!("MSG_VERSION"),
             " gauge row root destroyed ({tears} times); row facts cleared"
         ), tears = tears);
+    }
+    // The inserted mask's links went away, which is a row dying at an area's loading screen.
+    // Discovery starts over, so a hunt that crosses areas gets a mask in each row it builds.
+    let misses = insert::misses();
+    if misses > LAST_MISSES.swap(misses, Ordering::Relaxed) {
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " inserted mask's links lost ({misses} times); addresses dropped, the gauge row will be found again"
+        ), misses = misses);
     }
     if matched && taken == sampling::MAX_SAMPLES && !REPORTED_FULL.swap(true, Ordering::Relaxed) {
         log::error!(concat!(

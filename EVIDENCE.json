@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r19",
+  "version": "r20",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r19",
+    "version": "r20",
     "status": "BUILT",
-    "nro_sha256": "fb4583380b337e6e690d3fbf609434b22816aa8fff3c92edf6bc2020dce2197d",
+    "nro_sha256": "5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -86,9 +86,9 @@
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "aebf625d765cb6c3c1006d6a05d24ca6767f63a63f217d2667729d316644a4e5",
-      "src/insert.rs": "ae56e43bdbaf2fe438206614f420faa76bb425269ec2cf22185e58121eb4ca69",
-      "src/lib.rs": "92c6188a25681db96f31a59dc41cf5bf4b6d3c846808308e4889c78e09fa5491",
+      "src/hooks.rs": "5b88545077b715c0f39e447e1dffc198ad810fe196e0da8ef1a4d32fe57525e6",
+      "src/insert.rs": "d70df0c6ecbaaffdab37bfb3ed888b71d98b4ea32835b005c462d26373fb6a30",
+      "src/lib.rs": "6260c9ef46017c89f392333f149ecace7efcec5ec8d9d941644924b09a31d318",
       "src/memory.rs": "5fa9d8ed41e34d7ecce775405b2fbfefe13d7df51f36bf82a7b2e69098d3c04c",
       "src/sampling.rs": "e202526f1ec6d723ea9d05d434fd62b08be5fd954d74a34453c4491a47e693fc",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "fb4583380b337e6e690d3fbf609434b22816aa8fff3c92edf6bc2020dce2197d",
-    "elf_sha256": "73f99781a4d3b628ae5eb99cf01271388827bc7252ec2d183005fe4856c48de5",
+    "nro_sha256": "5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb",
+    "elf_sha256": "eec3c27cbf7bfdb657828c6b5c96ca1fe330be79b20b21cab648ee45ae45383a",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -495,10 +495,11 @@
     "r17's insertion has not been run: the mask, the grown map, the grown cache and the per-frame rectangle write are all built from decompiles and the r14-r16 logs, and none of them is runtime-evidenced.",
     "the root's vtable slots 0x58 and 0x5c as the row's allocate/free pair for its draw block: main+0xa49b28 calls 0x58 to allocate (read in full), and Key Quest Markers uses 0x5c to free; this row's 0x5c has not been observed freeing.",
     "that the row's layout pass leaves a rectangle written at mask+0xb0..+0xbc in place: r14 proved the rebuilt rectangle comes from the node's own quad, and r17 writes the built rectangle itself, which no run has checked yet.",
-    "that a rectangle written inside the mask's enter handler (main+0xa4ba94) is the rectangle the scissor applies: the decompile shows the handler reading +0xb0..+0xbc after the layout has rewritten them, and r19 is the first build to write there; no run has checked it."
+    "that a rectangle written inside the mask's enter handler (main+0xa4ba94) is the rectangle the scissor applies: the decompile shows the handler reading +0xb0..+0xbc after the layout has rewritten them, and r19 is the first build to write there; no run has checked it.",
+    "that a lost mask re-arms the row path correctly (r20): quests are split into areas with a loading screen between them (the tester's account of 2026-10-24), so a gauge row's death is expected mid-hunt, and the re-arm has never run."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18 completed insertion with the gauge clipped away); r19 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18 completed insertion with the gauge clipped away); r19 and r20 NOT RUN",
     "date": "2026-10-23",
     "binary_sha256": "55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",

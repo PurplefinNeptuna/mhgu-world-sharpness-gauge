@@ -113,9 +113,7 @@ pub unsafe extern "C" fn msg_root_dtor(root: u32) {
         && root == sampling::gauge_controller()
     {
         TEARDOWNS.fetch_add(1, Ordering::Relaxed);
-        gui::on_teardown();
-        clear_capture(root);
-        sampling::clear_controller();
+        teardown_gauge_row(root);
     }
     let f: unsafe extern "C" fn(u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(root) };
@@ -139,6 +137,18 @@ pub unsafe extern "C" fn msg_mask_enter(mask: u32, context: u32) {
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(mask, context) };
+}
+
+/// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
+/// instance capture, the row facts and the insertion all start over on the HUD the game builds
+/// next. Quests are split into areas with a loading screen between them (the tester's account,
+/// 2026-10-24, matching the logs: HUD-absent stretches, a bar rect that changes layout, then
+/// freed objects), so a row's death is a normal event of a hunt, not an edge case. Two paths
+/// reach this: the root destructor hook, and the inserted mask's own link check.
+pub fn teardown_gauge_row(controller: u32) {
+    gui::on_teardown();
+    clear_capture(controller);
+    sampling::clear_controller();
 }
 
 /// Times the captured row's root destructor ran: the teardown count the log prints.

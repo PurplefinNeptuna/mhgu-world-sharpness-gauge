@@ -48,6 +48,9 @@ const ENABLE: u32 = 1; // bit 1 clear: a set bit 1 makes the game rebuild the re
 /// line's `counts` is the pair at row+4, which the sizer does not read.
 const ROW_SIZING: u32 = 0x08;
 
+/// Times the enter hook found the mask's links gone: the count the log prints, and the only
+/// teardown signal this build can prove (the root destructor hook has fired zero times).
+static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
@@ -75,6 +78,11 @@ pub fn on_teardown() {
     for word in BOX.iter() {
         word.store(0, Ordering::Relaxed);
     }
+}
+
+/// Times the mask's links were found gone at its enter hook.
+pub fn misses() -> u32 {
+    MISSES.load(Ordering::Relaxed)
 }
 
 fn base() -> u32 {
@@ -194,7 +202,10 @@ pub fn enter(mask: u32) {
         && memory::word(root + NODE_CHILD) == Some(mask)
         && memory::word(bar + NODE_PARENT) == Some(mask);
     if !alive {
-        on_teardown();
+        // The links that made this mask ours are gone: an area's loading screen has taken the
+        // row. Drop the addresses and re-arm discovery, so the new HUD row gets its own mask.
+        MISSES.fetch_add(1, Ordering::Relaxed);
+        crate::hooks::teardown_gauge_row(root);
         return;
     }
     let Some((current, maximum)) = sampling::gauge_points() else {
