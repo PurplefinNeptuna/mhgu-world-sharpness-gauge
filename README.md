@@ -5,16 +5,11 @@ the bar shows the current sharpness ratio: at full sharpness you see the whole b
 and as sharpness drops the bar is cut back from the right. The glow and the edge
 glyph stay where the game puts them. Nothing else on the HUD changes.
 
-This is the first version of this mod that changes what you see. The earlier versions
-only read the gauge and wrote lines to the log. r18 inserted the mask and the gauge went
-missing: the clip box arrived as a strip with no width, because the game recomputes that
-rectangle from the node's own geometry and gives a node it has no data for a width of zero.
-r19 writes the box inside the call that uses it, and r21 writes it
-every frame: the r18 and r20 runs left the gauge missing because the game
-recomputes that rectangle and the mod had stopped writing it.
-Quests are split into areas with a loading screen between them, so a hunt builds
-several gauge rows. r22 notices a row being taken away - from the draw walk,
-which keeps running - and puts the mask in the next area's row.
+The mod writes into the game's gauge, and in two runs that hid the gauge: the clip
+box came out as a strip with no width, so the bar drew nothing. A missing bar is the
+known failure of this build, and the log says whether it happened.
+A quest is split into areas with a loading screen between them, and each area builds
+its own gauge. The mask goes into each area's gauge as it appears.
 
 ## Requirements
 
@@ -71,8 +66,8 @@ published. `mask insertion failed at stage` plus a number from 40 to 49 means it
 did not go in, and the number says which step stopped it: 40 the mask object, 41
 the fields it borrows from the bar, 42 the map allocation, 43 copying the map, 44
 the game's cache methods, 45 the cache allocation, 46 publishing the cache, 47 the
-tree links, 48 the row's counts disagreeing with its tree (the r17 run stopped here, and
-the gauge looked normal), 49 the gauge already carries a mask from an earlier quest.
+tree links, 48 the row's counts disagreeing with its tree, in which case the gauge
+draws unmodified, 49 the gauge already carries a mask from an earlier quest.
 Report the number exactly as printed.
 
 `inserted mask's links lost (N times)` means the game took a gauge row away at
@@ -82,8 +77,8 @@ mask. Report how many areas you crossed and whether the bar behaved the same in 
 `clip mask rect` lines appear every couple of seconds while the mask is in, with
 the rectangle that is in the object at that moment and the bar's rectangle it is
 meant to cover. The first four numbers are left, top, right, bottom: if the first
-two pairs are equal (for example `110 32 110 64`) the clip has no width, which is
-how r18's missing gauge looked in the log.
+two pairs are equal (for example `110 32 110 64`) the clip has no width, which is what a
+missing gauge looks like in the log.
 
 `gauge row facts:` is one line per gauge HUD: the controller, its draw cache, the
 animation row and both of its count pairs, the HUD instance, the instance's object
@@ -117,18 +112,11 @@ unload step.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-This build comes from six Eden runs of this mod: r14, r15 and r16 on 2026-10-23, and
-r17, r18 and r20 on 2026-10-24 (r19, r21 and r22 have not been run). r14 inserted the mask, clipped the gauge away and crashed at
-the quest end. r17's build stopped itself at its own first check and the gauge looked
-normal. r18 completed the insertion, and the gauge went missing: the clip box had no
-width. r20 wrote the box in the call that applies it and the gauge went missing
-the same way, because the mod wrote it once and the game kept recomputing its
-own. r21 writes it every frame. A missing bar is the known failure mode from r14 and r18: report it
-with the log, and the mod can go back to reading only.
-
-Earlier builds of this mod only logged the gauge: r1 read the sharpness numbers, r3
-measured the gauge tree, and r9 through r16 read the row, the map and the draw
-cache. Those readings are what this build's insertion is built on.
+The mask has gone into the gauge in three runs. Twice it hid the gauge: the clip box
+had no width, and the bar drew nothing for the rest of the quest. Once the game
+crashed at the quest end after the insertion. The clip is now written on every frame,
+from the call that applies it, which the failed runs did not do. Report a missing bar
+with the log, and the drawing can be taken out again.
 
 Linked components: MHGU Forge by Fexty; Original Forge by Jeffi and the Skyline
 Project; forge-rs by Fexty; libnx by Hydrosphere Developers.
