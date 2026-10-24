@@ -1,17 +1,16 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r27 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r26's run proved the area-change failure: at the drop the snapshot
-reads freed-heap fill (0xffeaeaea/0xffe3e3e3), the kept addresses are reused by the game within
-seconds, and for 160 s afterwards the walker (~2350 calls/s, instance hook fires 1,553,318) matches
-no gauge controller in 25,000+ discovery attempts - the game frees its gauge row at the area change
-(our mask included, as the 5th map entry) and never rebuilds it, while vanilla rebuilds it in every
-area. The insertion's only write with no read allocation site is `grow_map` releasing the row's
-original 4-word map block to the `cGUIInstance` MT allocator; freeing a block to an allocator that
-never owned it corrupts that allocator's free list, and GUI instantiation allocates from it. r27
-stops that release (a 16-byte leak per insertion) and keeps every r26 measurement. r26 logs the
-link snapshot, the changed-only probe, the instance fire count and the re-armed absence report.
-r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+Current state: Phase 2 candidate r28 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r27's run proved the map-block leak is not the cure: the drop
+snapshot showed live mask links with the captured root/bar already fill (0xffffff/0xbd4fd613),
+the mask filled 0.13 s later - the row dies root-first and is never rebuilt. The game's own
+row-swap path, main+0xa38828 (read after the run), frees the map at `instance+0xd8` through
+`MtDti::getAllocator(...)->memFree(alloc, ptr)`, so publishing an MT block there is
+ownership-consistent. Two defects in the insertion's game-allocator calls remain: `grow_cache`
+frees the row's original cache block through root vtable slot 0x5c, proven as a free pair only
+on Key Quest Markers' counter row, and `grow_map` called the `cGUIInstance` memAlloc with one
+argument where the verified signature is memAlloc(bytes, align) - align was register garbage.
+r28 leaks the old cache block (72 bytes per insertion) and passes align=16. r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor

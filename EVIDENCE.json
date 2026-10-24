@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r27",
+  "version": "r28",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r27",
+    "version": "r28",
     "status": "BUILT",
-    "nro_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
+    "nro_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,9 +87,9 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "99048b955c51301934a37a61e04832f6c545532f928fec533d9c60011a21682c",
-      "src/insert.rs": "4e27731a2b70e6cb1b8992c58f955fe16262525d2853b19d0d9449cc8362d41b",
+      "src/insert.rs": "0df374a600d27b809aae125a41d2d29c78e79de28a410cb84f1b88a56db87e92",
       "src/lib.rs": "74abe2890f12959bcabeaed109928dd7e9bec933b0fe8d3fe0698882594e2bbe",
-      "src/memory.rs": "a910f9f058c6094364e1abab67eadd09b04b1899ba2dab609934247a4982bb96",
+      "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
-    "elf_sha256": "6375fd61654594454bf8e1ebeda8b13c3ba592cc3be185f10f8accffd7a61d32",
+    "nro_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
+    "elf_sha256": "eecfe9063e3da735f193b8a2a728b3b1504e516ffcf9742feef04e8e8c9820a2",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -600,6 +600,25 @@
         "after the drop: no gauge controller matched, no sample line (budget stayed 22/320), no insertion, to the log end at t=1096.6+ (160 s), 25,000+ discovery attempts at every 60th walker call"
       ],
       "conclusion": "Proven by measurement: the game frees the gauge row's objects at the area change - our mask included, as the 5th map entry - and never rebuilds the row in the next area, while the HUD walker and instance system run at full rate. Vanilla rebuilds it in every area (the tester). The one insertion write with no read allocation site is grow_map releasing the row's original 4-word map block to the cGUIInstance MT allocator; a block freed to an allocator that never owned it corrupts that allocator's free list, and GUI instantiation allocates from it. r27 stops releasing that block (a 16-byte leak per insertion) and keeps r26's measurements to judge it by."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r27",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r27-eden-2026-10-24.txt",
+      "session_seconds": 510,
+      "our_lines": 393,
+      "observed": [
+        "user report: r27 ran, still missing on area transition",
+        "insertion t=237.2 (mask=0x44234240 entries=5 records=9), 119 clip lines, 11 samples: area 1 healthy",
+        "drop t=477.7 snapshot: marker=0x4d534731 mask.parent=0x48901580 mask.child=0x488dece0 intact, bar.parent=0xffffff and root.child=0xbd4fd613 garbage: the captured root/bar were freed first, the mask block still alive at the drop",
+        "0.13 s later the mask memory reads fill (0xff8bb1df...) too: the game frees the whole row, mask included",
+        "after the drop: no controller observed, no second insertion, no sample (budget stayed 11/320); stage-21 lines to the log end at t=509.9 (32 s)",
+        "the instance fire counter and absence report behaved as designed (fires=462435, re-armed report at the drop)"
+      ],
+      "conclusion": "The r27 map-block leak did not end the rebuild failure: the row is still freed at the area change and never rebuilt. The game's own row-swap path main+0xa38828 (read after this run) frees instance+0xd8's map through MtDti::getAllocator(...)->memFree(alloc, ptr), so publishing an MT block there is ownership-consistent, and the r27 leak was legal-but-not-the-cure. Two defects remain in the insertion's game-allocator calls: grow_cache frees the row's original cache block through root vtable slot 0x5c, proven as a free pair only on Key Quest Markers' counter row, and grow_map called the cGUIInstance memAlloc with one argument, while the Key Quest Markers-verified signature is memAlloc(bytes, align): the align argument was register garbage. r28 stops the 0x5c free (72-byte leak per insertion) and passes align=16."
     }
   ],
   "not_proven": [
@@ -618,13 +637,13 @@
     "that a re-insertion happens in a later area's row: the walker's liveness check fired once in r22 and re-armed, but the HUD was absent for the rest of that session, so a mask in a second area's row has not been observed.",
     "that the mask's PosX/PosY properties are inert for a node with no animation row entry: r23's rectangle origin matched the parent's, not the written position. The PosX/PosY setters (main+0xa4b02c / main+0xa4b058) were not called.",
     "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25's disable fired at the drop, and the gauge row was never rebuilt in 150 s, so the restore was not observable. Which link broke, and what state the row's objects were in afterwards, is what r26 measures.",
-    "that r27's un-released map block ends the rebuild failure: r26 proved the row is freed and never rebuilt in the modded session; which allocator owned the row's original 4-word block, and whether the release corrupted it, is unproven. Read the allocation site after a run.",
-    "that the game rebuilds the gauge row after an area change with this mod inserted: r26's run shows it does not (fill-pattern objects, 25,000 discovery attempts, 160 s), while vanilla shows the gauge in every area (the tester's account)."
+    "that the game rebuilds the gauge row after an area change with this mod inserted: r26's run shows it does not (fill-pattern objects, 25,000 discovery attempts, 160 s), while vanilla shows the gauge in every area (the tester's account).",
+    "that r28 ends the rebuild failure: r27 proved the map-block leak is not the cure. r28 removes the last free of game-owned memory (root slot 0x5c on the old cache, proven as a free pair only on Key Quest Markers' row) and passes align=16 to memAlloc(bytes, align) as the verified signature requires, align being register garbage before. Neither mechanism is proven as the corruption."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
+    "binary_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

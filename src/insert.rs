@@ -165,10 +165,11 @@ impl Allocator {
         let free = memory::method(handle, 0x34)?;
         Some(Self { handle, free })
     }
-    /// Slot 0x1c: `memAlloc(bytes, align)`, the map allocation Key Quest Markers uses.
+    /// Slot 0x1c is `memAlloc(bytes, align)`, the Key Quest Markers-verified signature: both
+    /// arguments, align 16, which is also what the published block's &15 gate asks for.
     fn alloc(&self, bytes: u32) -> Option<u32> {
         let f = memory::method(self.handle, 0x1c)?;
-        memory::call2(f, self.handle, bytes).filter(|p| *p != 0)
+        memory::call3(f, self.handle, bytes, 16).filter(|p| *p != 0)
     }
     fn release(&self, pointer: u32) {
         if pointer != 0 {
@@ -222,7 +223,6 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
     let (size, prefix, area) = sharpness_gauge_core::cache_layout(objects, sequences);
     let allocate = memory::method(root, 0x58).ok_or(44u32)?;
     let release = memory::method(root, 0x5c).ok_or(44u32)?;
-    let old_alloc = memory::word(root + 0xa4).unwrap_or(0);
     let fresh = memory::call2(allocate, root, size).ok_or(45u32)?;
     if fresh == 0 || fresh & 15 != 0 || !memory::writable(fresh, size as usize) {
         if fresh != 0 {
@@ -239,9 +239,12 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
         let _ = memory::call2(release, root, fresh);
         return Err(46);
     }
-    if old_alloc != 0 && old_alloc != fresh {
-        let _ = memory::call2(release, root, old_alloc);
-    }
+    // shortcut: the old cache block leaks (72 bytes per insertion). Slot 0x5c is proven as a
+    // free pair on Key Quest Markers' counter row only; it has never been observed freeing
+    // this row, and freeing through the owning allocator's wrong counterpart corrupts its
+    // free list. r27's run proved the map-block leak is not the poison behind the missing
+    // post-transition rebuild; this is the last release of game-owned memory in the build.
+    // If the next area's row returns, read slot 0x5c's body and free it correctly.
     Ok((fresh, area / 8))
 }
 

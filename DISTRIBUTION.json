@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r27 tests the mechanism r26's run pinned (NRO d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f, Eden 2026-10-24, installed bytes matching): at the area change the drop snapshot reads freed-heap fill (0xffeaeaea/0xffe3e3e3), the kept addresses are reused by the game within seconds, the walker runs at ~2350 calls/s and the instance system at full fire counts, and no gauge controller is matched in 25,000+ discovery attempts over 160 s - the game frees its gauge row (our mask as the 5th map entry included) and never rebuilds it, while vanilla rebuilds it in every area. The insertion's only write with no read allocation site is grow_map releasing the row's original 4-word map block to the cGUIInstance MT allocator; freeing a block an allocator never owned corrupts its free list, and GUI instantiation allocates from it. r27 stops that release (16 bytes leak per insertion) and keeps every r26 measurement. Everything else is r26's: geometry, mask, cache growth, disable path, hooks.",
+  "reason": "r28 targets the last two defects in the insertion's game-allocator calls, after r27's run (NRO 9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d, Eden 2026-10-24, installed bytes matching) proved the map-block leak is not the cure: the row is freed at the area change (drop snapshot with live mask links, root/bar fill; mask filled 0.13 s later) and never rebuilt. The game's row-swap path main+0xa38828, read after that run, frees the published map through MtDti::getAllocator(...)->memFree(alloc, ptr), so the map design is ownership-consistent. r28: grow_cache no longer frees the row's original cache block through root vtable slot 0x5c (proven as a free pair only on Key Quest Markers' counter row; 72-byte leak per insertion), and grow_map passes align=16 to memAlloc(bytes, align), the Key Quest Markers-verified signature, where the align argument was previously register garbage. All r26/r27 measurements are kept.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r27",
+  "version": "r28",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r27-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r27/delivery",
+  "archive": "modern-sharpness-gauge-r28-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r28/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r27 stops releasing the row's original map block. Run it across one area boundary and stay in the new area. Pass: the gauge HUD is back in the new area and the log shows a second insertion with clip lines there. Fail: the drop snapshot and absence report read as in r26, and the next step is reading who allocates instance+0xd8.",
+  "runtime_test": "NOT RUN: r28 leaks the old cache block and fixes the memAlloc align argument. Run it across one area boundary and stay in the new area. Pass: a second 'scissor mask inserted' after the drop and the gauge visible in the new area. Fail: the drop snapshot and absence report read as before, and the next step is reading the controller destructor's teardown walk statically.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {

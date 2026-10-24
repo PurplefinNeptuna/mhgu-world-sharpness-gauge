@@ -184,3 +184,12 @@ pub fn call2(function: u32, a: u32, b: u32) -> Option<u32> {
     let f: unsafe extern "C" fn(u32, u32) -> u32 = unsafe { core::mem::transmute(function as usize) };
     Some(unsafe { f(a, b) })
 }
+
+pub fn call3(function: u32, a: u32, b: u32, c: u32) -> Option<u32> {
+    if !executable(function, 4) {
+        return None;
+    }
+    let f: unsafe extern "C" fn(u32, u32, u32) -> u32 =
+        unsafe { core::mem::transmute(function as usize) };
+    Some(unsafe { f(a, b, c) })
+}
