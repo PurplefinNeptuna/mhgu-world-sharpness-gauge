@@ -205,8 +205,13 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32) -> Result<u32, u3
         allocator.release(fresh);
         return Err(43);
     }
-    // The published block is what the game's destructor frees, so the old one goes now.
-    allocator.release(old);
+    // shortcut: the old 4-word block leaks (16 bytes per insertion). No code read so far
+    // allocates it, and handing a block to an allocator that never owned it corrupts that
+    // allocator's free list. r26's run: at the drop the row's objects read as freed-heap fill
+    // (0xffeaeaea/0xffe3e3e3), the memory is reused by the game within seconds, and no gauge
+    // controller is matched in 25,000 discovery attempts over the following 160 s. r27 tests
+    // the leak. If the game rebuilds its row in the next area again, read who allocated the
+    // old block and free it there.
     Ok(fresh)
 }
 

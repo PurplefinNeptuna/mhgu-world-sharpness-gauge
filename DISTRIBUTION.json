@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r26 is the measurement build for the area-change failure, from the r25 run (NRO 223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710, Eden 2026-10-24, installed bytes matching): the links-lost path fired at t=661.66 and the Enable setter stopped the mask clipping, and 150 s after the transition the sampler (every 60 walker calls) had matched no gauge controller and the instance hook had not recaptured - the game's sharpness gauge row was not rebuilt in the new area, while the tester states vanilla shows the gauge in every area. The r25 log cannot name which link broke at the drop, nor whether the row's objects were freed, rewired, or alive. r26 adds a read-only link snapshot at the drop (marker, mask.parent, mask.child, bar.parent, bar.sibling, root.child), a changed-only probe re-reading the kept addresses from the plugin thread, an instance-draw-entry fire count, and a re-armed HUD-absent report. No new hook, no new write to the game; insertion, geometry and the disable path are r25's.",
+  "reason": "r27 tests the mechanism r26's run pinned (NRO d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f, Eden 2026-10-24, installed bytes matching): at the area change the drop snapshot reads freed-heap fill (0xffeaeaea/0xffe3e3e3), the kept addresses are reused by the game within seconds, the walker runs at ~2350 calls/s and the instance system at full fire counts, and no gauge controller is matched in 25,000+ discovery attempts over 160 s - the game frees its gauge row (our mask as the 5th map entry included) and never rebuilds it, while vanilla rebuilds it in every area. The insertion's only write with no read allocation site is grow_map releasing the row's original 4-word map block to the cGUIInstance MT allocator; freeing a block an allocator never owned corrupts its free list, and GUI instantiation allocates from it. r27 stops that release (16 bytes leak per insertion) and keeps every r26 measurement. Everything else is r26's: geometry, mask, cache growth, disable path, hooks.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r26",
+  "version": "r27",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r26-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r26/delivery",
+  "archive": "modern-sharpness-gauge-r27-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r27/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r26 measures the gauge row's state at and after a drop. Run it across one area boundary and stay in the new area; the links-lost snapshot, the dropped-row probe line, the instance fire count and the absence report are the facts to read.",
+  "runtime_test": "NOT RUN: r27 stops releasing the row's original map block. Run it across one area boundary and stay in the new area. Pass: the gauge HUD is back in the new area and the log shows a second insertion with clip lines there. Fail: the drop snapshot and absence report read as in r26, and the next step is reading who allocates instance+0xd8.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r26",
+  "version": "r27",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r26",
+    "version": "r27",
     "status": "BUILT",
-    "nro_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
+    "nro_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,7 +87,7 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "99048b955c51301934a37a61e04832f6c545532f928fec533d9c60011a21682c",
-      "src/insert.rs": "db2d42960030e68d1026abf5be0cbeeec81f9b0d85d426a577959d7061610829",
+      "src/insert.rs": "4e27731a2b70e6cb1b8992c58f955fe16262525d2853b19d0d9449cc8362d41b",
       "src/lib.rs": "74abe2890f12959bcabeaed109928dd7e9bec933b0fe8d3fe0698882594e2bbe",
       "src/memory.rs": "a910f9f058c6094364e1abab67eadd09b04b1899ba2dab609934247a4982bb96",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
-    "elf_sha256": "9991798e7dda218301aa184f01164eaa231f598d9b748efbb1e77b7cb5537a2b",
+    "nro_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
+    "elf_sha256": "6375fd61654594454bf8e1ebeda8b13c3ba592cc3be185f10f8accffd7a61d32",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -581,6 +581,25 @@
         "session closed by the user's ForceStop at t=815.98; the SIGSEGV line follows the forced stop and is host-side; no guest exception in the session"
       ],
       "conclusion": "The r25 disable fired: after the drop no clip line appears and the mask applies nothing. The user-visible failure is not clipping: the game's sharpness gauge row is absent in the new area - no controller in any walked tree, no instance-hook re-capture, for 150 s - while the tester states vanilla shows the sharpness gauge in every area. The r25 log cannot say which link broke at the drop, nor whether the row's objects were freed, rewired to spec, or alive. r26 measures exactly that: a link snapshot at the drop, a changed-only re-read of the kept addresses from the plugin thread, an instance-hook fire count, and the re-armed absence report. No new hook and no new write: insertion, geometry and disable paths are r25's."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r26",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r26-eden-2026-10-24-run2.txt",
+      "session_seconds": 1105,
+      "our_lines": 588,
+      "observed": [
+        "one r25 session preceded it (user re-ran r25 by mistake): insertion t=424.3, links-lost t=1002.2, stage 21 to t=1627 - 625 s with no gauge row",
+        "r26: insertion t=275.5 (mask=0x4802fc70 entries=5 records=9); 329 clip lines before the drop; 22 samples, sharpness 350 to 297 with tier 4 to 3: the box width tracked the ratio in area 1",
+        "t=936.69 links-lost snapshot: marker=0xffeaeaea mask.parent=0xffe3e3e3 mask.child=0xffe9e9e9 bar.parent=0xd6e9e9ea root.child=0xa3ffffff: freed-heap fill patterns, not tree links",
+        "the changed-only probe re-reads those same addresses 1.7 s later as 0x101/0x924900ff/0x42100000-style data and cycles continuously: the game's allocator reused the freed blocks within seconds",
+        "instance hook fires=1553318 at the drop, walker calls=1553286: the GUI walker is running ~2350 calls/s; the re-armed absence report fired at the drop (t=936.69)",
+        "after the drop: no gauge controller matched, no sample line (budget stayed 22/320), no insertion, to the log end at t=1096.6+ (160 s), 25,000+ discovery attempts at every 60th walker call"
+      ],
+      "conclusion": "Proven by measurement: the game frees the gauge row's objects at the area change - our mask included, as the 5th map entry - and never rebuilds the row in the next area, while the HUD walker and instance system run at full rate. Vanilla rebuilds it in every area (the tester). The one insertion write with no read allocation site is grow_map releasing the row's original 4-word map block to the cGUIInstance MT allocator; a block freed to an allocator that never owned it corrupts that allocator's free list, and GUI instantiation allocates from it. r27 stops releasing that block (a 16-byte leak per insertion) and keeps r26's measurements to judge it by."
     }
   ],
   "not_proven": [
@@ -599,12 +618,13 @@
     "that a re-insertion happens in a later area's row: the walker's liveness check fired once in r22 and re-armed, but the HUD was absent for the rest of that session, so a mask in a second area's row has not been observed.",
     "that the mask's PosX/PosY properties are inert for a node with no animation row entry: r23's rectangle origin matched the parent's, not the written position. The PosX/PosY setters (main+0xa4b02c / main+0xa4b058) were not called.",
     "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25's disable fired at the drop, and the gauge row was never rebuilt in 150 s, so the restore was not observable. Which link broke, and what state the row's objects were in afterwards, is what r26 measures.",
-    "that the game rebuilds the gauge row after an area change with this mod inserted: the r25 sampler (every 60 walker calls, 10/320 budget) matched no gauge controller for 150 s after the transition, while vanilla shows the sharpness gauge in every area (the tester's account). No mechanism for the missing rebuild is proven."
+    "that r27's un-released map block ends the rebuild failure: r26 proved the row is freed and never rebuilt in the modded session; which allocator owned the row's original 4-word block, and whether the release corrupted it, is unproven. Read the allocation site after a run.",
+    "that the game rebuilds the gauge row after an area change with this mod inserted: r26's run shows it does not (fill-pattern objects, 25,000 discovery attempts, 160 s), while vanilla shows the gauge in every area (the tester's account)."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710",
+    "binary_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

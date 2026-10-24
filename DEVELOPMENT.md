@@ -1,14 +1,16 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r26 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r26 measures the area-change failure shown by the r25 run: the
-links-lost path fired at t=661.66 and the Enable setter (main+0xa4ba20) stopped the mask clipping,
-and the game's sharpness gauge row stayed absent in the new area for 150 s - the sampler matched
-no gauge controller in any walked tree (discovery every 60 calls, budget 10/320) and the instance
-hook never recaptured - while vanilla shows the gauge in every area (the tester's account). r26
-logs a link snapshot at the drop (marker, mask.parent, mask.child, bar.parent, bar.sibling,
-root.child), re-reads the kept addresses from the plugin thread with a changed-only line, counts
-instance draw-entry fires, and re-arms the HUD-absent report; it adds no hook and no new write.
+Current state: Phase 2 candidate r27 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r26's run proved the area-change failure: at the drop the snapshot
+reads freed-heap fill (0xffeaeaea/0xffe3e3e3), the kept addresses are reused by the game within
+seconds, and for 160 s afterwards the walker (~2350 calls/s, instance hook fires 1,553,318) matches
+no gauge controller in 25,000+ discovery attempts - the game frees its gauge row at the area change
+(our mask included, as the 5th map entry) and never rebuilds it, while vanilla rebuilds it in every
+area. The insertion's only write with no read allocation site is `grow_map` releasing the row's
+original 4-word map block to the `cGUIInstance` MT allocator; freeing a block to an allocator that
+never owned it corrupts that allocator's free list, and GUI instantiation allocates from it. r27
+stops that release (a 16-byte leak per insertion) and keeps every r26 measurement. r26 logs the
+link snapshot, the changed-only probe, the instance fire count and the re-armed absence report.
 r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
