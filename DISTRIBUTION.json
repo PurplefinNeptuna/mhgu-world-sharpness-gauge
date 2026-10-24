@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r28 targets the last two defects in the insertion's game-allocator calls, after r27's run (NRO 9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d, Eden 2026-10-24, installed bytes matching) proved the map-block leak is not the cure: the row is freed at the area change (drop snapshot with live mask links, root/bar fill; mask filled 0.13 s later) and never rebuilt. The game's row-swap path main+0xa38828, read after that run, frees the published map through MtDti::getAllocator(...)->memFree(alloc, ptr), so the map design is ownership-consistent. r28: grow_cache no longer frees the row's original cache block through root vtable slot 0x5c (proven as a free pair only on Key Quest Markers' counter row; 72-byte leak per insertion), and grow_map passes align=16 to memAlloc(bytes, align), the Key Quest Markers-verified signature, where the align argument was previously register garbage. All r26/r27 measurements are kept.",
+  "reason": "r29 fixes the insertion's structural defect, found by reading the mask destructor main+0xa56758 (walks the +0x68 child chain destroying each node, then memFrees the mask) against the r28 run's tree lines (NRO ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e, Eden 2026-10-24, installed bytes matching): the gauge row's nodes are siblings under the controller, the insertion moved the bar chain under the mask, and left root.sibling=bar in place, so bar, glow and edge have two inbound chains. Every teardown walk destroys what it reaches, so the area transition's teardown frees them twice, corrupts the texture allocator, and the game cannot rebuild the gauge row in the next area - the area-change failure of r24-r28, and r14's quest-end crash. r28's own area-1 regression came from leaking the old cache block, so r29 restores that release (root slot 0x5c, the root's own destructor's free path). r29: write root.sibling=0 when the bar chain moves, restore the cache release, gate the root destructor hook on the captured row root (the r28 tree proves the argument is the root, never the controller, so the old gate was dead), keep memAlloc(bytes, align=16) as the game's FUN_01401bc0 calls it, and keep all r26-r28 measurements.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r28",
+  "version": "r29",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r28-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r28/delivery",
+  "archive": "modern-sharpness-gauge-r29-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r29/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r28 leaks the old cache block and fixes the memAlloc align argument. Run it across one area boundary and stay in the new area. Pass: a second 'scissor mask inserted' after the drop and the gauge visible in the new area. Fail: the drop snapshot and absence report read as before, and the next step is reading the controller destructor's teardown walk statically.",
+  "runtime_test": "NOT RUN: r29 gives every node one inbound chain, restores the cache release, and fires the root destructor hook for real. Pass: the bar draws in area 1 (r26/r27 behaviour), and after an area change the log shows a second 'scissor mask inserted' and the gauge in the new area. A 'gauge row root destroyed' line at the transition is expected and healthy: the hook's gate works now.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {

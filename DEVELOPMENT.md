@@ -1,16 +1,18 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r28 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r27's run proved the map-block leak is not the cure: the drop
-snapshot showed live mask links with the captured root/bar already fill (0xffffff/0xbd4fd613),
-the mask filled 0.13 s later - the row dies root-first and is never rebuilt. The game's own
-row-swap path, main+0xa38828 (read after the run), frees the map at `instance+0xd8` through
-`MtDti::getAllocator(...)->memFree(alloc, ptr)`, so publishing an MT block there is
-ownership-consistent. Two defects in the insertion's game-allocator calls remain: `grow_cache`
-frees the row's original cache block through root vtable slot 0x5c, proven as a free pair only
-on Key Quest Markers' counter row, and `grow_map` called the `cGUIInstance` memAlloc with one
-argument where the verified signature is memAlloc(bytes, align) - align was register garbage.
-r28 leaks the old cache block (72 bytes per insertion) and passes align=16. r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+Current state: Phase 2 candidate r29 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r28's run (a regression: no bar in area 1) plus reading the mask
+destructor main+0xa56758 found the structural defect: the row's nodes are siblings under the
+controller, the insertion hung the bar chain under the mask, and left `root.sibling=bar` in
+place, so bar, glow and edge sat on two inbound chains; every teardown walk destroys what it
+reaches, so the area transition destroyed and freed them twice - the texture allocator's free
+list is what breaks, which is why the game cannot rebuild the gauge row in the next area
+(r24-r28) and why r14 crashed at a quest end. r29: `root.sibling=0` when the bar chain moves
+under the mask, the cache release restored (r28's leak caused its area-1 regression), the root
+destructor hook gated on the captured row root (the r28 tree lines prove the argument is the
+root, never the controller - the old gate was dead), `memAlloc(bytes, align=16)` kept as the
+game's own FUN_01401bc0 calls it, and all r26-r28 measurements kept.
+r25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor

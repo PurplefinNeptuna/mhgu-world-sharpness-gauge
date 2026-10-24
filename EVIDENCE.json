@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r28",
+  "version": "r29",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r28",
+    "version": "r29",
     "status": "BUILT",
-    "nro_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
+    "nro_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -86,8 +86,8 @@
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "99048b955c51301934a37a61e04832f6c545532f928fec533d9c60011a21682c",
-      "src/insert.rs": "0df374a600d27b809aae125a41d2d29c78e79de28a410cb84f1b88a56db87e92",
+      "src/hooks.rs": "c7122c6e4c7dd17ef69195212e7fadba4832cc6a604408061803828d0f58f567",
+      "src/insert.rs": "b49295768e91e54d041adfe8925d494ccfe8a30e89cb5cc5725f317815399ecf",
       "src/lib.rs": "74abe2890f12959bcabeaed109928dd7e9bec933b0fe8d3fe0698882594e2bbe",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
-    "elf_sha256": "eecfe9063e3da735f193b8a2a728b3b1504e516ffcf9742feef04e8e8c9820a2",
+    "nro_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
+    "elf_sha256": "9cd0b4a5b8f47b016cba8715b42679b212b6c87a7973566c8a616c9285935fda",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -619,6 +619,26 @@
         "the instance fire counter and absence report behaved as designed (fires=462435, re-armed report at the drop)"
       ],
       "conclusion": "The r27 map-block leak did not end the rebuild failure: the row is still freed at the area change and never rebuilt. The game's own row-swap path main+0xa38828 (read after this run) frees instance+0xd8's map through MtDti::getAllocator(...)->memFree(alloc, ptr), so publishing an MT block there is ownership-consistent, and the r27 leak was legal-but-not-the-cure. Two defects remain in the insertion's game-allocator calls: grow_cache frees the row's original cache block through root vtable slot 0x5c, proven as a free pair only on Key Quest Markers' counter row, and grow_map called the cGUIInstance memAlloc with one argument, while the Key Quest Markers-verified signature is memAlloc(bytes, align): the align argument was register garbage. r28 stops the 0x5c free (72-byte leak per insertion) and passes align=16."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r28",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r28-eden-2026-10-24.txt",
+      "session_seconds": 573,
+      "our_lines": 388,
+      "observed": [
+        "user report: r28 ran, no sharpness bar at all in the quest (a regression: r26/r27 drew it in area 1)",
+        "insertion t=98.4 (mask=0x441cf030 map=0x4853a330 entries=5 records=9); 193 clip lines; probe geometry identical to r26/r27 (rect 110 38 110 166, anchors 0xfffffff0, mat 0x3f800000...): the mask is not the regression's cause",
+        "tree lines show the row's nodes are siblings under the controller: root.sibling=bar, bar.sibling=glow, glow.sibling=edge, all parent=controller - the insertion moved the bar chain under the mask (mask.child=bar, bar.parent=mask) and left root.sibling=bar: two inbound chains",
+        "drop snapshot at the transition: live coherent pointers, not fill: marker=0x4d534731 mask.parent=0x4846aab0 (controller) mask.child=0x48596a50 (root) bar.parent=0x441cf030 (mask) bar.sibling=0x485a2ff0 (itself, an unlink tombstone): the drop is observed mid-teardown, the game relinking the tree",
+        "after the drop: no controller observed, no insertion, to log end (~t=573)",
+        "the mask destructor main+0xa56758 (exported from the full function dump): sets the scalar-deleting vtable, walks +0x68 children calling slot 0x04 on each (slot 0x04 destroys), then memFrees the mask through its MT allocator",
+        "the root destructor hook's gate compared its argument to the sampler's controller; the tree shows the root's parent is the controller, so the cGUIObjRoot destructor argument (the root node) can never equal it: the 'zero fires' record was a gate artifact"
+      ],
+      "conclusion": "The insertion broke the one-inbound-chain-per-node invariant every native teardown walk relies on: bar, glow and edge sit on both the root's sibling chain and the mask's child chain, so the transition's teardown destroys and frees them twice, which corrupts the texture allocator's free list and kills the game's gauge row rebuild in the next area (the r24-r28 failure) and crashed r14 at a quest end. r28's area-1 regression is the cache leak: r26/r27 drew area 1 with the old cache released through root slot 0x5c. r29: write root.sibling=0 when the bar chain moves under the mask, restore the 0x5c release, gate the root destructor hook on the captured row root (its r28-proven argument), keep memAlloc(bytes, align=16) as the game's own FUN_01401bc0 calls it, keep every measurement."
     }
   ],
   "not_proven": [
@@ -638,12 +658,13 @@
     "that the mask's PosX/PosY properties are inert for a node with no animation row entry: r23's rectangle origin matched the parent's, not the written position. The PosX/PosY setters (main+0xa4b02c / main+0xa4b058) were not called.",
     "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25's disable fired at the drop, and the gauge row was never rebuilt in 150 s, so the restore was not observable. Which link broke, and what state the row's objects were in afterwards, is what r26 measures.",
     "that the game rebuilds the gauge row after an area change with this mod inserted: r26's run shows it does not (fill-pattern objects, 25,000 discovery attempts, 160 s), while vanilla shows the gauge in every area (the tester's account).",
-    "that r28 ends the rebuild failure: r27 proved the map-block leak is not the cure. r28 removes the last free of game-owned memory (root slot 0x5c on the old cache, proven as a free pair only on Key Quest Markers' row) and passes align=16 to memAlloc(bytes, align) as the verified signature requires, align being register garbage before. Neither mechanism is proven as the corruption."
+    "runtime proof of the double-destruction mechanism: it is read from the mask destructor (main+0xa56758), the row-swap destroy (main+0xa38828), and the r28 tree/drop lines; r29's root.sibling=0 is its test. A run that draws the gauge in area 1 and re-inserts after an area change confirms it.",
+    "that r28's area-1 regression is exactly the cache leak: r26/r27 drew area 1 with the release; r28 (leak, identical probe) did not; the causal line is not read, and r29 restores the release."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
+    "binary_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

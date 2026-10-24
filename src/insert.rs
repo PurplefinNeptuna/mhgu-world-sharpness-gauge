@@ -134,6 +134,13 @@ pub fn on_teardown() {
     BAR.store(0, Ordering::Release);
 }
 
+/// The captured row root, for the root destructor hook's gate: the r28 tree lines show the
+/// root's parent is the controller, so the destructor argument is this node, never the
+/// controller the old comparison used.
+pub fn row_root() -> u32 {
+    ROOT.load(Ordering::Relaxed)
+}
+
 /// Times the mask's links were found gone at its enter hook.
 pub fn misses() -> u32 {
     MISSES.load(Ordering::Relaxed)
@@ -223,6 +230,7 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
     let (size, prefix, area) = sharpness_gauge_core::cache_layout(objects, sequences);
     let allocate = memory::method(root, 0x58).ok_or(44u32)?;
     let release = memory::method(root, 0x5c).ok_or(44u32)?;
+    let old_alloc = memory::word(root + 0xa4).unwrap_or(0);
     let fresh = memory::call2(allocate, root, size).ok_or(45u32)?;
     if fresh == 0 || fresh & 15 != 0 || !memory::writable(fresh, size as usize) {
         if fresh != 0 {
@@ -239,12 +247,13 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
         let _ = memory::call2(release, root, fresh);
         return Err(46);
     }
-    // shortcut: the old cache block leaks (72 bytes per insertion). Slot 0x5c is proven as a
-    // free pair on Key Quest Markers' counter row only; it has never been observed freeing
-    // this row, and freeing through the owning allocator's wrong counterpart corrupts its
-    // free list. r27's run proved the map-block leak is not the poison behind the missing
-    // post-transition rebuild; this is the last release of game-owned memory in the build.
-    // If the next area's row returns, read slot 0x5c's body and free it correctly.
+    // The root's own destructor frees root+0xa4 through slot 0x5c, so the block it replaces
+    // goes back the same way. r28 leaked it and the bar stopped drawing in the quest's first
+    // area with the mask probe unchanged, so the replacement only works with the old block
+    // returned to the root's allocator.
+    if old_alloc != 0 && old_alloc != fresh {
+        let _ = memory::call2(release, root, old_alloc);
+    }
     Ok((fresh, area / 8))
 }
 
@@ -422,7 +431,10 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     let linked = memory::call2(link_child, root, mask).is_some()
         && memory::call2(link_child, mask, row.bar).is_some()
         && memory::call2(link_sibling, row.bar, row.effect).is_some()
-        && memory::call2(link_sibling, row.effect, row.edge).is_some();
+        && memory::call2(link_sibling, row.effect, row.edge).is_some()
+        // One inbound chain per node, the invariant every native teardown walk relies on:
+        // the bar chain moved under the mask, so the root's sibling chain has to end.
+        && memory::write_word(root + NODE_SIBLING, 0);
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);

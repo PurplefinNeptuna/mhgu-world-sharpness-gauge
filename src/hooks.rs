@@ -112,12 +112,14 @@ pub unsafe extern "C" fn msg_root_dtor(root: u32) {
     if original == 0 {
         return;
     }
+    // The argument is the row's root node: the r28 tree lines show the root's parent is the
+    // controller, so the controller is never this argument, and the old comparison was dead.
     if msg_root_dtor_active.load(Ordering::Acquire)
         && root != 0
-        && root == sampling::gauge_controller()
+        && root == insert::row_root()
     {
         TEARDOWNS.fetch_add(1, Ordering::Relaxed);
-        teardown_gauge_row(root);
+        teardown_gauge_row(sampling::gauge_controller());
     }
     let f: unsafe extern "C" fn(u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(root) };
