@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r20 is r19's enter-hook clip box plus the row lifecycle. MHGU quests are divided into areas with a loading screen between them (the tester's account of 2026-10-24, matching every run's log: HUD-absent stretches, r18's bar rect moving from 110,38,238,166 to 220,70,348,198 at t=236, then freed objects from t=873), so the gauge row, and with it the inserted mask, the 5-word object array and the 9-record draw block, belongs to one area. When the mask's parent link stops pointing at the captured root, r20 clears the sampler's controller, the instance capture, the row facts state and the insertion's addresses: the same re-arm the root destructor hook performs, on the signal the r18 run proved necessary (that hook has fired zero times in six sessions, and r18 wrote into a freed mask for 90 s). The insertion itself is r18's, and r18 proved it lands: mask 0x48003060, a 5-word array through the cGUIInstance DTI's MT allocator with instance+0xd8 and root+0xa0 published, a draw block resized through the root's vtable slot 0x58 with main+0xa49b28's arithmetic from the row+8 pair (3 objects, 16 sequences: 56 bytes = 7 records, grown to 72 = 9). What r18 did not prove is the clip: 376 of 383 probe lines read left == right, the scissor zero-width, because the rectangle at mask+0xb0..+0xbc is the game's layout's derived value and a node the animation row has no entry for has quad width 0. r19 moved the write into the mask's enter handler (main+0xa4ba94), in the call that applies it, and r20 keeps that. Not approved for distribution; r12 and r13 were packaged and never run.",
+  "reason": "r21 removes the r20 box cache. r20 (NRO 5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb, run on Eden 2026-10-24, installed bytes matching, user report: gauge disappearing) inserted the mask a second time cleanly, and 206 of 206 sane probe lines read the clip rectangle at left == right (110 32 110 64, bar at 110,38,238,166) with flags 0x1: a zero-width scissor, the gauge hidden. insert::enter compared the box it was about to write with the box it had written and returned early when they matched; sharpness sat at 350/350 tier 4 for the session, so the authored pair, the position pair and the rectangle were written on the row's first enter call and skipped for the rest of it, while the game rewrote its derived rectangle between calls. r21 writes the five words on every enter, for the one mask the plugin owns. The run also settles the mask's liveness check: it never reported, because a mask freed with its row is no longer walked, so its enter handler stops running. That removes r18's 90 seconds of writes into freed memory, and it also means the re-arm has no signal for that case: the plugin sits out the rest of the session and the gauge draws as the game builds it. The insertion itself has completed twice (r18, r20): the 5-word object array through the cGUIInstance DTI's MT allocator with instance+0xd8 and root+0xa0 published, the draw block resized through the root's vtable slot 0x58 with main+0xa49b28's arithmetic from the row+8 pair (3 objects, 16 sequences: 56 bytes = 7 records, grown to 72 = 9), the class factory main+0xa4b6cc, the native linkers, the marker at +0x50. Not approved for distribution; r12 and r13 were packaged and never run.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r20",
+  "version": "r21",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r20-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r20/delivery",
+  "archive": "modern-sharpness-gauge-r21-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r21/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r20 re-arms the whole gauge row path when the inserted mask's links are lost, so a hunt that crosses quest areas gets a mask in each area's row. r19 (the enter-hook write site) was never run. r18 ran once on Eden 2026-10-24 (installed bytes 55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330): the insertion completed and the user reported the gauge missing, with 376 of 383 probe lines at a zero-width box and ~90 s of writes into a freed mask. r17/r16/r15 ran clean; r14 ran once and failed as reported.",
+  "runtime_test": "NOT RUN: r21 writes the clip box on every enter of the mask, with no cache of the last box. r20 ran on Eden 2026-10-24 (installed bytes 5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb): the insertion completed (mask 0x441ca6b0, 5-entry map, 9-record cache) and 206 of 206 probe lines read a zero-width box, the gauge missing; its box cache is the cause. r18 ran the same day with the same outcome. r17/r16/r15 ran clean; r14 ran once and failed as reported.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -70,7 +70,7 @@
     "the game's destructor is assumed to free the map block r17 publishes through the cGUIInstance DTI's MT allocator; that free has not been observed, and r17 frees the old 4-word block itself",
     "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
     "The gauge itself is not part of r4.",
-    "r20 has not been run, and neither has r19's enter-hook write site: the one completed insertion (r18) hid the gauge with a zero-width box, and the re-arm that lets a hunt crossing quest areas get a mask per row has no runtime evidence"
+    "r21 has not been run. Two completed insertions (r18, r20) each hid the gauge with a zero-width clip box; whether a rectangle written on every enter call survives to the scissor has no runtime evidence, and a mask freed with its row leaves the plugin idle for the rest of the session (no writes, no re-arm), because the enter handler that carries both the write and the liveness check stops running"
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [

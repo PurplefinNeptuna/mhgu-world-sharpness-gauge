@@ -54,12 +54,6 @@ static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
-static BOX: [AtomicU32; 4] = [
-    AtomicU32::new(0),
-    AtomicU32::new(0),
-    AtomicU32::new(0),
-    AtomicU32::new(0),
-];
 
 /// What one insertion published, as integers for the log line.
 pub struct Outcome {
@@ -70,14 +64,12 @@ pub struct Outcome {
     pub records: u32,
 }
 
-/// The row root's destructor ran: the game owns the mask, the map and the cache now.
+/// The row root's destructor ran: the game owns the mask, the map and the cache now. Called
+/// from the root destructor hook and from the mask's own link check.
 pub fn on_teardown() {
     ROOT.store(0, Ordering::Release);
     MASK.store(0, Ordering::Release);
     BAR.store(0, Ordering::Release);
-    for word in BOX.iter() {
-        word.store(0, Ordering::Relaxed);
-    }
 }
 
 /// Times the mask's links were found gone at its enter hook.
@@ -234,19 +226,17 @@ pub fn enter(mask: u32) {
         (box_words[0] + box_words[2]) as u32,
         (box_words[1] + box_words[3]) as u32,
     ];
-    if BOX.iter().zip(next).all(|(old, new)| old.load(Ordering::Relaxed) == new) {
-        return;
-    }
-    // The authored pair and position are what the game's layout rebuilds the rectangle from, so
-    // they are set to the box as well; the rectangle written last is the one this call applies.
+    // Every call, with no cache of the last box. The r20 run read the rectangle 206 times and
+    // every sane line had width 0: the authored pair, position pair and rectangle were written
+    // once (the ratio never moved, so a remembered box skipped them all), and the game's layout
+    // rewrote its derived values in between. The five writes here are per frame, for the one
+    // mask this plugin owns.
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, box_words[3] as u32);
     let _ = memory::write_bits(mask + MASK_POS, box_words[0] as f32);
     let _ = memory::write_bits(mask + MASK_POS + 4, box_words[1] as f32);
     for (index, word) in next.iter().enumerate() {
-        if memory::write_word(mask + MASK_RECT + index as u32 * 4, *word) {
-            BOX[index].store(*word, Ordering::Relaxed);
-        }
+        let _ = memory::write_word(mask + MASK_RECT + index as u32 * 4, *word);
     }
     let _ = memory::write_word(mask + MASK_FLAGS, ENABLE);
 }

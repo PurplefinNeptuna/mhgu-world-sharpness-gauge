@@ -1,8 +1,10 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r20 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r20 makes a lost mask re-arm the whole row path, because a hunt
-crosses quest areas through loading screens and each area's HUD is a row of its own. r19 moves
+Current state: Phase 2 candidate r21 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r21 removes a box cache that made r20's clip box be written once
+per row and never again, which is why the gauge was missing for the third run in a row. r20
+makes a lost mask re-arm the whole row path, because a hunt crosses quest areas through loading
+screens and each area's HUD is a row of its own. r19 moves
 the clip box to the mask's own enter hook and adds the liveness check the r18 run proved
 necessary. r18 was r17's insertion with one gate comparison
 corrected, and its run is the first completed insertion this mod has had: the mask went in with
@@ -125,7 +127,10 @@ draw walker, and drops its addresses when the mask's links are gone. r18 ran on 
 day: the insertion completed (5-entry map, 9-record cache) and the gauge disappeared with a
 zero-width clip box, 376 of 383 probe lines at left == right, and the session's last 90 s of
 writes into a freed mask. r19 is not run; r20 re-arms the row path on a lost mask, because
-quests cross areas through loading screens and each area's HUD is its own row.
+quests cross areas through loading screens and each area's HUD is its own row. r20 ran the same
+day: the insertion completed again, the gauge disappeared, 206 of 206 probe lines at left ==
+right, and no links-lost line - the box was written once, because the build cached the box it
+had written and sharpness never moved. r21 removes that cache and is not run.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -804,8 +809,48 @@ addresses all cleared, so the next HUD row is found, read and inserted like the 
 `inserted mask's links lost (N times)`. The root destructor hook stays, six sessions of zero
 fires notwithstanding, because it names the documented teardown.
 
-20 host fixtures pass; verify PASSED with 21 signature windows. r20 is not run: the enter-hook
-write site and this re-arm are both without runtime evidence.
+20 host fixtures pass; verify PASSED with 21 signature windows. r20 ran on Eden the same day:
+the gauge missing, 206 of 206 probe lines at width 0, the cause in `insert.rs`'s box cache;
+r21 removes it.
+
+## r20 run 2026-10-24 (Eden): the box was written once, and a cache of it did the rest
+
+Log `work/modern-sharpness-gauge/runs/r20-eden-2026-10-24.txt` (sha256
+`e8d1d952ee65e204be23fce45ad914fa097fc660f7382524ed75d242935119dc`), installed bytes
+`5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb`. The user: "game ran, gauge
+disappearing". 298 plugin lines, 15 samples (350/350 tier 4 to 343/350), session past t=743.
+
+The insertion published again (`mask=0x441ca6b0 map=0x48802000 entries=5 cache=0x4863dbc0
+records=9`), and 206 of 206 sane probe lines read `110 32 110 64` against the bar at
+`110,38,238,166`: the same zero width as r18, the same `flags=0x1`. The enter hook's write
+happened, once. `insert::enter` compared the box it was about to write with the box it had
+written and returned early when they matched; sharpness never moved, so the box never changed,
+so the authored pair, the position pair and the rectangle were written on the row's first enter
+call and skipped for the rest of the session, while the game rewrote its derived rectangle in
+between. A cache of a value the game owns on every frame is the bug, not a micro-optimisation:
+r21 writes on every enter, five words for the one mask, per frame.
+
+Two things this run also settles:
+
+- the link check never reported anything, and it cannot in this case. From t=630 the probe reads
+  freed memory (`flags=0xff7f7f7f`, words that are the float 1.0, implausible coordinates) with
+  the mask and bar addresses unchanged. Once the mask dies with its row, the enter handler stops
+  being called, so the handler's liveness check stops running: no writes into freed memory (the
+  r18 90-second window is gone, which is what the check bought), and no re-arm either. The
+  plugin sits out the rest of the session and the gauge draws as the game builds it. A re-arm
+  for that case needs a signal that does not depend on the dead object; not built.
+- the row's objects live from t~215 to t~630 in one session, which is consistent with the area
+  loading screens the tester described; the bar's rect never moved to a second layout this time.
+
+## r21, built 2026-10-24: write on every enter
+
+`insert::enter` writes the authored pair, the position pair, the four rectangle words and the
+enable bit on every call, no remembered box. Nothing else changed: the marker filter, the link
+check, the geometry from the bar's live rect and the live ratio, and the re-arm stay.
+
+20 host fixtures pass; verify PASSED with 21 signature windows. r21 is not run. The open
+question stays open: whether the rectangle written in the enter call is the rectangle the
+scissor keeps, with the writes now happening every frame.
 
 ## Rules to keep
 

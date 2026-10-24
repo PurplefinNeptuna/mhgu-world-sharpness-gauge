@@ -1,6 +1,6 @@
 # Modern Sharpness Gauge
 
-r20 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
+r21 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
 the bar shows the current sharpness ratio: at full sharpness you see the whole bar,
 and as sharpness drops the bar is cut back from the right. The glow and the edge
 glyph stay where the game puts them. Nothing else on the HUD changes.
@@ -9,7 +9,9 @@ This is the first version of this mod that changes what you see. The earlier ver
 only read the gauge and wrote lines to the log. r18 inserted the mask and the gauge went
 missing: the clip box arrived as a strip with no width, because the game recomputes that
 rectangle from the node's own geometry and gives a node it has no data for a width of zero.
-r19 writes the box inside the call that uses it.
+r19 writes the box inside the call that uses it, and r21 writes it
+every frame: the r18 and r20 runs left the gauge missing because the game
+recomputes that rectangle and the mod had stopped writing it.
 Quests are split into areas with a loading screen between them, so a hunt builds
 several gauge rows: r20 notices a row being taken away and puts the mask in
 the next one.
@@ -22,14 +24,14 @@ the next one.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r20-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r21-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r20`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r21`
 should be listed.
 
 ## Usage
@@ -62,7 +64,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r20`.
+lines that matter start with `MSG r21`.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -115,12 +117,13 @@ unload step.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-This build comes from five Eden runs of this mod: r14, r15 and r16 on 2026-10-23, and
-r17 and r18 on 2026-10-24 (r19 and r20 have not been run). r14 inserted the mask, clipped the gauge away and crashed at
+This build comes from six Eden runs of this mod: r14, r15 and r16 on 2026-10-23, and
+r17, r18 and r20 on 2026-10-24 (r19 and r21 have not been run). r14 inserted the mask, clipped the gauge away and crashed at
 the quest end. r17's build stopped itself at its own first check and the gauge looked
 normal. r18 completed the insertion, and the gauge went missing: the clip box had no
-width. r19 writes that box in the call that uses it, and stops writing when the game has
-taken the mask back. A missing bar is the known failure mode from r14 and r18: report it
+width. r20 wrote the box in the call that applies it and the gauge went missing
+the same way, because the mod wrote it once and the game kept recomputing its
+own. r21 writes it every frame. A missing bar is the known failure mode from r14 and r18: report it
 with the log, and the mod can go back to reading only.
 
 Earlier builds of this mod only logged the gauge: r1 read the sharpness numbers, r3
