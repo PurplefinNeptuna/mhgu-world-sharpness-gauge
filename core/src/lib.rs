@@ -274,9 +274,13 @@ pub fn count_nodes(memory: &dyn Memory, controller: u32) -> (u32, bool) {
 /// 0x58 and stored at `root+0xa4`; the pointer the walker draws from, `root+0x80`, is
 /// `alloc + sequences * 12`, and it is only written when objects is nonzero. So the record
 /// area is `(objects << 4) | 8` bytes: 8 bytes per record, a drawable's enter and exit pair
-/// takes 16, and the terminator takes 8. The gauge row's published pointer sits 192 bytes into
-/// its allocation, which fixes this row's sequences field at 16, and its record area at
-/// (4 << 4) | 8 = 72 = 9 records. Returns (size, prefix, record_area).
+/// takes 16, and the terminator takes 8. The r17 run measured this row's pair at row+8 as 3
+/// objects and 16 sequences, with the published pointer 192 = 16 * 12 into the allocation, so
+/// its record area is (3 << 4) | 8 = 56 bytes = 7 records: the unmodified tree's 5 fit with 2
+/// to spare, and the tree with an inserted mask emits 9 = 72, i.e. 16 bytes past the end.
+/// Grown to 4 objects the area is 72, exactly the 9 the inserted tree needs. The row's other
+/// pair, at row+4, is 4 objects and 15 sequences; the sizer does not read it. Returns
+/// (size, prefix, record_area).
 pub fn cache_layout(objects: u32, sequences: u32) -> (u32, u32, u32) {
     let prefix = sequences * 12;
     if objects == 0 {

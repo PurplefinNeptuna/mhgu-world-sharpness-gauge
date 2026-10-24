@@ -26,8 +26,10 @@
 //! The draw cache has to grow too: main+0xa49b28 sizes the row's block as
 //! `(objects << 4 | 8) + sequences * 12` through the root's vtable slot 0x58, publishes
 //! `root+0x80 = alloc + sequences * 12` and `root+0xa4 = alloc`, and the record area is the
-//! `(objects << 4) | 8` part. The gauge row's area is 72 bytes = 9 records, which the tree
-//! with the mask emits exactly; with the map at 5 objects it becomes 88 = 11.
+//! `(objects << 4) | 8` part. The r17 run read this row's pair at row+8 as 3 objects and 16
+//! sequences, so its record area is (3 << 4) | 8 = 56 bytes = 7 records, and the tree with the
+//! mask emits 9 = 72: 16 bytes past the end, which is r14's cache overflow. Growing the block
+//! to 4 objects makes the area 72, exactly the 9 records.
 //!
 //! Every call below runs inside the draw walker's callback, on the game's GUI thread, with
 //! the controller reachable in that same call. Nothing here keeps a game pointer past the
@@ -264,12 +266,16 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     }) {
         return Err(49);
     }
-    // The sizing pair the game's own cache sizer reads. The map must match the tree, and the
-    // tree's node count plus the root is what main+0xa38ffc reports.
+    // The sizing pair the game's own cache sizer reads at row+8. The r17 run measured both
+    // pairs on this row: row+4 is 4 objects and 15 sequences, row+8 is 3 and 16, and the
+    // published cache sits 192 = 16 * 12 into the allocation, so row+8 is the sizing pair and
+    // its objects field is the tree's node count (3), not that count plus one. The map is the
+    // one that is one longer, because its first entry is the controller: 4 words for 3 nodes,
+    // which is what main+0xa38ffc reports and main+0x5456e4 indexes with.
     let objects = memory::half(row.description + ROW_SIZING).ok_or(48u32)? as u32;
     let sequences = memory::half(row.description + ROW_SIZING + 2).ok_or(48u32)? as u32;
     let nodes = sharpness_gauge_core::count_nodes(&Read, root).0;
-    if objects != nodes + 1 || objects == 0 || objects > 64 || sequences > 4096 {
+    if objects != nodes || objects == 0 || objects > 64 || sequences > 4096 {
         return Err(48);
     }
     // The mask borrows the bar's owning cGUI and resource: they are what its siblings hold,

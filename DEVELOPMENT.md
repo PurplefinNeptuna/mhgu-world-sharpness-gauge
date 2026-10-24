@@ -1,8 +1,9 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r17 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r17 is the insertion build, and the first of this mod's versions
-that changes what the game draws: one `cGUIObjScissorMask` under the gauge row's root, over the
+Current state: Phase 2 candidate r18 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r18 is r17's insertion with one gate comparison corrected, the
+gate being what stopped r17's run from writing anything. r17 is the insertion build, and the
+first of this mod's versions that changes what the game draws: one `cGUIObjScissorMask` under the gauge row's root, over the
 bar, glow and edge, with the sharpness-ratio clip box written into the mask's built rectangle
 from the draw walker. It carries the two storage expansions r14 lacked. The row's object array
 at `instance+0xd8` (the same pointer the controller keeps at `+0xa0`) is grown from 4 words to 5
@@ -47,11 +48,13 @@ ghidra-batch10/`:
 5. The cache sizing is main+0xa49b28's own arithmetic, read in full: the allocation is
    `(objects << 4 | 8) + sequences * 12` through the root's vtable slot 0x58 into `root+0xa4`,
    the walker's pointer `root+0x80` is `alloc + sequences * 12`, and the sizing pair is the
-   halfwords at **row+8**. The r15/r16 runs measured that published offset at 192 = 16 * 12, so
-   this row's sizing pair is 4 objects and 16 sequences, and its record area is
-   `(4 << 4) | 8` = 72 bytes = 9 records. The tree with r14's mask emits exactly 9, so r14's
-   records fit with zero headroom, and r14's crash is the map alone. Growing the map to 5
-   objects makes the area 88 = 11 records.
+   halfwords at **row+8**. The r17 run read that pair on the live row: 3 objects and 16
+   sequences, with the published cache 192 = 16 * 12 into the allocation. So the record area is
+   `(3 << 4) | 8` = **56 bytes = 7 records** (allocation 248): the unmodified tree's 5 fit with
+   2 spare, and the tree with an inserted mask emits 9 = 72, 16 bytes past the end. r14 had the
+   cache overflow and the map desynchronisation, and the cache objects field is the tree's node
+   count, not node count + 1 - the map is the field that is one longer, its first entry being
+   the controller. Grown to 4 objects the area is 72, exactly the inserted tree's 9 records.
 6. r16 read the map. At `instance+0xd8`, the same pointer the controller keeps at `+0xa0`, the
    four entries are the controller, the bar, the glow and the edge: one word per object, length
    `tree_nodes + 1`, in its own allocation, outside the draw cache block. An inserted node needs
@@ -97,8 +100,10 @@ with the emulator's own SIGSEGV. r15 removes the insertion and ran clean on Eden
 (740 seconds of gauge, 22 samples, no dynarmic exception, session closed normally); r16 fixes
 which object the facts line reads the map from and ran once on Eden the same day: 93 plugin
 lines, zero guest exceptions, the bar reported visible, and the map read out as controller, bar,
-glow, edge at `instance+0xd8` with `tree_nodes = 3`. r17 puts the insertion back with both
-expansions and has not been run.
+glow, edge at `instance+0xd8` with `tree_nodes = 3`. r17 put the insertion back with both
+expansions and ran on Eden on 2026-10-24: its own gate stopped it at stage 48, the gauge drew
+normally, and the log carried the sizing pair that showed the gate's rule was the wrong one.
+r18 is that one-comparison fix, not run.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -575,11 +580,11 @@ Two answers, and one thing the build got wrong. `tree_nodes = 3` against `object
 unmodified row, exactly the size main+0x5456e4 indexes, so the rule from the r14 crash holds on
 live data. The published cache sits 192 bytes into the allocation
 (`cache_alloc=0x48023820`, `cache=0x480238e0`). main+0xa49b28's arithmetic, read in full later,
-fixes that as this row's sequence prefix of 16 * 12, so the sizing pair is at `row+8` (4
-objects, 16 sequences) and the record area is `(4 << 4) | 8` = 72 bytes = 9 records: r14's
-9-record tree fit exactly, with no headroom. Pairing a 252-byte size read off the `row+4`
-counts with this 192-byte prefix gave 60 bytes and 7 records, and that reading is refuted: the
-sizer uses one field, the `row+8` pair, for both numbers. The map fields came out as
+fixes that as this row's sequence prefix of 16 * 12, so the sizing pair is at `row+8` and its
+sequences half is 16; the r17 run read the pair itself (3 objects), which makes the record area
+`(3 << 4) | 8` = 56 bytes = 7 records, so this section's original answer - r14's 9 records
+writing past the end - stands, with the allocation at 248 rather than the 252 the `row+4` pair
+suggests. The sizer uses one pair, `row+8`, for both numbers. The map fields came out as
 `obj_list=0x727272`, `inst_ctrl=7500402` (= 0x727272), because facts read them from
 `root+0xa0`, the controller's owner field. That object does not carry the array; the instance
 the instance hook records does.
@@ -627,9 +632,11 @@ walker's callback where the controller is reachable in the same call. Order, and
 
 1. Read the row and the row's **sizing pair at `row+8`** (`objects`, `sequences`) — the fields
    main+0xa49b28 uses, not the `row+4` pair the facts line prints as `counts`; r17 prints that
-   pair too, as `counts8`. `objects` must equal `count_nodes(root) + 1` (3 nodes, 4 objects on
-   the unmodified row) or the insertion stops at stage 48: that equality is the r14 crash rule,
-   read before touching anything.
+   pair too, as `counts8`. r17 required `objects == count_nodes(root) + 1`; the run answered
+   `counts8` = 3 objects against `tree_nodes` = 3, so that equality was the wrong rule and the
+   insertion stopped at stage 48, having written nothing. The cache field **is** the node count;
+   the map is the field that is one longer (its first entry is the controller). r18 compares
+   `objects == count_nodes(root)` and keeps the map at `nodes + 1` words.
 2. Build the mask with the class's own factory main+0xa4b6cc, which allocates the 0xd0-byte
    object through the mask DTI's MT allocator. Typed against the `cGUIObjScissorMask` DTI
    (vtable slot 0x14), then: `+0x50` = marker `MSG1` (the factory leaves -1 there, so a later
@@ -644,7 +651,8 @@ walker's callback where the controller is reachable in the same call. Order, and
    for `objects + 1`, allocated through the root's vtable slot 0x58 into `root+0xa4`, zeroed,
    `root+0x80` = `alloc + sequences * 12`, then the old allocation freed through slot 0x5c.
    Stages 44..46. The root allocated the block it frees, which is the contract Key Quest Markers
-   uses for the same pair.
+   uses for the same pair. On this row the area goes from 56 (7 records) to 72 (9), which is
+   exactly the inserted tree's count.
 5. Link last, so a 5-node tree never exists against the old 4-word array: native linkers
    main+0xa48460 (parent, child) and main+0xa4844c (node, sibling, which also sets the sibling's
    parent), root → mask → bar, bar → glow → edge. Then `root+0x8c |= 3` asks the walker to
@@ -665,9 +673,54 @@ right now next to the bar's rect every ~2 seconds — the readback that answers 
 Teardown: the root-destructor hook clears the mask, bar and box addresses (it has fired zero
 times in the three logged sessions, so no cleanup is claimed).
 
-Host fixtures: 20 pass, the two new ones being the cache sizing against the r16-measured 192-byte
-prefix (72-byte area, 9 records, so r14's tree fit exactly and the r15 section's 60-byte reading
-is refuted) and the node-count rule on both trees.
+Host fixtures: 20 pass, the two new ones being the cache sizing against the measured 192-byte
+prefix (with the r17 run's 3 objects that is a 56-byte area = 7 records, so the inserted tree's
+9 records are 16 bytes past the unmodified row, as r14 showed) and the node-count rule on both
+trees.
+
+## r17 run 2026-10-24 (Eden): the gate stopped it, and read the pair that fixed the rule
+
+Log `work/modern-sharpness-gauge/runs/r17-eden-2026-10-24.txt` (638 lines, sha256
+`096a79df51432d10a5e5c11b3a9bd7c3e6d2e80c55f6c8ae652c92bcbbf41aec`), installed bytes
+`626d96f75fe9102febf30d9c09a2b38714fddcb943ca6e55465ab50c3c1f6749` = the r17 payload. 95 plugin
+lines, t=9.98 to t=582.05, session closed at t=961.2 (user stop), no guest exception, no
+SIGSEGV. The user's report: the gauge looked normal, no visual change - and it did, because the
+insertion wrote nothing.
+
+`mask insertion failed at stage 48`, once, at t=167.58, next to the facts line:
+`counts=983044` (0x000F0004, the `row+4` pair: 4 objects, 15 sequences) and
+`counts8=1048579` (0x00100003, the `row+8` sizing pair: **3 objects, 16 sequences**),
+`cache=0x47fe7da0` - `cache_alloc=0x47fe7ce0` = 192 = 16 * 12, `tree_nodes=3`,
+`obj0=0x47ff8590` = the controller and `obj1=0x48024ae0` = `tree_root` = the bar.
+
+The gate was written to enforce the r14 crash rule and got the arithmetic of it wrong: the map
+is `nodes + 1` words (4 for 3 nodes, its first entry the controller), the cache's objects field
+is `nodes` (3). Stage 48 is the insertion's first check, before the factory call and every
+allocation, so nothing was built, published, linked or freed - the gauge and the row are the
+game's own, and the run is a clean read-only session: 13 samples (350/350 at tier 4 down to
+281/350 at tier 3), 39 stage-21 lines while the HUD was absent (t=9.98..163.50), zero
+root-destructor fires across five sessions.
+
+That pair also settles the r14 cache question the other way from what r17's design text said:
+the record area is (3 << 4) | 8 = 56 = 7 records, so the inserted tree's 9 records = 72 bytes
+are 16 past the end. r14 overflowed the draw records **and** desynchronised the map; an
+insertion has to grow both, which is what grow_map and grow_cache do.
+
+## r18, built 2026-10-24: the one comparison the run corrected
+
+`insert::run`'s gate now reads `objects != nodes` (with the same range bounds on the pair), and
+`grow_map` keeps allocating `nodes + 1` words. Nothing else changed in the insertion: the mask
+factory, the MT allocator for the map, the root's vtable 0x58/0x5c pair for the draw block, the
+native linkers, the per-frame rectangle write and the 40..49 codes are r17's. `cache_layout`'s
+row numbers, the r15-section text in PHASE2_RESEARCH.md, DEVELOPMENT's fact 5 and the r15/r16
+run sections are corrected to the measured pair (3 and 16, area 56, allocation 248). The
+fixtures pin (3,16) → (248,192,56), (4,16) → (264,192,72), the inserted plan's 9 records as
+exactly the grown area and 16 bytes past the unmodified one, and the node-count rule on both
+trees: 20 pass.
+
+What r18 asks the run for: `scissor mask inserted` with the mask, map, entry count, cache and
+capacity, then `clip mask rect` lines every ~2 seconds; if it stops, the stage 40..49 code; and
+the bar's visible width as sharpness drops.
 
 ## Rules to keep
 

@@ -2,7 +2,9 @@
 //!
 //! r14 inserted a `cGUIObjScissorMask` as the row root's first child and clipped the
 //! bar with it. The Eden run of 2026-10-23 (its own NRO hash, `work/modern-sharpness-gauge/
-//! runs/r14-eden-2026-10-23.txt`) shows what that cost, and the insertion is gone:
+//! runs/r14-eden-2026-10-23.txt`) shows what that cost. r17 inserted one again, grown
+//! map and cache and all, and its own gate stopped it before a write
+//! (`runs/r17-eden-2026-10-24.txt`); r18 is that gate's fix. What r14's log showed:
 //! - the rectangle the game built at `mask+0xb0..+0xbc` was `0 0 W 32` in every one of
 //!   the 2512 lines that printed it, while the box asked for was `x=110 y=32` in 1352
 //!   lines. The mask's position writes at `+0x80/+0x84` never reached the build, and the
@@ -16,21 +18,26 @@
 //!   reached because the mask has no entry in the gauge row's map, is inference.
 //! - the crash at t=1015.539 (1011 dynarmic exceptions, then the emulator's own SIGSEGV)
 //!   is the same map fact: main+0x5456e4 loops over the instance's object array at `+0xd8`
-//!   with the length `main+0xa38ffc` = main+0xa47d2c's node count + 1. The gauge row has 4
-//!   objects for the root plus 3 tree nodes; the inserted mask made that 4 tree nodes, so
-//!   the loop walks 5 entries through a 4-entry array and dispatches vtable slot 0x50 on
-//!   what it finds there. The logged first argument is `0x727272`, a freed block's fill,
+//!   with the length `main+0xa38ffc` = main+0xa47d2c's node count + 1. That array's 4
+//!   entries are the controller plus the 3 tree nodes (the r16 and r17 runs read them out:
+//!   `obj0` is the controller, `obj1` the bar, `obj2` the glow, `obj3` the edge); the
+//!   inserted mask made 4 tree nodes, so the loop walks 5 entries through a 4-entry array
+//!   and dispatches vtable slot 0x50 on what it finds there. The logged first argument is `0x727272`, a freed block's fill,
 //!   the frame at main+0x5457c8 is that loop, and the frame below it is in the mask
 //!   class's destructor region (main+0xa56758, main+0xa56828, and main+0xa568a4).
 //!
-//! So r15 writes nothing. The gates below are r14's gates; the facts below are what the
-//! map question needs, printed once per gauge row.
+//! The gates below are r14's gates, widened once (the inserted mask becomes the textures'
+//! parent); the facts below are printed once per gauge row, and they are what told r18 the
+//! row's real sizing pair. Nothing here writes the row: the insertion lives in `insert.rs`.
 //!
 //! What the code below relies on, all read from the hash-checked main NSO and recorded in
 //! `work/modern-sharpness-gauge/PHASE2_RESEARCH.md`:
 //! - the draw walker main+0xa494a0 writes 8-byte records (kind word, node pointer) into
-//!   `controller+0x80`, and main+0xa49b28 sizes that area from the row's counts as
-//!   `objects * 16 + 8 + sequences * 12`, publishing `cache = allocation + sequences * 12`;
+//!   `controller+0x80`, and main+0xa49b28 sizes that area from the halfwords at **row+8** as
+//!   `objects * 16 + 8 + sequences * 12`, publishing `cache = allocation + sequences * 12`.
+//!   That pair, not the one at `row+4` this file prints as `counts`, is the sizing pair: the
+//!   r17 run read `row+8` as 3 objects (the tree's node count) and 16 sequences, with the
+//!   published cache 192 = 16 * 12 into the allocation, so the record area is 56 = 7 records;
 //! - main+0xa47d2c counts the nodes in the child and sibling chains under `+0x68` with no
 //!   visibility test, main+0xa38ffc returns that + 1, and main+0x5456e4 uses the sum as the
 //!   length of the instance's array at `+0xd8`;

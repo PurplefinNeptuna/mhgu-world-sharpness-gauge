@@ -450,8 +450,8 @@ fn gauge_tree(fake: &mut Fake, edge_visible: bool) -> (u32, u32, u32, u32) {
 fn the_walk_plan_closes_every_drawable_it_opens() {
     // The port of main+0xa494a0 over the tree before any insertion: enter and exit
     // for the bar and the glow, nothing for the hidden edge glyph, then the
-    // terminator. 5 records is the 40 bytes the r9-r11 logs show, inside the 72-byte
-    // cache main+0xa49b28 sizes for this row.
+    // terminator. 5 records is the 40 bytes the r9-r11 logs show, inside the 56-byte
+    // record area main+0xa49b28 sizes for this row (2 records spare).
     let mut fake = gauge_fixture();
     let (root, ..) = gauge_tree(&mut fake, false);
     let plan = draw_plan(&fake, root);
@@ -464,20 +464,20 @@ fn the_walk_plan_closes_every_drawable_it_opens() {
 fn the_cache_grows_with_the_object_count_not_the_sequence_prefix() {
     // main+0xa49b28 sizes the row's draw block as (objects << 4 | 8) + sequences * 12,
     // allocates it through the root's vtable slot 0x58 into root+0xa4, and publishes
-    // root+0x80 = alloc + sequences * 12. The r16 run measured published minus alloc = 192
-    // (cache_alloc 0x48013ab0, cache 0x48013b70), which is this row's sequence prefix, so the
-    // sizing fields are the halfwords at row+8 and the row's record area is (4 << 4) | 8 = 72
-    // bytes = 9 records: the tree with r14's mask (9 records, 72 bytes) fit exactly, and the
-    // r14 crash is the map alone. Growing the map to 5 objects takes the area to 88.
+    // root+0x80 = alloc + sequences * 12. The r17 run read this row's sizing pair at row+8 as
+    // 3 objects and 16 sequences, and published minus alloc is 192 = 16 * 12 in all three runs
+    // (r17: 0x47fe7da0 - 0x47fe7ce0), so the record area is (3 << 4) | 8 = 56 bytes = 7
+    // records and the allocation is 248. That pair is also why r17's gate turned the insertion
+    // off (stage 48: 3 is not 3 + 1), and it restores the r14 cache claim: the inserted tree's
+    // 9 records are 72 bytes, 16 past this row's 56.
+    assert_eq!(cache_layout(3, 16), (248, 192, 56));
     assert_eq!(cache_layout(4, 16), (264, 192, 72));
-    assert_eq!(cache_layout(5, 16), (280, 192, 88));
     assert_eq!(cache_layout(0, 16), (192, 192, 0));
     assert_eq!(cache_layout(3, 0), (56, 0, 56));
+    assert_eq!(56 / 8, 7);
     assert_eq!(72 / 8, 9);
-    assert_eq!(88 / 8, 11);
-    // The tree the insertion produces, measured by the walker port: 9 records, inside the
-    // grown 11, and exactly at the unextended row's capacity, which is why r14 survived as
-    // long as it did and died in the map, not the cache.
+    // The tree the insertion produces, measured by the walker port: 9 records, exactly the
+    // grown area, and 16 bytes past the row's own 56 - which is r14's overflow.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
     let mask = 0x7500u32;
@@ -491,8 +491,8 @@ fn the_cache_grows_with_the_object_count_not_the_sequence_prefix() {
     let plan = draw_plan(&fake, root);
     assert_eq!(plan.count, 9);
     assert_eq!(count_nodes(&fake, root), (4, false));
-    assert!(plan.count * 8 <= cache_layout(5, 16).2);
-    assert!(plan.count == cache_layout(4, 16).2 / 8);
+    assert_eq!(plan.count * 8, cache_layout(4, 16).2);
+    assert_eq!(plan.count * 8 - cache_layout(3, 16).2, 16);
 }
 
 #[test]
@@ -549,8 +549,9 @@ fn the_inserted_mask_gets_its_exit_record() {
     assert_eq!(plan.count * 8, 56);
     // Static tier: the edge glyph is visible, so it enters and its exit comes out
     // inline (byte 0x57 bit 1 is word bit 25, the drawable bit the r10 log shows as
-    // 0x2040000). 9 records is 72 bytes, exactly the block main+0xa49b28 sized from
-    // this row's counts, so the insertion never needs a bigger cache.
+    // 0x2040000). 9 records is 72 bytes, and the r17 run measured this row's record area at
+    // (3 << 4) | 8 = 56, so the inserted tree writes 16 bytes past it: r14's overflow, and the
+    // reason grow_cache rebuilds the block for 4 objects (72, exactly this plan).
     fake.put(edge + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
     let full = draw_plan(&fake, root);
     assert_eq!(full.kinds[..full.count as usize], [0, 0, 1, 0, 1, 0, 1, 1, 2]);

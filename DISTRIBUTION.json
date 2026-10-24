@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r17 is the insertion build: it puts one cGUIObjScissorMask into the gauge row, under the row's root and over the bar, glow and edge, and writes the sharpness-ratio clip box into the mask's built rectangle from the draw walker. It carries the two storage expansions r14 lacked: the row's object array at instance+0xd8 (aliased at root+0xa0) is grown from 4 words to 5 through the cGUIInstance DTI's MT allocator, and the row's draw block is reallocated through the root's own vtable slot 0x58 with main+0xa49b28's arithmetic, sized from the row+8 pair, with the record pointer at alloc + sequences * 12. The r14 run (NRO 6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d) is why the insertion is shaped this way: the mask's built rectangle is rebuilt from the node's own quad while bit 1 of +0xa4 is set, which is why all 2512 of its lines read 0 0 W H, and main+0x5456e4 indexes the instance's array by the tree's node count + 1, which a 3-node tree with a 4-word map survived and a 4-node tree did not. r16 (NRO 415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed) ran on Eden the same day with the installed bytes matching: 93 plugin lines, zero guest exceptions, the bar reported visible, and the four map entries read out as controller, bar, glow and edge. r15 (NRO e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f) ran clean and measured the published cache 192 bytes into the allocation, which main+0xa49b28's sizing fixes as a 72-byte record area = 9 records: r14's records fit, so its crash is the map alone. r17 has not been run. Not approved for distribution; r12 and r13 were packaged and never run.",
+  "reason": "r18 is the insertion build, unchanged from r17 except the gate that stopped r17's run: the cache sizing field at row+8 is the tree's node count (the r17 run read 3 objects against 3 tree nodes), while the row's object array is that count plus one (its first entry is the controller), and r17 required the former to equal the latter. The insertion puts one cGUIObjScissorMask into the gauge row under the row's root, over the bar, glow and edge, writes the sharpness-ratio clip box into the mask's built rectangle (+0xb0..+0xbc) from the draw walker with bit 1 of +0xa4 kept clear, grows the object array from 4 words to 5 through the cGUIInstance DTI's MT allocator (MtDti::getAllocator, main+0x7aa47c) publishing instance+0xd8 and root+0xa0, and reallocates the row's draw block through the root's vtable slot 0x58 with main+0xa49b28's arithmetic, freeing the old blocks. The r17 run of 2026-10-24 (NRO 626d96f75fe9102febf30d9c09a2b38714fddcb943ca6e55465ab50c3c1f6749, 95 plugin lines, installed bytes matching) is the evidence for the rule and for the row's geometry: counts8 0x00100003 = 3 objects and 16 sequences, published cache 192 = 16*12 into the allocation, so the record area is (3 << 4) | 8 = 56 bytes = 7 records and the inserted tree's 9 records are 16 bytes past the end - r14 overflowed the draw records and desynchronised the map, and an insertion has to grow both. The insertion itself wrote nothing in that run, and the user saw the gauge unchanged. r14 (NRO 6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d) remains the failed insertion run: the rectangle the game built from the mask had left/top 0 0 in all 2512 lines, never the requested 110,32, and main+0x5456e4 indexes the instance's array by the tree's node count + 1. r16 (NRO 415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed) ran clean with the map read out. Not approved for distribution; r12 and r13 were packaged and never run.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r17",
+  "version": "r18",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r17-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r17/delivery",
+  "archive": "modern-sharpness-gauge-r18-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r18/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r17 inserts a scissor mask and changes what the game draws (the receipt records drawing_changed true). r16 ran once on Eden 2026-10-23 (installed bytes 415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed, 93 plugin lines, zero guest exceptions, bar reported visible); r15 ran clean the same day; r14 ran once and failed as reported.",
+  "runtime_test": "NOT RUN: r18 is r17's insertion with the stage-48 gate comparison corrected (objects == tree_nodes, the map staying at nodes + 1). r17 ran once on Eden 2026-10-24 (installed bytes 626d96f75fe9102febf30d9c09a2b38714fddcb943ca6e55465ab50c3c1f6749, 95 plugin lines, insertion stopped by its own gate at stage 48, gauge reported normal, zero guest exceptions, session closed normally); r16 ran clean on Eden 2026-10-23; r14 ran once and failed as reported.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -70,7 +70,7 @@
     "the game's destructor is assumed to free the map block r17 publishes through the cGUIInstance DTI's MT allocator; that free has not been observed, and r17 frees the old 4-word block itself",
     "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
     "The gauge itself is not part of r4.",
-    "r17's insertion, its grown map, its reallocated draw block (root vtable slots 0x58/0x5c) and its per-frame rectangle write at mask+0xb0..+0xbc are all unrun; the mask's teardown is unproven, since the root-destructor hook fired zero times in the three sessions that logged it"
+    "r18 has not been run, and no build of this mod has completed an insertion: r14's ran and failed (the gauge clipped away, crash at the quest end), r17's stopped at its own stage-48 gate and wrote nothing. The mask construction, the grown map, the reallocated draw block (root vtable slots 0x58/0x5c) and the per-frame rectangle write at mask+0xb0..+0xbc are all without runtime evidence, and the mask's teardown is unproven, the root-destructor hook having fired zero times in the five sessions that logged it"
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
