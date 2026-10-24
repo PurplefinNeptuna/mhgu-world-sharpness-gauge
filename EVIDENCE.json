@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r25",
+  "version": "r26",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r25",
+    "version": "r26",
     "status": "BUILT",
-    "nro_sha256": "223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710",
+    "nro_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -86,10 +86,10 @@
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "29c88e5e685e673207771e7aa8d14d48049a8b1ef9f5fad0b84801cc906bb298",
-      "src/insert.rs": "66167c06da7b10e0af5c0ec18805c44400ccd3b1f5158f5602509e803aa0e295",
-      "src/lib.rs": "093a7e75f99c0c072741d163e2512fbd322d7950e14437635866dafc4775631c",
-      "src/memory.rs": "5fa9d8ed41e34d7ecce775405b2fbfefe13d7df51f36bf82a7b2e69098d3c04c",
+      "src/hooks.rs": "99048b955c51301934a37a61e04832f6c545532f928fec533d9c60011a21682c",
+      "src/insert.rs": "db2d42960030e68d1026abf5be0cbeeec81f9b0d85d426a577959d7061610829",
+      "src/lib.rs": "74abe2890f12959bcabeaed109928dd7e9bec933b0fe8d3fe0698882594e2bbe",
+      "src/memory.rs": "a910f9f058c6094364e1abab67eadd09b04b1899ba2dab609934247a4982bb96",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710",
-    "elf_sha256": "359a21fbb2823dae16d7999052e203020aa1a3d2aa20ee03cb73bf8553809967",
+    "nro_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
+    "elf_sha256": "9991798e7dda218301aa184f01164eaa231f598d9b748efbb1e77b7cb5537a2b",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -559,6 +559,28 @@
         "4 samples (350/350 tier 4), no guest exception"
       ],
       "conclusion": "The clip geometry is right: this is the first run where the mod's mask did not hide the gauge from the start. The area-change disappearance is the mask outliving the plugin's knowledge of it: the walker's check dropped the addresses at the transition, writes stopped, and the mask kept applying its last rectangle. r25 disables the scissor on that path, from the mask's enter handler where the object is live, through the class's DTI Enable setter (main+0xa4ba20, decoded from the NSO bytes). A mask inserted into a second area's row has still never been observed: this session's log ends 12 s after the transition, with the gauge HUD absent."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r25",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r25-eden-2026-10-24.txt",
+      "session_seconds": 816,
+      "our_lines": 382,
+      "observed": [
+        "user report: still missing when changing area",
+        "scissor mask inserted: mask=0x440bd700 map=0x48c02000 entries=5 cache=0x441a1d20 records=9 (t=135.17)",
+        "262 clip probe lines every 2 s, t=137.2..660.1: rect=110 38 110 166 flags=0x1 anchors=0xfffffff0 mat=0x3f800000,0x0,0x0,0x0,0x0,0x3f800000 pos=0x0,0x0 size=0,128: r24's geometry, unchanged",
+        "10 samples (350/350 tier 4), budget 10/320, so walker sampling stayed active all session",
+        "t=661.657: stage 21 (instance=0), then 'inserted mask's links lost (1 times)': the links-lost path ran and the Enable setter (main+0xa4ba20) cleared the mask's enable bits",
+        "t=661.7..810: stage-21 lines every 4 s, instance=0 controller=0 gauge=0; no 'gauge controller observed' and no second insertion for 150 s",
+        "the sampler looks for the gauge controller every 60 walker calls; no walked controller matched the row signature for 150 s after the transition",
+        "the 'no sharpness gauge controller seen in 6001 walker calls' line reports once per session (latched), which is why it is silent in area 2; r26 re-arms it",
+        "session closed by the user's ForceStop at t=815.98; the SIGSEGV line follows the forced stop and is host-side; no guest exception in the session"
+      ],
+      "conclusion": "The r25 disable fired: after the drop no clip line appears and the mask applies nothing. The user-visible failure is not clipping: the game's sharpness gauge row is absent in the new area - no controller in any walked tree, no instance-hook re-capture, for 150 s - while the tester states vanilla shows the sharpness gauge in every area. The r25 log cannot say which link broke at the drop, nor whether the row's objects were freed, rewired to spec, or alive. r26 measures exactly that: a link snapshot at the drop, a changed-only re-read of the kept addresses from the plugin thread, an instance-hook fire count, and the re-armed absence report. No new hook and no new write: insertion, geometry and disable paths are r25's."
     }
   ],
   "not_proven": [
@@ -576,12 +598,13 @@
     "the mask's own liveness check cannot report a mask freed with its row: the enter handler stops being called, so no writes follow (r20 shows reads of freed memory and no links-lost line), and the re-arm that a hunt crossing areas needs has no signal for that case.",
     "that a re-insertion happens in a later area's row: the walker's liveness check fired once in r22 and re-armed, but the HUD was absent for the rest of that session, so a mask in a second area's row has not been observed.",
     "that the mask's PosX/PosY properties are inert for a node with no animation row entry: r23's rectangle origin matched the parent's, not the written position. The PosX/PosY setters (main+0xa4b02c / main+0xa4b058) were not called.",
-    "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25 has not run, and r24's session ended 12 s after the transition with the gauge HUD absent."
+    "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25's disable fired at the drop, and the gauge row was never rebuilt in 150 s, so the restore was not observable. Which link broke, and what state the row's objects were in afterwards, is what r26 measures.",
+    "that the game rebuilds the gauge row after an area change with this mod inserted: the r25 sampler (every 60 walker calls, 10/320 budget) matched no gauge controller for 150 s after the transition, while vanilla shows the sharpness gauge in every area (the tester's account). No mechanism for the missing rebuild is proven."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b",
+    "binary_sha256": "223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

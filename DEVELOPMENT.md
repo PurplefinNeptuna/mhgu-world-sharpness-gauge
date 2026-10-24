@@ -1,9 +1,17 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r25 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r25 stops a mask from clipping once its row's links are gone, the
-failure the r24 run showed at an area transition; r24's run is the first where the mod's mask did
-not hide the gauge, so the geometry is right and this is the lifecycle's turn. r24 writes the
+Current state: Phase 2 candidate r26 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r26 measures the area-change failure shown by the r25 run: the
+links-lost path fired at t=661.66 and the Enable setter (main+0xa4ba20) stopped the mask clipping,
+and the game's sharpness gauge row stayed absent in the new area for 150 s - the sampler matched
+no gauge controller in any walked tree (discovery every 60 calls, budget 10/320) and the instance
+hook never recaptured - while vanilla shows the gauge in every area (the tester's account). r26
+logs a link snapshot at the drop (marker, mask.parent, mask.child, bar.parent, bar.sibling,
+root.child), re-reads the kept addresses from the plugin thread with a changed-only line, counts
+instance draw-entry fires, and re-arms the HUD-absent report; it adds no hook and no new write.
+r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
+geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor
 modes, a real defect (its run read `anchors=0xfffffff0`), and the width stayed 0. r22
 adds the reacquire path the Forge skill's GUI reference asks for: the draw walker checks the

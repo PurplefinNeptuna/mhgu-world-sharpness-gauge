@@ -29,7 +29,7 @@ use crate::{
 use core::sync::atomic::{AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, mask_box, Gauge, NODE_CHILD, NODE_PARENT,
+    basis_points, mask_box, Gauge, NODE_CHILD, NODE_PARENT, NODE_SIBLING,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -62,6 +62,60 @@ static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
+// The r25 run: the gauge row is never rebuilt after an area change. Which link broke at the
+// drop, and what the kept addresses read as afterwards, are the facts no log line carries.
+static LINK_LOST: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
+static KEEP: [AtomicU32; 3] = const { [const { AtomicU32::new(0) }; 3] };
+const SNAPSHOT: [(usize, u32); 6] = [
+    (0, MASK_ID),       // the mask's own marker word
+    (0, NODE_PARENT),   // mask.parent
+    (0, NODE_CHILD),    // mask.child
+    (1, NODE_PARENT),   // bar.parent
+    (1, NODE_SIBLING),  // bar.sibling
+    (2, NODE_CHILD),    // root.child
+];
+
+/// Read the link state at the drop, and keep the addresses to re-read it later. Read-only.
+fn snapshot(mask: u32, bar: u32, root: u32) {
+    KEEP[0].store(mask, Ordering::Relaxed);
+    KEEP[1].store(bar, Ordering::Relaxed);
+    KEEP[2].store(root, Ordering::Relaxed);
+    let bases = [mask, bar, root];
+    for (index, (which, offset)) in SNAPSHOT.iter().enumerate() {
+        let value = memory::word(bases[*which].wrapping_add(*offset)).unwrap_or(0);
+        LINK_LOST[index].store(value, Ordering::Relaxed);
+    }
+}
+
+/// The snapshot: mask marker, mask.parent, mask.child, bar.parent, bar.sibling, root.child.
+pub fn link_lost() -> [u32; 6] {
+    let mut out = [0u32; 6];
+    for (index, slot) in LINK_LOST.iter().enumerate() {
+        out[index] = slot.load(Ordering::Relaxed);
+    }
+    out
+}
+
+/// The kept dropped-row addresses: mask, bar, root. Zero before the first drop.
+pub fn kept() -> (u32, u32, u32) {
+    (
+        KEEP[0].load(Ordering::Relaxed),
+        KEEP[1].load(Ordering::Relaxed),
+        KEEP[2].load(Ordering::Relaxed),
+    )
+}
+
+/// Re-read the kept addresses with the snapshot's fields, from the plugin thread. All zero
+/// before the first drop, so callers gate on `kept().0 != 0`.
+pub fn probe_kept() -> [u32; 6] {
+    let (mask, bar, root) = kept();
+    let bases = [mask, bar, root];
+    let mut out = [0u32; 6];
+    for (index, (which, offset)) in SNAPSHOT.iter().enumerate() {
+        out[index] = memory::word(bases[*which].wrapping_add(*offset)).unwrap_or(0);
+    }
+    out
+}
 
 /// What one insertion published, as integers for the log line.
 pub struct Outcome {
@@ -203,6 +257,7 @@ pub fn check_liveness() {
         return;
     }
     MISSES.fetch_add(1, Ordering::Relaxed);
+    snapshot(mask, BAR.load(Ordering::Relaxed), root);
     crate::hooks::teardown_gauge_row(root);
 }
 
@@ -222,16 +277,12 @@ pub fn enter(mask: u32) {
         && memory::word(root + NODE_CHILD) == Some(mask)
         && memory::word(bar + NODE_PARENT) == Some(mask);
     if !alive {
-        // The links that made this mask ours are gone: an area's loading screen has taken the
-        // row. Drop the addresses and re-arm discovery, so the new HUD row gets its own mask.
-        //
-        // Ask the mask to stop clipping on the way out: the game is calling its handler right
-        // now, so the object is live at this point. r24's run ended the other way - at the area
-        // transition (t=149.89) the links broke, the plugin dropped its addresses and stopped
-        // writing, and the mask went on applying its last rectangle, so the gauge vanished in
-        // the new area. Disabling it here leaves the gauge drawing as the game builds it, until
-        // the next row is inserted.
+        // The links that made this mask are gone: the row is going away at an area's loading
+        // screen. The game is calling this mask's handler right now, so it is live, and asking
+        // it to stop clipping here is the one disable this build can prove safe. r24's run left
+        // the mask applying its last rectangle into the next area.
         MISSES.fetch_add(1, Ordering::Relaxed);
+        snapshot(mask, bar, root);
         let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
         crate::hooks::teardown_gauge_row(root);
         return;

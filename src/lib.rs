@@ -30,6 +30,7 @@ static REPORTED_ABSENT: AtomicBool = AtomicBool::new(false);
 static REPORTED_FULL: AtomicBool = AtomicBool::new(false);
 static LAST_TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 static LAST_MISSES: AtomicU32 = AtomicU32::new(0);
+static LAST_PROBE: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
 /// A 120-update divider (about two seconds of frames) for the one clip probe line.
 const CLIP_LOG_EVERY: u32 = 120;
 static CLIP_LOG: Counter = Counter::new(CLIP_LOG_EVERY);
@@ -302,14 +303,37 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         ), tears = tears);
     }
     // The inserted mask's links went away, which is a row dying at an area's loading screen.
-    // Discovery starts over, so a hunt that crosses areas gets a mask in each row it builds.
+    // The snapshot names which link broke; the instance fire count separates a HUD the game
+    // stops drawing from one this plugin lost track of.
     let misses = insert::misses();
     if misses > LAST_MISSES.swap(misses, Ordering::Relaxed) {
+        let lost = insert::link_lost();
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " inserted mask's links lost ({misses} times); addresses dropped, the gauge row will be found again"
-        ), misses = misses);
+            " inserted mask's links lost ({misses} times): marker={m:#x} mask.parent={mp:#x} mask.child={mc:#x} bar.parent={bp:#x} bar.sibling={bs:#x} root.child={rc:#x} instance hook fires={fires}"
+        ),
+        misses = misses, m = lost[0], mp = lost[1], mc = lost[2],
+        bp = lost[3], bs = lost[4], rc = lost[5], fires = hooks::instance_fires());
+        REPORTED_ABSENT.store(false, Ordering::Release);
+    }
+    // Observe the dropped row from the plugin thread: freed, rewired, or alive per its own
+    // spec. Logged on change only, so a whole area transition costs one line.
+    let probe = insert::probe_kept();
+    let changed = probe
+        .iter()
+        .zip(LAST_PROBE.iter())
+        .any(|(value, slot)| *value != slot.load(Ordering::Relaxed));
+    if probe[0] != 0 && changed {
+        for (slot, value) in LAST_PROBE.iter().zip(probe) {
+            slot.store(value, Ordering::Relaxed);
+        }
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " dropped gauge row now: marker={m:#x} mask.parent={mp:#x} mask.child={mc:#x} bar.parent={bp:#x} bar.sibling={bs:#x} root.child={rc:#x}"
+        ),
+        m = probe[0], mp = probe[1], mc = probe[2], bp = probe[3], bs = probe[4], rc = probe[5]);
     }
     if matched && taken == sampling::MAX_SAMPLES && !REPORTED_FULL.swap(true, Ordering::Relaxed) {
         log::error!(concat!(

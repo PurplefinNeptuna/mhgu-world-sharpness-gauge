@@ -86,6 +86,7 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
         return;
     }
     if msg_instance_active.load(Ordering::Acquire) {
+        FIRES.fetch_add(1, Ordering::Relaxed);
         let gauge = sampling::gauge_controller();
         if gauge != 0 {
             if let Some(controller) = memory::word(instance.wrapping_add(0xdc)) {
@@ -154,11 +155,16 @@ pub fn teardown_gauge_row(controller: u32) {
     sampling::clear_controller();
 }
 
-/// Times the captured row's root destructor ran: the teardown count the log prints.
+/// Times the root destructor ran, and times the instance draw entry fired. Both counts are
+/// diagnostics: a HUD that is never rebuilt shows zero instance fires after a row's drop.
 pub fn teardowns() -> u32 {
     TEARDOWNS.load(Ordering::Relaxed)
 }
+pub fn instance_fires() -> u32 {
+    FIRES.load(Ordering::Relaxed)
+}
 static TEARDOWNS: AtomicU32 = AtomicU32::new(0);
+static FIRES: AtomicU32 = AtomicU32::new(0);
 
 /// The recorded pair, for the log line; zeros mean it was never captured.
 pub fn capture() -> (u32, u32) {

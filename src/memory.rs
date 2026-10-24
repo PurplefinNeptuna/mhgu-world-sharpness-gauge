@@ -129,10 +129,6 @@ pub fn write_word(address: u32, value: u32) -> bool {
     true
 }
 
-pub fn write_bits(address: u32, value: f32) -> bool {
-    write_word(address, value.to_bits())
-}
-
 /// Copy `words` words from `source` to `target`, both checked for their span first. Used
 /// to copy a row's object array into a larger block; a source the plugin cannot read is
 /// a hard failure, never a partial copy.

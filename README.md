@@ -63,7 +63,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r25`.
+lines that matter start with `MSG r26`.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -76,7 +76,9 @@ Report the number exactly as printed.
 
 `inserted mask's links lost (N times)` means the game took a gauge row away at
 an area's loading screen: the mod turns the old mask off and looks for the new area's
-gauge. Report how many areas you crossed and whether the bar behaved the same in each.
+gauge. The line carries the tree links as the game left them and a count of gauge
+draws it still sees; a `dropped gauge row now:` line repeats those links when they
+change. Report how many areas you crossed and whether the bar behaved the same in each.
 
 `clip mask rect` lines appear every couple of seconds while the mask is in, with
 the rectangle that is in the object at that moment, the measurement setting, and the

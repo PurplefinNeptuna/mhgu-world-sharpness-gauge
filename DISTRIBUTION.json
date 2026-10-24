@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r25 answers the area-change failure that r24's run showed. r24 (NRO 6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b, Eden 2026-10-24, installed bytes matching) is the first run where the mod's mask did not hide the gauge: the probe read anchors=0xff0, mat starting 0x3f800000 (the transform x scale r24 writes), authored height 128 and a rectangle of 110,38,110,166 with its bottom on the bar's bottom, and the user reported the gauge shown from the quest start. It then disappeared on an area change: at t=149.89 the walker's link check dropped the addresses, the plugin stopped writing, and the mask kept applying its last rectangle, so the new area's gauge was clipped away. r25 disables the scissor on that path, from the mask's own enter handler where the game has handed over a live object, by calling main+0xa4ba20, the class's DTI Enable setter, decoded from the NSO bytes as ldr r2,[r0,#0xa4]; bfc r2,#0,#1; bfc; str; bx lr (it clears the enable bits and ignores the second argument). The draw walker's check stays read-only, per the workspace rule that a write to a game object needs a native lookup in the same callback. The geometry r24 established stays: the rectangle is the game's to build (main+0xa4ba94 rebuilds +0xb0..+0xbc from the quad when bit 1 of +0xa4 is set), the quad comes from main+0xa4b390 with the anchor modes at +0xa0 bits 0-3 and the authored pair multiplied by the transform rows at +0x10/+0x20, and the row's layout zeroes the authored width every frame, so the enter-call write is the width the scissor receives. The insertion has completed five times (r18, r20, r22, r23, r24) with the 5-word object array through the cGUIInstance DTI's MT allocator, the draw block resized through the root's vtable slot 0x58 with main+0xa49b28's arithmetic, and the native linkers. Quests are split into areas with a loading screen between them (the tester's account of 2026-10-24). Not approved for distribution; r12 and r13 were packaged and never run.",
+  "reason": "r26 is the measurement build for the area-change failure, from the r25 run (NRO 223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710, Eden 2026-10-24, installed bytes matching): the links-lost path fired at t=661.66 and the Enable setter stopped the mask clipping, and 150 s after the transition the sampler (every 60 walker calls) had matched no gauge controller and the instance hook had not recaptured - the game's sharpness gauge row was not rebuilt in the new area, while the tester states vanilla shows the gauge in every area. The r25 log cannot name which link broke at the drop, nor whether the row's objects were freed, rewired, or alive. r26 adds a read-only link snapshot at the drop (marker, mask.parent, mask.child, bar.parent, bar.sibling, root.child), a changed-only probe re-reading the kept addresses from the plugin thread, an instance-draw-entry fire count, and a re-armed HUD-absent report. No new hook, no new write to the game; insertion, geometry and the disable path are r25's.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r25",
+  "version": "r26",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r25-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r25/delivery",
+  "archive": "modern-sharpness-gauge-r26-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r26/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r25 stops a mask clipping once its row's links are gone, through the class's DTI Enable setter (main+0xa4ba20). r24 ran on Eden 2026-10-24 (installed bytes 6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b): the gauge drew from the quest start - the first run where the mask did not hide it - and vanished at an area transition, with links-lost at t=149.89 and the mask keeping its last rectangle. r23/r22/r20/r18/r14 hid the gauge from the insertion.",
+  "runtime_test": "NOT RUN: r26 measures the gauge row's state at and after a drop. Run it across one area boundary and stay in the new area; the links-lost snapshot, the dropped-row probe line, the instance fire count and the absence report are the facts to read.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
