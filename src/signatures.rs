@@ -151,4 +151,13 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         8, 0, 128, 226, 0, 0, 132, 229,
         164, 80, 148, 229, 0, 0, 85, 227,
     ]),
+    // main+0x7aa47c: MtDti::getAllocator, the DTI's MT allocator getter. Ghidra names it;
+    // Key Quest Markers r17 calls the same entry to allocate game-owned GUI memory. Called,
+    // never hooked. Window from original main.
+    (0x7aa47c, [
+        16, 16, 159, 229, 24, 0, 144, 229,
+        1, 16, 159, 231, 208, 11, 229, 231,
+        0, 1, 145, 231, 30, 255, 47, 225,
+        192, 239, 8, 1, 48, 72, 45, 233,
+    ]),
 ];

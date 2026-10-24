@@ -26,6 +26,10 @@ def environment():
     env['PATH']=os.pathsep.join([str(rust),str(Path(compiler)/'bin'),env.get('PATH','')])
     return env,rust
 def converter(): return Path(CONFIG['cargo_forge'])
+# Does this build change what the game draws? r17 inserts a scissor mask into the gauge
+# row, so from r17 on the answer is yes: the receipt, the README and DEVELOPMENT have to say
+# so. r1-r16 read game memory and logged, and their receipts record False.
+DRAWING_CHANGED=True
 def doctor():
     env,rust=environment();lock=json.loads((MOD/'dependencies.lock.json').read_text())
     version=subprocess.check_output([rust/'rustc','--version'],env=env,text=True).strip()
@@ -55,7 +59,7 @@ def build():
     dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(CARGO_TARGET/NRO,dest)
     record('build.json',{'version':VERSION,'status':'BUILT','nro_sha256':digest(dest),
         'forge_rs_revision':'d1865b68e9b194eb3eacc8bd71bbf601a5fac63e','runtime_active':True,
-        'drawing_changed':False,'source_sha256':source_hashes(),'runtime_test':'NOT RUN'})
+        'drawing_changed':DRAWING_CHANGED,'source_sha256':source_hashes(),'runtime_test':'NOT RUN'})
 def test():
     env,rust=environment()
     run([rust/'cargo','test','--locked','--config',MOD/'.cargo/vendor.toml','--manifest-path',MOD/'core/Cargo.toml',
@@ -91,7 +95,7 @@ def package():
     evidence={n:json.loads((BUILD_ROOT/(n+'.json')).read_text()) for n in ['build','verify','tests']}
     (dest/'VALIDATION.json').write_text(json.dumps(evidence,indent=2)+'\n')
     manifest={'mod':spec['mod'],'version':VERSION,'status':'DEVELOPMENT','runtime_test':'NOT RUN',
-              'runtime_active':True,'drawing_changed':False,'package_name':package_name,
+              'runtime_active':True,'drawing_changed':DRAWING_CHANGED,'package_name':package_name,
               'payloads':payloads,'archive_sha256':digest(archive)}
     (dest/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (dest/'SHA256SUMS').write_text(''.join(digest(p)+'  '+str(p.relative_to(dest))+'\n'

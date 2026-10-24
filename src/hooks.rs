@@ -7,6 +7,7 @@
 //! originals it touched.
 use crate::{
     gui,
+    insert,
     memory,
     sampling,
     signatures::{HOOK, INSTANCE_HOOK, ROOT_DESTRUCTOR_HOOK, SIGNATURES},
@@ -68,6 +69,11 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
     } // Installation never publishes an original of zero.
     if msg_active.load(Ordering::Acquire) {
         sampling::observe(controller, context);
+        // The clip box is re-asserted here, after the game's writes for this frame and
+        // before the original walker builds the draw cache. It returns after one compare
+        // for every controller that is not the gauge row, and writes nothing while the box
+        // is unchanged.
+        insert::apply(controller);
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(controller, context) };

@@ -92,9 +92,6 @@ pub fn copy(address: u32, out: &mut [u8]) -> bool {
     true
 }
 
-/// Permission bit 1 (read) plus 2 (write): a write target is accepted only where the
-/// kernel reports the span as writable, so a stray pointer can never hit code or a
-/// read-only page.
 /// Read one halfword; the row description stores object and sequence counts as
 /// 16-bit fields, so they need their own checked read.
 pub fn half(address: u32) -> Option<u16> {
@@ -106,6 +103,8 @@ pub fn half(address: u32) -> Option<u16> {
     Some(unsafe { core::ptr::read_volatile(address as *const u16) })
 }
 
+/// A write target is accepted only where the kernel reports the span as writable, so a
+/// stray pointer can never hit code or a read-only page.
 pub fn writable(address: u32, bytes: usize) -> bool {
     mapped(address, bytes, 3)
 }
@@ -117,10 +116,75 @@ pub fn method(object: u32, slot: u32) -> Option<u32> {
     executable(f, 4).then_some(f)
 }
 
+/// Write one word after alignment and writable-mapping checks. No reference is formed to
+/// a game-owned object, so no aliasing assumption is imposed on it. The caller must be
+/// inside a native callback that made the object reachable in the same call.
+pub fn write_word(address: u32, value: u32) -> bool {
+    if address & 3 != 0 || !writable(address, 4) {
+        return false;
+    }
+    // SAFETY: mapping checked above; the caller holds the native object's lifetime for
+    // the whole write sequence.
+    unsafe { core::ptr::write_volatile(address as *mut u32, value) };
+    true
+}
+
+pub fn write_bits(address: u32, value: f32) -> bool {
+    write_word(address, value.to_bits())
+}
+
+/// Copy `words` words from `source` to `target`, both checked for their span first. Used
+/// to copy a row's object array into a larger block; a source the plugin cannot read is
+/// a hard failure, never a partial copy.
+pub fn copy_words(source: u32, target: u32, words: usize) -> bool {
+    let Some(bytes) = words.checked_mul(4) else {
+        return false;
+    };
+    if source & 3 != 0
+        || target & 3 != 0
+        || !readable(source, bytes)
+        || !writable(target, bytes)
+    {
+        return false;
+    }
+    // SAFETY: spans checked above; the two blocks never overlap (the target is a fresh
+    // allocation), and the source object's lifetime is held by the native caller.
+    unsafe { core::ptr::copy_nonoverlapping(source as *const u32, target as *mut u32, words) };
+    true
+}
+
+pub fn zero_words(target: u32, words: usize) -> bool {
+    let Some(bytes) = words.checked_mul(4) else {
+        return false;
+    };
+    if target & 3 != 0 || !writable(target, bytes) {
+        return false;
+    }
+    // SAFETY: span checked writable above; the block is plugin-owned.
+    unsafe { core::ptr::write_bytes(target as *mut u8, 0, bytes) };
+    true
+}
+
+pub fn call0(function: u32) -> Option<u32> {
+    if !executable(function, 4) {
+        return None;
+    }
+    let f: unsafe extern "C" fn() -> u32 = unsafe { core::mem::transmute(function as usize) };
+    Some(unsafe { f() })
+}
+
 pub fn call1(function: u32, a: u32) -> Option<u32> {
     if !executable(function, 4) {
         return None;
     }
     let f: unsafe extern "C" fn(u32) -> u32 = unsafe { core::mem::transmute(function as usize) };
     Some(unsafe { f(a) })
+}
+
+pub fn call2(function: u32, a: u32, b: u32) -> Option<u32> {
+    if !executable(function, 4) {
+        return None;
+    }
+    let f: unsafe extern "C" fn(u32, u32) -> u32 = unsafe { core::mem::transmute(function as usize) };
+    Some(unsafe { f(a, b) })
 }

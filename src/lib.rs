@@ -18,6 +18,7 @@ use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use sharpness_gauge_core::{FIELDS, HEAD_WORDS, MAX_NODES, NODE_WORDS, FIELD_VISITED, ratio_of_words};
 mod gui;
 mod hooks;
+mod insert;
 mod memory;
 mod sampling;
 mod signatures;
@@ -31,6 +32,27 @@ static REPORTED_FIRST: AtomicBool = AtomicBool::new(false);
 static REPORTED_ABSENT: AtomicBool = AtomicBool::new(false);
 static REPORTED_FULL: AtomicBool = AtomicBool::new(false);
 static LAST_TEARDOWNS: AtomicU32 = AtomicU32::new(0);
+/// A 120-update divider (about two seconds of frames) for the one clip probe line.
+const CLIP_LOG_EVERY: u32 = 120;
+static CLIP_LOG: Counter = Counter::new(CLIP_LOG_EVERY);
+
+struct Counter {
+    value: AtomicU32,
+    every: u32,
+}
+impl Counter {
+    const fn new(every: u32) -> Self {
+        Self {
+            value: AtomicU32::new(0),
+            every,
+        }
+    }
+    /// True once every `every` calls, so a hot path logs at a fixed low cadence.
+    fn tick(&self) -> bool {
+        let next = self.value.fetch_add(1, Ordering::Relaxed) + 1;
+        next % self.every == 0
+    }
+}
 
 // forge-rs exposes only the six-byte version prefix. The matching native loader
 // also owns name[64] at offset 6 and hides empty names in its Loaded Plugins
@@ -175,7 +197,8 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
 #[unsafe(no_mangle)]
 pub extern "C" fn forge_onUpdate(delta: f32) {
     let _ = delta;
-    if let Some(words) = gui::tick() {
+    if let Some(reading) = gui::tick() {
+        let words = reading.facts;
         let mut line = String::with_capacity(512);
         for index in 0..gui::FACTS_WORDS {
             let name = gui::FACT_NAMES[index];
@@ -191,6 +214,34 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
             env!("MSG_VERSION"),
             " gauge row facts:{line}"
         ), line = line);
+        // One insertion per gauge row, reported once with the addresses it published. The
+        // stage codes 40..49 are the insertion's own, kept apart from the row gates 21..34.
+        match reading.outcome {
+            Ok(done) => log::error!(concat!(
+                "MSG ",
+                env!("MSG_VERSION"),
+                " scissor mask inserted: mask={mask:#x} map={map:#x} entries={entries} cache={cache:#x} records={records}"
+            ),
+            mask = done.mask,
+            map = done.map,
+            entries = done.entries,
+            cache = done.cache,
+            records = done.records),
+            Err(49) => log::error!(concat!(
+                "MSG ",
+                env!("MSG_VERSION"),
+                " gauge row already carries the inserted mask marker; not inserting again"
+            )),
+            Err(stage) => log::error!(concat!(
+                "MSG ",
+                env!("MSG_VERSION"),
+                " mask insertion failed at stage {stage}: instance={instance} controller={controller} gauge={gauge}"
+            ),
+            stage = stage,
+            instance = hooks::capture().0,
+            controller = hooks::capture().1,
+            gauge = sampling::gauge_controller()),
+        }
     }
     let stage = gui::take_failure();
     if stage != 0 {
@@ -225,6 +276,21 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         for index in 0..limit {
             log::error!("{}", node_line(number, index, &words));
         }
+    }
+    // Every two seconds while a mask is inserted: the rectangle that is in the object right
+    // now, and the bar's rect it is meant to cover. This is the evidence for whether the
+    // write below the walker survived the game's layout pass, which is the question r14's
+    // 2,512 lines of `0 0` left open.
+    let probe = insert::probe();
+    if probe[0] | probe[1] | probe[2] | probe[3] != 0 && CLIP_LOG.tick() {
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " clip mask rect={a} {b} {c} {d} flags={flags:#x} bar rect={l} {t} {r} {bb}"
+        ),
+        a = probe[0] as i32, b = probe[1] as i32, c = probe[2] as i32, d = probe[3] as i32,
+        flags = probe[4],
+        l = probe[5] as i32, t = probe[6] as i32, r = probe[7] as i32, bb = probe[8] as i32);
     }
     let (calls, taken, matched) = sampling::stats();
     // The row's root destructor main+0xa486fc is the only teardown evidence this plugin

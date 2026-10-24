@@ -11,7 +11,7 @@ use sharpness_gauge_core::{
     PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
     SHARPNESS_TYPE, SPLAYER_CELL, basis_points, draw_plan, fill_ratio, gauge_of,
     is_sharp_animation, local_player, ratio_of_words, read_gauge, sample_controller,
-    scan_walk, count_nodes, SHARP_OBJECTS,
+    scan_walk, count_nodes, cache_layout, SHARP_OBJECTS,
 };
 use std::collections::BTreeMap;
 
@@ -458,6 +458,41 @@ fn the_walk_plan_closes_every_drawable_it_opens() {
     assert_eq!(plan.kinds[..plan.count as usize], [0, 1, 0, 1, 2]);
     assert!(!plan.overflow);
     assert_eq!(plan.count * 8, 40);
+}
+
+#[test]
+fn the_cache_grows_with_the_object_count_not_the_sequence_prefix() {
+    // main+0xa49b28 sizes the row's draw block as (objects << 4 | 8) + sequences * 12,
+    // allocates it through the root's vtable slot 0x58 into root+0xa4, and publishes
+    // root+0x80 = alloc + sequences * 12. The r16 run measured published minus alloc = 192
+    // (cache_alloc 0x48013ab0, cache 0x48013b70), which is this row's sequence prefix, so the
+    // sizing fields are the halfwords at row+8 and the row's record area is (4 << 4) | 8 = 72
+    // bytes = 9 records: the tree with r14's mask (9 records, 72 bytes) fit exactly, and the
+    // r14 crash is the map alone. Growing the map to 5 objects takes the area to 88.
+    assert_eq!(cache_layout(4, 16), (264, 192, 72));
+    assert_eq!(cache_layout(5, 16), (280, 192, 88));
+    assert_eq!(cache_layout(0, 16), (192, 192, 0));
+    assert_eq!(cache_layout(3, 0), (56, 0, 56));
+    assert_eq!(72 / 8, 9);
+    assert_eq!(88 / 8, 11);
+    // The tree the insertion produces, measured by the walker port: 9 records, inside the
+    // grown 11, and exactly at the unextended row's capacity, which is why r14 survived as
+    // long as it did and died in the map, not the cache.
+    let mut fake = gauge_fixture();
+    let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
+    let mask = 0x7500u32;
+    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(mask + NODE_CHILD, sharp);
+    fake.put(mask + NODE_SIBLING, 0);
+    fake.put(root + NODE_CHILD, mask);
+    for node in [sharp, efx, edge] {
+        fake.put(node + NODE_PARENT, mask);
+    }
+    let plan = draw_plan(&fake, root);
+    assert_eq!(plan.count, 9);
+    assert_eq!(count_nodes(&fake, root), (4, false));
+    assert!(plan.count * 8 <= cache_layout(5, 16).2);
+    assert!(plan.count == cache_layout(4, 16).2 / 8);
 }
 
 #[test]

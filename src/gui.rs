@@ -38,6 +38,7 @@
 //!   `+0x6c`, calling slot 0x04 of each, then frees the root.
 use crate::{
     hooks,
+    insert,
     memory,
     sampling,
 };
@@ -66,10 +67,10 @@ pub fn take_failure() -> u32 {
 /// the authored sizes are printed as the integers the game's floats hold. `tree_nodes`
 /// is main+0xa47d2c's count for this controller: main+0xa38ffc adds one to it and
 /// main+0x5456e4 uses that sum as the length of the instance's object array at +0xd8.
-pub const FACTS_WORDS: usize = 28;
+pub const FACTS_WORDS: usize = 29;
 pub const FACT_NAMES: [&str; FACTS_WORDS] = [
     "ctrl", "tree_root", "cache", "ctrl_flags", "row", "instance", "cache_alloc", "anim", "counts",
-    "first_object", "row14", "obj_list", "inst_ctrl", "bar_id", "bar_w", "bar_h", "glow_id",
+    "counts8", "first_object", "row14", "obj_list", "inst_ctrl", "bar_id", "bar_w", "bar_h", "glow_id",
     "glow_w", "glow_h", "edge_id", "edge_w", "edge_h", "bar_flags", "obj0", "obj1", "obj2",
     "obj3", "tree_nodes",
 ];
@@ -89,13 +90,17 @@ fn is_type(object: u32, dti: u32) -> bool {
     memory::call1(f, object).is_some_and(|got| got == dti)
 }
 
-/// The gauge row as the game currently holds it. Every field is checked against
-/// the archive's structure, and the bar is identified by its authored size.
-struct Row {
-    root: u32,
-    bar: u32,
-    effect: u32,
-    edge: u32,
+/// The gauge row as the game currently holds it. Every field is checked against the
+/// archive's structure, and the bar is identified by its authored size. `holder` is what the
+/// three textures hang off: the controller, or the inserted mask once this build has inserted
+/// one, whose own links the gates then check. `description` is the animation row the
+/// controller was built from, which is where the sizing pair lives.
+pub(crate) struct Row {
+    pub(crate) root: u32,
+    pub(crate) bar: u32,
+    pub(crate) effect: u32,
+    pub(crate) edge: u32,
+    pub(crate) description: u32,
 }
 
 /// Read and validate the gauge row. Each gate has its own stage code so a single
@@ -161,17 +166,29 @@ fn read_row() -> Result<Row, u32> {
     if !is_type(root, root_dti as *const _ as u32) {
         return Err(25);
     }
-    let Some(bar) = memory::word(root.wrapping_add(sharpness_gauge_core::NODE_CHILD)) else {
-        return Err(23);
+    let first = memory::word(root.wrapping_add(sharpness_gauge_core::NODE_CHILD)).ok_or(23u32)?;
+    // Our own marker at the head of the chain means the mask is in this row, so the three
+    // textures are its children and its siblings, not the controller's. Every parent check
+    // below is against that holder: gates written for the pre-insertion tree would stop a
+    // row that has been inserted, which is the failure mode the playbook names.
+    let inserted = first != 0
+        && memory::word(first.wrapping_add(0x50)) == Some(insert::MARKER);
+    let (holder, bar) = if inserted {
+        (
+            first,
+            memory::word(first.wrapping_add(sharpness_gauge_core::NODE_CHILD)).ok_or(26u32)?,
+        )
+    } else {
+        (root, first)
     };
     let Some(bar_parent) = memory::word(bar.wrapping_add(sharpness_gauge_core::NODE_PARENT))
     else {
         return Err(23);
     };
-    if bar == 0 || bar == root || !memory::writable(bar, OBJECT_BYTES) {
+    if bar == 0 || bar == holder || !memory::writable(bar, OBJECT_BYTES) {
         return Err(26);
     }
-    if bar_parent != root {
+    if bar_parent != holder {
         return Err(27);
     }
     let Some(effect) = memory::word(bar.wrapping_add(sharpness_gauge_core::NODE_SIBLING)) else {
@@ -184,7 +201,7 @@ fn read_row() -> Result<Row, u32> {
     if effect == 0 || effect == bar || !memory::writable(effect, OBJECT_BYTES) {
         return Err(28);
     }
-    if effect_parent != root {
+    if effect_parent != holder {
         return Err(28);
     }
     let Some(edge) = memory::word(effect.wrapping_add(sharpness_gauge_core::NODE_SIBLING)) else {
@@ -196,7 +213,7 @@ fn read_row() -> Result<Row, u32> {
     };
     if edge == 0 || edge == effect || edge == bar
         || !memory::writable(edge, OBJECT_BYTES)
-        || edge_parent != root
+        || edge_parent != holder
     {
         return Err(29);
     }
@@ -205,7 +222,7 @@ fn read_row() -> Result<Row, u32> {
     // is the root. Both closings are valid, any other pointer is not the end of
     // this chain. The r10 log shows the edge glyph closing with sibling 0.
     let terminator = memory::word(edge.wrapping_add(sharpness_gauge_core::NODE_SIBLING)).ok_or(23u32)?;
-    if terminator != 0 && terminator != root {
+    if terminator != 0 && terminator != holder {
         return Err(30);
     }
     let texture = MtDti::find("cGUIObjTexture").ok_or(33u32)?;
@@ -228,6 +245,7 @@ fn read_row() -> Result<Row, u32> {
         bar,
         effect,
         edge,
+        description,
     })
 }
 
@@ -271,6 +289,7 @@ fn facts(row: &Row, instance: u32) -> [u32; FACTS_WORDS] {
         word(root + 0xa4),
         word(row_word),
         word(row_word + 4),
+        word(row_word + 0x08),
         word(row_word + 0x0c),
         word(row_word + 0x14),
         list,
@@ -304,13 +323,19 @@ fn readable_words(list: u32, count: usize) -> [u32; 4] {
     out
 }
 
-/// Read the row once per gauge HUD and publish its facts. A row that is not present yet
-/// is not a failure: the gauge HUD row exists only while a weapon-owning player is in a
-/// quest, so stage 21 reports and keeps retrying at a slow cadence.
+/// One row read: the facts, and the insertion's outcome. `stage` is 0 when the mask was
+/// inserted, and a 40..49 code when it was not, so one run says which of the two paths
+/// stopped and why. A row that is not present yet is not a failure: the gauge HUD row
+/// exists only while a weapon-owning player is in a quest, so stage 21 reports and keeps
+/// retrying at a slow cadence.
+pub struct Reading {
+    pub facts: [u32; FACTS_WORDS],
+    pub outcome: Result<insert::Outcome, u32>,
+}
 const RETRY_EVERY: u32 = 240;
 static TRIES: AtomicU32 = AtomicU32::new(0);
 
-pub fn tick() -> Option<[u32; FACTS_WORDS]> {
+pub fn tick() -> Option<Reading> {
     if STATE.load(Ordering::Relaxed) != 0 {
         return None;
     }
@@ -338,14 +363,19 @@ pub fn tick() -> Option<[u32; FACTS_WORDS]> {
         return None;
     };
     let words = facts(&row, instance);
+    let outcome = insert::run(&row, instance);
     STATE.store(1, Ordering::Release);
-    Some(words)
+    Some(Reading {
+        facts: words,
+        outcome,
+    })
 }
 
 /// The row's root is being destroyed. Nothing in this build touches the tree, so this
 /// only clears the state: the facts line is printed once per gauge HUD, and the sampler
 /// stops comparing walker arguments against a freed address.
 pub fn on_teardown() {
+    insert::on_teardown();
     STATE.store(0, Ordering::Release);
     FAILURE.store(0, Ordering::Release);
     TRIES.store(0, Ordering::Relaxed);

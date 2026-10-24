@@ -269,6 +269,23 @@ pub fn count_nodes(memory: &dyn Memory, controller: u32) -> (u32, bool) {
     }
 }
 
+/// The draw-cache sizing of main+0xa49b28, in full:
+/// `size = (objects << 4 | 8) + sequences * 12`, allocated through the root's vtable slot
+/// 0x58 and stored at `root+0xa4`; the pointer the walker draws from, `root+0x80`, is
+/// `alloc + sequences * 12`, and it is only written when objects is nonzero. So the record
+/// area is `(objects << 4) | 8` bytes: 8 bytes per record, a drawable's enter and exit pair
+/// takes 16, and the terminator takes 8. The gauge row's published pointer sits 192 bytes into
+/// its allocation, which fixes this row's sequences field at 16, and its record area at
+/// (4 << 4) | 8 = 72 = 9 records. Returns (size, prefix, record_area).
+pub fn cache_layout(objects: u32, sequences: u32) -> (u32, u32, u32) {
+    let prefix = sequences * 12;
+    if objects == 0 {
+        return (prefix, prefix, 0);
+    }
+    let area = (objects << 4) | 8;
+    (area + prefix, prefix, area)
+}
+
 pub const SCAN_STACK: usize = 16;
 pub const SCAN_LIMIT: u32 = 64;
 pub const MAX_NODES: usize = 6;

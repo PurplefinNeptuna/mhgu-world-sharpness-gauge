@@ -5,7 +5,7 @@ it proves nothing about pixels, which need a user run."""
 import ast,json,re,struct,subprocess
 from pathlib import Path
 from paths import MOD,CONFIG,BUILD_ROOT,CARGO_TARGET,VERSION,input_path
-from build import doctor,digest,record,source_hashes
+from build import DRAWING_CHANGED,doctor,digest,record,source_hashes
 from mhgu_binary import Nro,main_image
 from native_support import nso_exports
 
@@ -32,7 +32,7 @@ def verify():
         raise ValueError('NRO requires dynamic relocations in read-only memory')
     receipt=json.loads((BUILD_ROOT/'build.json').read_text())
     if receipt.get('version')!=VERSION or receipt['nro_sha256']!=digest(nro_path) \
-       or receipt.get('source_sha256')!=source_hashes() or receipt.get('drawing_changed') is not False:
+       or receipt.get('source_sha256')!=source_hashes() or receipt.get('drawing_changed') is not DRAWING_CHANGED:
         raise ValueError('Build receipt differs from the staged NRO, current sources, or claims a drawing change')
     exports={n.decode() for n,e,*_ in nro.symbols if n and e[5] and e[3]>>4==1}
     if exports!={'forge_onLoad','forge_onInit','forge_onUpdate','forge_onImGuiInit','forge_onImGuiRender','init','fini'}:
@@ -73,7 +73,7 @@ def verify():
         'hook_address':hex(HOOK),'hook_window_words':len(SIGNATURE_WINDOW),'hook_signature_unique_matches':1,
         'hook_abi_bytes':24,'forge_trampoline_bytes':32,'forge_pool_chunk_bytes':16384,
         'compiled_status_writes':writes,'local_player_cells':['main+0x188ca48 session','main+0x1885b58 sPlayer (.bss, Ghidra-proven)'],
-        'runtime_active':True,'drawing_changed':False,'text_relocations':False,
+        'runtime_active':True,'drawing_changed':DRAWING_CHANGED,'text_relocations':False,
         'observes':['gauge controller identity','gauge node tree counts','local player sharpness fields'],
         'runtime_test':'NOT RUN'})
     print('PASS: native imports/signatures, hook window uniqueness, flag-rule audit and payload inventory')
