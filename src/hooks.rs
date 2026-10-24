@@ -68,6 +68,9 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
     } // Installation never publishes an original of zero.
     if msg_active.load(Ordering::Acquire) {
         sampling::observe(controller, context);
+        // Three word reads while a mask is inserted, and the only reacquire signal that runs
+        // when the inserted mask dies with its row.
+        insert::check_liveness();
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(controller, context) };

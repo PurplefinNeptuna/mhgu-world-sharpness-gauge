@@ -178,6 +178,26 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
     Ok((fresh, area / 8))
 }
 
+/// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
+/// calling its enter handler (the r20 run: freed-object reads from t=630 and no links-lost
+/// line), and quests cross areas through loading screens, so the walk of the next area is where
+/// discovery has to start again. Nothing is written here: the mask is reached through links this
+/// plugin captured, so a stale read can only drop the addresses, never write into freed memory.
+pub fn check_liveness() {
+    let (mask, root) = (MASK.load(Ordering::Relaxed), ROOT.load(Ordering::Relaxed));
+    if mask == 0 {
+        return;
+    }
+    if memory::word(mask + MASK_ID) == Some(MARKER)
+        && memory::word(mask + NODE_PARENT) == Some(root)
+        && memory::word(root + NODE_CHILD) == Some(mask)
+    {
+        return;
+    }
+    MISSES.fetch_add(1, Ordering::Relaxed);
+    crate::hooks::teardown_gauge_row(root);
+}
+
 /// The mask's enter handler is about to read `+0xb0..+0xbc` and apply the scissor, so the box
 /// is written here, in this call. Returns without touching anything for a mask that is not
 /// ours, and drops the addresses when the links that made it ours are gone: the r18 run showed

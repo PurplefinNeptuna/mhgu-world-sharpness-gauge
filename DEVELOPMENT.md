@@ -1,8 +1,10 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r21 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r21 removes a box cache that made r20's clip box be written once
-per row and never again, which is why the gauge was missing for the third run in a row. r20
+Current state: Phase 2 candidate r22 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r22 adds the reacquire path the Forge skill's GUI reference asks
+for: the draw walker checks the inserted mask and re-arms the row path when it is gone, so the
+next area's HUD gets its own mask. r21 removes a box cache that made r20's clip box be written
+once per row and never again, which is why the gauge was missing for the third run in a row. r20
 makes a lost mask re-arm the whole row path, because a hunt crosses quest areas through loading
 screens and each area's HUD is a row of its own. r19 moves
 the clip box to the mask's own enter hook and adds the liveness check the r18 run proved
@@ -130,7 +132,7 @@ writes into a freed mask. r19 is not run; r20 re-arms the row path on a lost mas
 quests cross areas through loading screens and each area's HUD is its own row. r20 ran the same
 day: the insertion completed again, the gauge disappeared, 206 of 206 probe lines at left ==
 right, and no links-lost line - the box was written once, because the build cached the box it
-had written and sharpness never moved. r21 removes that cache and is not run.
+had written and sharpness never moved. r21 removes that cache and is not run. r22 puts a read-only mask check in the draw walker, the callback that keeps running when a mask dies with its row, so the next area's gauge row is reacquired and inserted; r22 is not run.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -851,6 +853,32 @@ check, the geometry from the bar's live rect and the live ratio, and the re-arm 
 20 host fixtures pass; verify PASSED with 21 signature windows. r21 is not run. The open
 question stays open: whether the rectangle written in the enter call is the rectangle the
 scissor keeps, with the writes now happening every frame.
+
+## r22, built 2026-10-24: reacquire the row after an area's loading screen
+
+The Forge skill's native GUI reference was updated on 2026-10-24 with the tester's account, and
+two of its rules govern this insertion (PHASE2_RESEARCH.md quotes them):
+
+- **Update point.** It asks for a write after the final native write and before transform/cache
+  construction. The mask's rectangle is derived from the node's quad, so every pre-transform
+  write is overwritten - r18 (walker entries) and r20 (enter call, cached) both ended with 206+
+  probe lines at left == right. The enter handler is where the game consumes the rectangle;
+  writing the authored pair and position with it makes the next transform compute the same box.
+  That is the site the evidence leaves open, and r21 made the writes happen every enter.
+- **Reacquire.** It asks how the plugin reacquires new objects without retaining stale pointers,
+  and to include recreation in validation. r20/r21 dropped the addresses inside the mask's enter
+  handler, which cannot report a mask freed with its row: the handler stops being called (r20:
+  freed-object reads from t=630, no links-lost line, the plugin idle for the rest of the
+  session). r22 adds `insert::check_liveness` to the draw walker's callback - the marker at
+  `mask+0x50`, the mask's parent against the captured root, the root's child against the mask -
+  and on failure it counts the loss and runs `hooks::teardown_gauge_row`, so discovery restarts
+  and the next area's row is read and inserted like the first. The check is read-only: the mask
+  is reached through captured links, so a stale read can only drop addresses, never write into
+  freed memory. Three word reads per walker call, only while a mask is inserted.
+
+20 host fixtures pass; verify PASSED with 21 signature windows. r22 is not run: the clip
+geometry (r21's) and the reacquire (r22's) both need a run, and recreation across areas is now
+part of what a run has to cover.
 
 ## Rules to keep
 

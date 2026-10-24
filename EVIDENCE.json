@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r21",
+  "version": "r22",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r21",
+    "version": "r22",
     "status": "BUILT",
-    "nro_sha256": "3f1adc4a8f927ef29062f5cf2c087cdce3b1efc3c336d07cc20a961b94deae7f",
+    "nro_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -86,8 +86,8 @@
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "5b88545077b715c0f39e447e1dffc198ad810fe196e0da8ef1a4d32fe57525e6",
-      "src/insert.rs": "f1cae6f8a0c9611c99effeb7a53a1a866a8a03bf8ae15febf87bcc246af6a550",
+      "src/hooks.rs": "29c88e5e685e673207771e7aa8d14d48049a8b1ef9f5fad0b84801cc906bb298",
+      "src/insert.rs": "fc3da4a995cbc37f3b48d3d9700b1a467088c4ceb160c764463a6edb5fe8b984",
       "src/lib.rs": "6260c9ef46017c89f392333f149ecace7efcec5ec8d9d941644924b09a31d318",
       "src/memory.rs": "5fa9d8ed41e34d7ecce775405b2fbfefe13d7df51f36bf82a7b2e69098d3c04c",
       "src/sampling.rs": "e202526f1ec6d723ea9d05d434fd62b08be5fd954d74a34453c4491a47e693fc",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "3f1adc4a8f927ef29062f5cf2c087cdce3b1efc3c336d07cc20a961b94deae7f",
-    "elf_sha256": "ece1434543c0632c99a24c77800ca44db06e8b1e4e47d6f1703d166e490e32f1",
+    "nro_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
+    "elf_sha256": "2b29166bd597ae87eec7d15c68700edcd29d6db84dee765a357262541729a060",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -207,7 +207,7 @@
       ]
     },
     "words_per_sample": 116,
-    "note": "r21: 20 host fixtures pass, unchanged: the change is removing the box cache in the mask enter hook, which is not host-testable; the cache/geometry arithmetic fixtures were not touched.",
+    "note": "r22: 20 host fixtures pass, unchanged: the change is a read-only mask check in the draw walker that re-arms the row path, which is not host-testable; the cache/geometry fixtures were not touched.",
     "nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed"
   },
   "runs": [
@@ -516,10 +516,11 @@
     "the root's vtable slots 0x58 and 0x5c as the row's allocate/free pair for its draw block: main+0xa49b28 calls 0x58 to allocate (read in full), and Key Quest Markers uses 0x5c to free; this row's 0x5c has not been observed freeing.",
     "that the row's layout pass leaves a rectangle written at mask+0xb0..+0xbc in place: r14 proved the rebuilt rectangle comes from the node's own quad, and r17 writes the built rectangle itself, which no run has checked yet.",
     "that a lost mask re-arms the row path correctly (r20): quests are split into areas with a loading screen between them (the tester's account of 2026-10-24), so a gauge row's death is expected mid-hunt, and the re-arm has never run.",
-    "the mask's own liveness check cannot report a mask freed with its row: the enter handler stops being called, so no writes follow (r20 shows reads of freed memory and no links-lost line), and the re-arm that a hunt crossing areas needs has no signal for that case."
+    "the mask's own liveness check cannot report a mask freed with its row: the enter handler stops being called, so no writes follow (r20 shows reads of freed memory and no links-lost line), and the re-arm that a hunt crossing areas needs has no signal for that case.",
+    "that the walker's marker/link check reacquires the row after an area transition (r22): the check is read-only and its only action is to drop addresses, and no run has seen it fire."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18 and r20 completed insertions, both with the gauge clipped away); r21 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18 and r20 completed insertions, both with the gauge clipped away); r21 and r22 NOT RUN",
     "date": "2026-10-23",
     "binary_sha256": "5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
