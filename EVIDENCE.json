@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r30",
+  "version": "r31",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r30",
+    "version": "r31",
     "status": "BUILT",
-    "nro_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
+    "nro_sha256": "88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -86,9 +86,9 @@
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "c7122c6e4c7dd17ef69195212e7fadba4832cc6a604408061803828d0f58f567",
+      "src/hooks.rs": "185616466f5cc49dc662ff1d890f313b896c0641161a4364a700a3366ead0392",
       "src/insert.rs": "bf338f4e33fe204ee50bf49b179c7d0548a6e778f23f22ac6233493b52710cbe",
-      "src/lib.rs": "74abe2890f12959bcabeaed109928dd7e9bec933b0fe8d3fe0698882594e2bbe",
+      "src/lib.rs": "b3ca8a414ed38e7a6c39227cf02f5a250a3b5d505bd9251f2ff2df35ffb5a9f9",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
-    "elf_sha256": "898aba0ce9d3acbd9509e51be96fa0da79093ad8f266207972558c58147ca2ae",
+    "nro_sha256": "88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b",
+    "elf_sha256": "d0253e2a4512b4daa23d6654304e57cec86da5b91bd730d3b6e14d4abcb061f1",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -658,6 +658,27 @@
         "no 'gauge controller observed' after the drop, to log end (~45 s window)"
       ],
       "conclusion": "Two conclusions, both arithmetic. (1) The double-destruction is dead: r29's drop state is clean fill where r26-r28 showed tombstones/relive links. (2) The clip has never worked in any run: enter fed the bar's ANIMATED authored-size field (bar+0xa8, layout-zeroed at mask enter, 0xFFFF64EE in the probe) into mask_box, so box width = 0, the authored pair was (0,128), the game's rect builder collapsed the width, and the mask subtree drew nothing. r24-r27's visible gauge was the game's own bar on the unbroken root.sibling chain, drawn outside the mask - r29 sealed that chain, so the bar's only path is under a zero-width mask: nothing. r30: mask_box's bar_width input becomes the bar's screen rect width (rect[2]-rect[0] = 238-110 = 128, proven by the tree lines); every other r29 line kept. The area-change rebuild question reopens honestly: the free-list poison is gone, r29's post-drop window (45 s) is too short to answer; a run with a visible bar will."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r30",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r30-eden-2026-10-24.txt",
+      "session_seconds": 590,
+      "our_lines": 461,
+      "observed": [
+        "user report: r30 ran, bar visible, no right edge movement; area change: gauge visible, no right edge movement",
+        "the gauge being visible after the area change is the first time in the project's history: the row rebuild that failed in r24-r28 is healthy with the double-free gone",
+        "insertion t~180 (mask=0x48589200 map=0x4851a320 entries=5 records=9); 232 clip lines",
+        "the authored pair now moves: size=116,128 (90.6%), 102,128 (79.7%); the built rect follows: 110 38 226 166 -> 110 38 212 166 - the width fix landed and the game's builder consumes it",
+        "samples show real sharpness: current 350->335->332->305->299, tier 4->3, ratio_bp 10000->9571->9485->8714->8542",
+        "the bar node's own rect (110 38 238 166) and UVs (0,180,120,192 floats) are CONSTANT across the run: the bar quad never shrinks; the visible edge is the clip's, not the bar's geometry",
+        "the game relinked the inserted tree to the top: tree walk root = mask (mask.child=bar, bar.child=0, bar.sibling=glow, glow.sibling=edge, all parent=mask) - the draw cache is [enter, bar, glow, edge, exit]: the bar draws inside the clip",
+        "drop t=545: links lost, clean-fill snapshots; no re-insertion after (the game rebuilt a vanilla row; the sampler found no gauge controller - the visible gauge after the change is vanilla's own)"
+      ],
+      "conclusion": "The clip chain is proven complete by reading FUN_01414a94 (enter: rebuild rect from authored via VectorSignedToFloat with the fpscr mode byte; apply: intersect rect with the context box - a degenerate box passes the rect through - save the old box at mask+0xc0..0xcc, call the setter) and FUN_01400c1c (setter: main+0xa37c1c, the doc's 0xa400c1c used base 0x9c0000; transforms the box by the target's affine from context+4, writes the render target's scissor at target+0xe4..0xf0, marks target+0xc0 bit 3, saves the box at context+0xd0..0xdc). The rect moves per the probe; the target's scissor rect - the ground truth every draw consumes - is the one value never read. r31 adds that probe (target+0xe4..0xf0 and +0xc0, read in the mask enter hook right after the native apply, printed on the 2s clip line). If scr moves with the rect and the bar stays uncut, the gap is the consumer/GPU side; if scr sits at full-screen, the apply is being undone and the enter/exit record order is the suspect."
     }
   ],
   "not_proven": [
@@ -678,13 +699,13 @@
     "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25's disable fired at the drop, and the gauge row was never rebuilt in 150 s, so the restore was not observable. Which link broke, and what state the row's objects were in afterwards, is what r26 measures.",
     "that the game rebuilds the gauge row after an area change with this mod inserted: r26's run shows it does not (fill-pattern objects, 25,000 discovery attempts, 160 s), while vanilla shows the gauge in every area (the tester's account).",
     "that r28's area-1 regression is exactly the cache leak: r26/r27 drew area 1 with the release; r28 (leak, identical probe) did not; the causal line is not read, and r29 restores the release.",
-    "that the gauge ever shows and tracks sharpness: the clip produced a zero-width rectangle in every run r18-r29, so no version has ever drawn through the mask; r30's rect-width input is the first chance. The user has never confirmed the bar's width following sharpness - r30's run answers that, and it is the acceptance question.",
-    "that the gauge row rebuilds after an area change with the free-list poison gone: r29's teardown was clean (fill state, no tombstones) and the post-drop window (45 s) found no controller; the earlier long windows ran while the double-free was live, so they do not settle it."
+    "that the gauge row rebuilds after an area change with the free-list poison gone: r29's teardown was clean (fill state, no tombstones) and the post-drop window (45 s) found no controller; the earlier long windows ran while the double-free was live, so they do not settle it.",
+    "that the gauge's visible width follows sharpness: r30 shows the bar, the authored width, and the built rect all moving (116->102 px at 90.6->79.7%), the bar quad constant at full width - the visible edge must be the clip's, and the user sees it static. The render target's scissor (target+0xe4..0xf0) is the unmeasured ground truth; r31 probes it. Acceptance remains unconfirmed."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
+    "binary_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

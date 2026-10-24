@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r30 comes from static analysis of the r29 run (NRO 611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2 installed bytes matching, log work/modern-sharpness-gauge/runs/r29-eden-2026-10-24.txt), not a runtime guess. It proved both r29 changes: the drop state is clean fill (the double-free that killed the row rebuild is gone), and the bar is invisible because the mask's authored pair is (0,128) - zero width - in every run since r23: enter fed the bar's animated authored-size field (bar+0xa8, layout-zeroed at mask enter, read as 0xFFFF64EE in the probe) into mask_box. The visible gauge in r24-r27 was the game's own bar on the sibling chain outside the mask; r29 sealed that chain and only then revealed the clip never drew. r30's one change: mask_box's bar_width input is the bar's screen rect width (rect[2]-rect[0] = 128, proven by the tree lines 110 38 238 166), guarded against non-positive, keeping every r29 measurement.",
+  "reason": "r30's run (NRO b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba installed matching, log work/modern-sharpness-gauge/runs/r30-eden-2026-10-24.txt) closed two long failures and left one question. Closed: the gauge is visible in area 1 (width fix works - authored 116/102 px at 90.6/79.7%, rect 110..226 -> 110..212), and the gauge is visible after an area change (the rebuild that failed r24-r28 is healthy with the double-free gone). Open: the visible edge does not move, while the bar's own quad (110..238) and UVs are constant, so the edge must be the clip's. The enter (FUN_01414a94) and setter (FUN_01400c1c = main+0xa37c1c; the doc's 0xa400c1c used base 0x9c0000) are now fully read: the apply intersects the rect with the context box (degenerate -> pass), writes the render target's scissor at target+0xe4..0xf0 + target+0xc0 bit 3, saves the box at context+0xd0. The target's scissor is the one value never measured. r31 is measurement only: the mask enter hook reads target+0xe4..0xf0 and +0xc0 from the context's target (+4) right after the native apply, and the 2s clip line prints scr=/tgt=. No behavior changed.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r30",
+  "version": "r31",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r30-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r30/delivery",
+  "archive": "modern-sharpness-gauge-r31-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r31/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass: (1) the bar draws in area 1 through the mask - the clip line's authored pair must now read size=<128*points/10000>,128 with rect right > 110; (2) on screen, the bar's right edge moves with sharpness (the acceptance question no run has answered); (3) after an area change, a second 'scissor mask inserted' and the bar in the new area. The mask-enter link check is the drop signal; the root destructor hook is kept for measurement, not relied on (it does not fire on transitions).",
+  "runtime_test": "NOT RUN. The pass/fail line: on the clip lines, `scr=` must track `rect=` (110 38 226 166 -> 110 38 212 166) with tgt bit 3 set. If scr moves and the bar edge is still static, the gap is the draw consumer (GPU-side), and the exit record ordering is the first suspect. If scr sits at full screen while rect moves, the apply is undone between apply and draw, and the record order is the cause.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {

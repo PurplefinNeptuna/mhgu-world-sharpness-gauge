@@ -143,6 +143,36 @@ pub unsafe extern "C" fn msg_mask_enter(mask: u32, context: u32) {
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(mask, context) };
+    // The apply's ground truth: the setter (FUN_01400c1c, main+0xa37c1c - the doc's
+    // 0xa400c1c came from base 0x9c0000) transforms the box and writes the render target's
+    // scissor at target+0xe4..0xf0, marking target+0xc0 bit 3. The context hands the target
+    // at +4. Read it right after the original's apply; the clip log prints it. If these move
+    // with the ratio while the bar stays uncut, the gap is on the consumer side, not the mask.
+    if let Some(target) = memory::word(context.wrapping_add(4)) {
+        if target != 0 {
+            for (slot, offset) in (0usize..4).zip([0xe4u32, 0xe8, 0xec, 0xf0]) {
+                SCISSOR[slot].store(
+                    memory::word(target.wrapping_add(offset)).unwrap_or(0),
+                    Ordering::Relaxed,
+                );
+            }
+            SCISSOR[4].store(
+                memory::word(target.wrapping_add(0xc0)).unwrap_or(0),
+                Ordering::Relaxed,
+            );
+        }
+    }
+}
+
+/// The render target's scissor rect and flag word, read after the last mask apply.
+pub fn scissor() -> [u32; 5] {
+    [
+        SCISSOR[0].load(Ordering::Relaxed),
+        SCISSOR[1].load(Ordering::Relaxed),
+        SCISSOR[2].load(Ordering::Relaxed),
+        SCISSOR[3].load(Ordering::Relaxed),
+        SCISSOR[4].load(Ordering::Relaxed),
+    ]
 }
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
@@ -166,6 +196,14 @@ pub fn instance_fires() -> u32 {
     FIRES.load(Ordering::Relaxed)
 }
 static TEARDOWNS: AtomicU32 = AtomicU32::new(0);
+/// Render target scissor (target+0xe4..0xf0) plus target+0xc0, stored after each mask apply.
+static SCISSOR: [AtomicU32; 5] = [
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+    AtomicU32::new(0),
+];
 static FIRES: AtomicU32 = AtomicU32::new(0);
 
 /// The recorded pair, for the log line; zeros mean it was never captured.

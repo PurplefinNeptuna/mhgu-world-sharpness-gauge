@@ -1,22 +1,19 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r30 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). The r29 run (log runs/r29-eden-2026-10-24.txt, installed bytes
-matching) closed the teardown question and opened the drawing one, by arithmetic:
-1. The drop state is CLEAN FILL (marker=0xffffff, no tombstones): the root.sibling=0 seal
-   ended the double-destruction that poisoned the texture allocator and killed the row
-   rebuild in r24-r28 and crashed r14. The root destructor hook never fires on transitions
-   (skill rule confirmed by data); the mask-enter link check is the live drop signal.
-2. The clip has never drawn: every run since r23 probes the authored pair (0,128) - box
-   width 0 - because enter fed the bar's animated authored-size field (bar+0xa8,
-   layout-zeroed at mask enter, 0xFFFF64EE in the probe) into mask_box. r24-r27's visible
-   gauge was the game's own bar on the unbroken sibling chain, outside the mask; r29 sealed
-   that chain, so the bar's only path is under the zero-width mask: nothing shows.
-r30 is one input fix: mask_box's bar_width is the bar's screen rect width (rect[2]-rect[0]
-= 238-110 = 128, proven by the tree lines), guarded against non-positive; all measurements
-kept. The acceptance question - does the bar's visible width follow sharpness - has never
-been answered and r30 is the first version that can show it.
-r25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+Current state: Phase 2 candidate r31 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r30's run (log runs/r30-eden-2026-10-24.txt) closed two failures:
+the bar draws in area 1 with the authored width and rect moving (116->102 px, 110..226 ->
+110..212, at 90.6%->79.7% sharpness), and the gauge is visible after an area change - the
+rebuild that failed r24-r28 is healthy with the double-free gone. The open question is one:
+the user sees no right-edge movement, while the bar's own quad (110..238, constant) proves
+the visible edge can only be the clip's. The enter (FUN_01414a94) and the scissor setter
+(FUN_01400c1c = main+0xa37c1c; the docs' 0xa400c1c came from base 0x9c0000) are fully read:
+apply = intersect rect with context box (degenerate -> pass), write the render target's
+scissor at target+0xe4..0xf0, mark target+0xc0 bit 3, save the box at context+0xd0. The
+target's scissor is the ground truth no run has measured: r31 reads it (context+4 -> target,
++0xe4..0xf0, +0xc0) right after the native apply and prints scr=/tgt= on the 2s clip line.
+Measurement only; no behavior changed.
+r25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor
