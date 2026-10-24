@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r29",
+  "version": "r30",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r29",
+    "version": "r30",
     "status": "BUILT",
-    "nro_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
+    "nro_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,7 +87,7 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "c7122c6e4c7dd17ef69195212e7fadba4832cc6a604408061803828d0f58f567",
-      "src/insert.rs": "b49295768e91e54d041adfe8925d494ccfe8a30e89cb5cc5725f317815399ecf",
+      "src/insert.rs": "bf338f4e33fe204ee50bf49b179c7d0548a6e778f23f22ac6233493b52710cbe",
       "src/lib.rs": "74abe2890f12959bcabeaed109928dd7e9bec933b0fe8d3fe0698882594e2bbe",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
-    "elf_sha256": "9cd0b4a5b8f47b016cba8715b42679b212b6c87a7973566c8a616c9285935fda",
+    "nro_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
+    "elf_sha256": "898aba0ce9d3acbd9509e51be96fa0da79093ad8f266207972558c58147ca2ae",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -639,6 +639,25 @@
         "the root destructor hook's gate compared its argument to the sampler's controller; the tree shows the root's parent is the controller, so the cGUIObjRoot destructor argument (the root node) can never equal it: the 'zero fires' record was a gate artifact"
       ],
       "conclusion": "The insertion broke the one-inbound-chain-per-node invariant every native teardown walk relies on: bar, glow and edge sit on both the root's sibling chain and the mask's child chain, so the transition's teardown destroys and frees them twice, which corrupts the texture allocator's free list and kills the game's gauge row rebuild in the next area (the r24-r28 failure) and crashed r14 at a quest end. r28's area-1 regression is the cache leak: r26/r27 drew area 1 with the old cache released through root slot 0x5c. r29: write root.sibling=0 when the bar chain moves under the mask, restore the 0x5c release, gate the root destructor hook on the captured row root (its r28-proven argument), keep memAlloc(bytes, align=16) as the game's own FUN_01401bc0 calls it, keep every measurement."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r29",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r29-eden-2026-10-24.txt",
+      "session_seconds": 590,
+      "our_lines": 461,
+      "observed": [
+        "user report: r29 ran and shows NOTHING",
+        "insertion t=179.27 (mask=0x47f2dab0 map=0x47ed9410 entries=5 cache=0x47f3cc20 records=9); 182 clip lines to t~543",
+        "clip probe geometry is the same zero-width as every run since r23: authored pair size=0,128, mask rect 110 38 110 166 (width 0); bar's own authored size reads garbage (0xFFFF64EE family) on the same line",
+        "drop t=545.2: links-lost snapshot is CLEAN FILL (marker=0xffffff, root.child=0xffffff, bar.parent=mask intact, bar.sibling=itself) and the change-only probes settle into allocator fill values: the single-chain teardown reached every node exactly once - no tombstones, no double-free",
+        "'gauge row root destroyed' never fired: the cGUIObjRoot slot-0x04 destructor is not called on area transitions (the skill rule); the mask-enter link check remains the live drop signal",
+        "no 'gauge controller observed' after the drop, to log end (~45 s window)"
+      ],
+      "conclusion": "Two conclusions, both arithmetic. (1) The double-destruction is dead: r29's drop state is clean fill where r26-r28 showed tombstones/relive links. (2) The clip has never worked in any run: enter fed the bar's ANIMATED authored-size field (bar+0xa8, layout-zeroed at mask enter, 0xFFFF64EE in the probe) into mask_box, so box width = 0, the authored pair was (0,128), the game's rect builder collapsed the width, and the mask subtree drew nothing. r24-r27's visible gauge was the game's own bar on the unbroken root.sibling chain, drawn outside the mask - r29 sealed that chain, so the bar's only path is under a zero-width mask: nothing. r30: mask_box's bar_width input becomes the bar's screen rect width (rect[2]-rect[0] = 238-110 = 128, proven by the tree lines); every other r29 line kept. The area-change rebuild question reopens honestly: the free-list poison is gone, r29's post-drop window (45 s) is too short to answer; a run with a visible bar will."
     }
   ],
   "not_proven": [
@@ -658,13 +677,14 @@
     "that the mask's PosX/PosY properties are inert for a node with no animation row entry: r23's rectangle origin matched the parent's, not the written position. The PosX/PosY setters (main+0xa4b02c / main+0xa4b058) were not called.",
     "that disabling the mask (main+0xa4ba20) on link loss restores the gauge in the next area: r25's disable fired at the drop, and the gauge row was never rebuilt in 150 s, so the restore was not observable. Which link broke, and what state the row's objects were in afterwards, is what r26 measures.",
     "that the game rebuilds the gauge row after an area change with this mod inserted: r26's run shows it does not (fill-pattern objects, 25,000 discovery attempts, 160 s), while vanilla shows the gauge in every area (the tester's account).",
-    "runtime proof of the double-destruction mechanism: it is read from the mask destructor (main+0xa56758), the row-swap destroy (main+0xa38828), and the r28 tree/drop lines; r29's root.sibling=0 is its test. A run that draws the gauge in area 1 and re-inserts after an area change confirms it.",
-    "that r28's area-1 regression is exactly the cache leak: r26/r27 drew area 1 with the release; r28 (leak, identical probe) did not; the causal line is not read, and r29 restores the release."
+    "that r28's area-1 regression is exactly the cache leak: r26/r27 drew area 1 with the release; r28 (leak, identical probe) did not; the causal line is not read, and r29 restores the release.",
+    "that the gauge ever shows and tracks sharpness: the clip produced a zero-width rectangle in every run r18-r29, so no version has ever drawn through the mask; r30's rect-width input is the first chance. The user has never confirmed the bar's width following sharpness - r30's run answers that, and it is the acceptance question.",
+    "that the gauge row rebuilds after an area change with the free-list poison gone: r29's teardown was clean (fill state, no tombstones) and the post-drop window (45 s) found no controller; the earlier long windows ran while the double-free was live, so they do not settle it."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
+    "binary_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

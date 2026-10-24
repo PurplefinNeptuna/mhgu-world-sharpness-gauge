@@ -63,7 +63,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r29`.
+lines that matter start with `MSG r30`.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it

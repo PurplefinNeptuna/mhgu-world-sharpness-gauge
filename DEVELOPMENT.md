@@ -1,18 +1,22 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r29 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r28's run (a regression: no bar in area 1) plus reading the mask
-destructor main+0xa56758 found the structural defect: the row's nodes are siblings under the
-controller, the insertion hung the bar chain under the mask, and left `root.sibling=bar` in
-place, so bar, glow and edge sat on two inbound chains; every teardown walk destroys what it
-reaches, so the area transition destroyed and freed them twice - the texture allocator's free
-list is what breaks, which is why the game cannot rebuild the gauge row in the next area
-(r24-r28) and why r14 crashed at a quest end. r29: `root.sibling=0` when the bar chain moves
-under the mask, the cache release restored (r28's leak caused its area-1 regression), the root
-destructor hook gated on the captured row root (the r28 tree lines prove the argument is the
-root, never the controller - the old gate was dead), `memAlloc(bytes, align=16)` kept as the
-game's own FUN_01401bc0 calls it, and all r26-r28 measurements kept.
-r25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+Current state: Phase 2 candidate r30 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). The r29 run (log runs/r29-eden-2026-10-24.txt, installed bytes
+matching) closed the teardown question and opened the drawing one, by arithmetic:
+1. The drop state is CLEAN FILL (marker=0xffffff, no tombstones): the root.sibling=0 seal
+   ended the double-destruction that poisoned the texture allocator and killed the row
+   rebuild in r24-r28 and crashed r14. The root destructor hook never fires on transitions
+   (skill rule confirmed by data); the mask-enter link check is the live drop signal.
+2. The clip has never drawn: every run since r23 probes the authored pair (0,128) - box
+   width 0 - because enter fed the bar's animated authored-size field (bar+0xa8,
+   layout-zeroed at mask enter, 0xFFFF64EE in the probe) into mask_box. r24-r27's visible
+   gauge was the game's own bar on the unbroken sibling chain, outside the mask; r29 sealed
+   that chain, so the bar's only path is under the zero-width mask: nothing shows.
+r30 is one input fix: mask_box's bar_width is the bar's screen rect width (rect[2]-rect[0]
+= 238-110 = 128, proven by the tree lines), guarded against non-positive; all measurements
+kept. The acceptance question - does the bar's visible width follow sharpness - has never
+been answered and r30 is the first version that can show it.
+r25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor

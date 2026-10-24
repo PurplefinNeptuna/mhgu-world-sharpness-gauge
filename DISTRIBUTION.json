@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r29 fixes the insertion's structural defect, found by reading the mask destructor main+0xa56758 (walks the +0x68 child chain destroying each node, then memFrees the mask) against the r28 run's tree lines (NRO ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e, Eden 2026-10-24, installed bytes matching): the gauge row's nodes are siblings under the controller, the insertion moved the bar chain under the mask, and left root.sibling=bar in place, so bar, glow and edge have two inbound chains. Every teardown walk destroys what it reaches, so the area transition's teardown frees them twice, corrupts the texture allocator, and the game cannot rebuild the gauge row in the next area - the area-change failure of r24-r28, and r14's quest-end crash. r28's own area-1 regression came from leaking the old cache block, so r29 restores that release (root slot 0x5c, the root's own destructor's free path). r29: write root.sibling=0 when the bar chain moves, restore the cache release, gate the root destructor hook on the captured row root (the r28 tree proves the argument is the root, never the controller, so the old gate was dead), keep memAlloc(bytes, align=16) as the game's FUN_01401bc0 calls it, and keep all r26-r28 measurements.",
+  "reason": "r30 comes from static analysis of the r29 run (NRO 611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2 installed bytes matching, log work/modern-sharpness-gauge/runs/r29-eden-2026-10-24.txt), not a runtime guess. It proved both r29 changes: the drop state is clean fill (the double-free that killed the row rebuild is gone), and the bar is invisible because the mask's authored pair is (0,128) - zero width - in every run since r23: enter fed the bar's animated authored-size field (bar+0xa8, layout-zeroed at mask enter, read as 0xFFFF64EE in the probe) into mask_box. The visible gauge in r24-r27 was the game's own bar on the sibling chain outside the mask; r29 sealed that chain and only then revealed the clip never drew. r30's one change: mask_box's bar_width input is the bar's screen rect width (rect[2]-rect[0] = 128, proven by the tree lines 110 38 238 166), guarded against non-positive, keeping every r29 measurement.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r29",
+  "version": "r30",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r29-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r29/delivery",
+  "archive": "modern-sharpness-gauge-r30-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r30/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN: r29 gives every node one inbound chain, restores the cache release, and fires the root destructor hook for real. Pass: the bar draws in area 1 (r26/r27 behaviour), and after an area change the log shows a second 'scissor mask inserted' and the gauge in the new area. A 'gauge row root destroyed' line at the transition is expected and healthy: the hook's gate works now.",
+  "runtime_test": "NOT RUN. Pass: (1) the bar draws in area 1 through the mask - the clip line's authored pair must now read size=<128*points/10000>,128 with rect right > 110; (2) on screen, the bar's right edge moves with sharpness (the acceptance question no run has answered); (3) after an area change, a second 'scissor mask inserted' and the bar in the new area. The mask-enter link check is the drop signal; the root destructor hook is kept for measurement, not relied on (it does not fire on transitions).",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {

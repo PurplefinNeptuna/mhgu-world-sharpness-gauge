@@ -321,10 +321,16 @@ pub fn enter(mask: u32) {
         memory::word(bar + 0xe8).unwrap_or(0) as i32,
         memory::word(bar + 0xec).unwrap_or(0) as i32,
     ];
-    let Some(width) = memory::word(bar + MASK_SIZE).map(|w| w as i32) else {
+    // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
+    // enter: the clip line's own bar probe read 0xFFFF64EE there, and mask_box saw width 0
+    // every frame - the authored pair stayed (0,128), the rect stayed 110..110, and the mask
+    // subtree drew nothing in every run (r24-r27's visible gauge was the game's own bar on the
+    // unbroken sibling chain, never the mask's). The bar's screen rect is the proven width:
+    // 110..238 = 128 in the tree lines.
+    if rect[2] <= rect[0] {
         return;
-    };
-    let box_words = mask_box(rect, ratio, width);
+    }
+    let box_words = mask_box(rect, ratio, rect[2] - rect[0]);
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
     // are the writes that matter. The r23 run read the rectangle 225 times with width 0 and
     // height 32 at the parent's origin (110,38), against authored 128x32, which pins each input:
