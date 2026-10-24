@@ -280,10 +280,10 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " clip mask rect={a} {b} {c} {d} flags={flags:#x} bar rect={l} {t} {r} {bb}"
+            " clip mask rect={a} {b} {c} {d} flags={flags:#x} anchors={anchors:#x} bar rect={l} {t} {r} {bb}"
         ),
         a = probe[0] as i32, b = probe[1] as i32, c = probe[2] as i32, d = probe[3] as i32,
-        flags = probe[4],
+        flags = probe[4], anchors = probe[9],
         l = probe[5] as i32, t = probe[6] as i32, r = probe[7] as i32, bb = probe[8] as i32);
     }
     let (calls, taken, matched) = sampling::stats();

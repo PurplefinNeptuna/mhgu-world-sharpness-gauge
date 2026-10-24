@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r22",
+  "version": "r23",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r22",
+    "version": "r23",
     "status": "BUILT",
-    "nro_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
+    "nro_sha256": "909dd7fa281cc8863c79fef6d91b49cd5ecd2da837ee30ad6d5ed01f7befc225",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,8 +87,8 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "29c88e5e685e673207771e7aa8d14d48049a8b1ef9f5fad0b84801cc906bb298",
-      "src/insert.rs": "fc3da4a995cbc37f3b48d3d9700b1a467088c4ceb160c764463a6edb5fe8b984",
-      "src/lib.rs": "6260c9ef46017c89f392333f149ecace7efcec5ec8d9d941644924b09a31d318",
+      "src/insert.rs": "272e03132c2e9d903a8763ae7f9a11a2b671fae82ce23cc7dd856e685b28aa10",
+      "src/lib.rs": "8804bbf97c1b5964467527ab52106c9d782299a277c5be0ff51e6fc273ea8b02",
       "src/memory.rs": "5fa9d8ed41e34d7ecce775405b2fbfefe13d7df51f36bf82a7b2e69098d3c04c",
       "src/sampling.rs": "e202526f1ec6d723ea9d05d434fd62b08be5fd954d74a34453c4491a47e693fc",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
-    "elf_sha256": "2b29166bd597ae87eec7d15c68700edcd29d6db84dee765a357262541729a060",
+    "nro_sha256": "909dd7fa281cc8863c79fef6d91b49cd5ecd2da837ee30ad6d5ed01f7befc225",
+    "elf_sha256": "94ac1d9b3f7f4f11e2a1701b9af4c302dc3d7070656118aa4b9244fff2ad3cdc",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -207,7 +207,7 @@
       ]
     },
     "words_per_sample": 116,
-    "note": "r22: 20 host fixtures pass, unchanged: the change is a read-only mask check in the draw walker that re-arms the row path, which is not host-testable; the cache/geometry fixtures were not touched.",
+    "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
     "nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed"
   },
   "runs": [
@@ -502,10 +502,29 @@
         "the session ran past t=743 with the Eden emu-thread warning at 743.29 as in earlier runs; no guest exception"
       ],
       "conclusion": "The enter-hook write is not the failure: the writes were skipped by the build's cache of the last box, and the sharpness never moved, so the box was written on the row's first enter call and never again while the game rewrote its derived rectangle. r21 removes the cache. The link check cannot report a mask freed with its row (the handler is not called), which removes the freed-mask writes and, with them, the re-arm: the plugin sits out the rest of the session."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r22",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r22-eden-2026-10-24.txt",
+      "session_seconds": 715,
+      "our_lines": 359,
+      "observed": [
+        "user report: the gauge disappeared from the start of the quest and never recovered",
+        "scissor mask inserted: mask=0x48770db0 map=0x48c02000 entries=5 cache=0x48780d50 records=9 (t=139.89): the third completed insertion",
+        "225 of 225 sane probe lines read the clip rectangle at left == right (110 32 110 64 with the bar at 110,38,238,166; 660 192 660 224 with the bar at 660,198,788,326), flags=0x1, t=141.9..590.5",
+        "14 samples: 350/350 tier 4 down to 328/350 tier 3, so the box was recomputed with different widths through the session",
+        "`inserted mask's links lost (1 times)` at t=591.98: the walker's marker/link check fired, dropped the addresses and re-armed; stage-21 lines follow to t=712.6, no gauge HUD to find after the quest ended",
+        "no guest exception in the session"
+      ],
+      "conclusion": "The enter-hook write site is not the reason the scissor is empty: r21's every-frame write was active and the box still came out zero-wide 225 times. The cause is static: main+0xa4b390 reads mask+0xa0 bits 0-3 as the y and x anchor modes, mode 3 collapses an axis to zero extent, and the class factory leaves those bits as the freshly allocated block had them (it writes (word & 0xfffff000) | 0xff0). Left == right with the height ours is the x-collapsed, y-spanning signature, shared by r14, r18, r20 and r22. The enter handler's bit 1 rebuilds +0xb0..+0xbc from that quad every frame, which is why writing the rectangle words (r18, r20, r22) never moved the scissor. r23 clears the modes and lets the game rebuild. The run also proved the walker's liveness check firing and re-arming once, in a live session."
     }
   ],
   "not_proven": [
-    "that a rectangle written inside the mask's enter handler (main+0xa4ba94) is the rectangle the scissor keeps. r18 wrote it from the walker's entry, r20 wrote it in the enter call and skipped every repeat through a box cache: both runs show 206-383 probe lines at left == right. r21 writes it on every enter call and no run has checked that.",
+    "that clearing the mask's anchor modes (mask+0xa0 bits 0-3 to 0) makes the game's own rebuild produce the intended rectangle: the mode table is read from main+0xa4b390 and the factory's partial write from main+0xa4b6cc, and r23 is the first build to set them; no run has read the anchor word back.",
     "exact binary gameplay acceptance: the r16 run reports the bar visible, and no user has accepted a specific binary as the mod's gauge change (there is none in r16).",
     "who allocates the gauge row's object array at instance+0xd8: Key Quest Markers' accepted pattern allocates GUI blocks through the owning class's DTI MT allocator (main+0x7aa47c), which r17/r18 use to grow the array from 4 words to 5; the game's own destructor is assumed to free the published block, and that has not been observed.",
     "which pass drove mask+0xa8/+0xac to zero at t=642.30 in the r14 session. The only writer read so far is the Size setter main+0xa4ba40, reached through the vtable; the pass's identity is inference from the log, not a read function.",
@@ -517,12 +536,12 @@
     "that the row's layout pass leaves a rectangle written at mask+0xb0..+0xbc in place: r14 proved the rebuilt rectangle comes from the node's own quad, and r17 writes the built rectangle itself, which no run has checked yet.",
     "that a lost mask re-arms the row path correctly (r20): quests are split into areas with a loading screen between them (the tester's account of 2026-10-24), so a gauge row's death is expected mid-hunt, and the re-arm has never run.",
     "the mask's own liveness check cannot report a mask freed with its row: the enter handler stops being called, so no writes follow (r20 shows reads of freed memory and no links-lost line), and the re-arm that a hunt crossing areas needs has no signal for that case.",
-    "that the walker's marker/link check reacquires the row after an area transition (r22): the check is read-only and its only action is to drop addresses, and no run has seen it fire."
+    "that a re-insertion happens in a later area's row: the walker's liveness check fired once in r22 and re-armed, but the HUD was absent for the rest of that session, so a mask in a second area's row has not been observed."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18 and r20 completed insertions, both with the gauge clipped away); r21 and r22 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22 completed insertions, each with the gauge clipped away); r23 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb",
+    "binary_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [

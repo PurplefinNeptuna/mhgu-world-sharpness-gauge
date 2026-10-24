@@ -40,10 +40,14 @@ const MASK_ID: u32 = 0x50;
 const MASK_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
 const MASK_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
 const MASK_POS: u32 = 0x80; // PosX/PosY floats
+const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
 const MASK_RECT: u32 = 0xb0; // left, top, right, bottom, four integers
-const ENABLE: u32 = 1; // bit 1 clear: a set bit 1 makes the game rebuild the rectangle
+/// bit 1 set asks the game's enter handler to rebuild the rectangle from the node's quad, and
+/// bit 0 applies it. The rebuild is the game's own arithmetic, and its inputs are the fields
+/// written above it.
+const REBUILD_AND_APPLY: u32 = 3;
 /// The halfwords main+0xa49b28 sizes from: objects at row+8, sequences at row+8+2. The facts
 /// line's `counts` is the pair at row+4, which the sizer does not read.
 const ROW_SIZING: u32 = 0x08;
@@ -240,25 +244,31 @@ pub fn enter(mask: u32) {
         return;
     };
     let box_words = mask_box(rect, ratio, width);
-    let next = [
-        box_words[0] as u32,
-        box_words[1] as u32,
-        (box_words[0] + box_words[2]) as u32,
-        (box_words[1] + box_words[3]) as u32,
-    ];
-    // Every call, with no cache of the last box. The r20 run read the rectangle 206 times and
-    // every sane line had width 0: the authored pair, position pair and rectangle were written
-    // once (the ratio never moved, so a remembered box skipped them all), and the game's layout
-    // rewrote its derived values in between. The five writes here are per frame, for the one
-    // mask this plugin owns.
+    // The anchor modes decide what the game's quad builder (main+0xa4b390) makes of the authored
+    // pair: it reads `mask+0xa0 & 3` as the y mode and `& 0xc` as the x mode, where 0 spans
+    // 0..size, 1 centres, 2 spans -size..0 and 3 collapses the extent to zero. The class factory
+    // forces bits 4-11 and leaves bits 0-3 as the allocator handed them, and the game's own masks
+    // get those bits from the row builder's resource record, which a factory-built mask has
+    // none of. Bits 0-3 clear, the authored pair and the position are what the rebuild reads,
+    // and the rectangle the handler applies comes out of that.
+    //
+    // This is the cause of the four failed runs: r14, r18, r20 and r22 all printed the same
+    // signature (left == right, top/bottom = pos and pos + our height), which is the x axis
+    // collapsed and the y axis spanning 0..size. It is also why writing the rectangle itself
+    // did not help: the handler rebuilds it from the quad every frame.
+    if let Some(anchors) = memory::word(mask + MASK_ANCHORS) {
+        if anchors & 0xf != 0 {
+            let _ = memory::write_word(mask + MASK_ANCHORS, anchors & !0xf);
+        }
+    }
+    // No cache of the last box: the game rewrites its derived rectangle every frame, so the
+    // inputs have to be written every frame. r20 wrote them once, because a remembered box
+    // skipped the rest, and the gauge stayed hidden.
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, box_words[3] as u32);
     let _ = memory::write_bits(mask + MASK_POS, box_words[0] as f32);
     let _ = memory::write_bits(mask + MASK_POS + 4, box_words[1] as f32);
-    for (index, word) in next.iter().enumerate() {
-        let _ = memory::write_word(mask + MASK_RECT + index as u32 * 4, *word);
-    }
-    let _ = memory::write_word(mask + MASK_FLAGS, ENABLE);
+    let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
 }
 
 /// Insert the mask under the row root, over the bar, glow and edge, after the row's map and
@@ -299,7 +309,7 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     let ready = memory::write_word(mask + MASK_ID, MARKER)
         && memory::write_word(mask + MASK_OWNER, owner)
         && memory::write_word(mask + MASK_RESOURCE, resource)
-        && memory::write_word(mask + MASK_FLAGS, ENABLE);
+        && memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
     if !ready {
         if let Some(destructor) = owned {
             let _ = memory::call1(destructor, mask);
@@ -354,13 +364,13 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     })
 }
 
-/// The mask's rectangle and flags as the game holds them between frames, next to the bar's
-/// rect: the readback that shows what the layout pass left behind after the enter hook wrote.
-/// Zeros mean nothing is inserted.
-pub fn probe() -> [u32; 9] {
+/// The mask's rectangle, flags and anchor modes as the game holds them between frames, next to
+/// the bar's rect: the readback that shows what the layout pass left behind after the enter hook
+/// wrote. Zeros mean nothing is inserted.
+pub fn probe() -> [u32; 10] {
     let mask = MASK.load(Ordering::Relaxed);
     let bar = BAR.load(Ordering::Relaxed);
-    let mut out = [0u32; 9];
+    let mut out = [0u32; 10];
     if mask == 0 {
         return out;
     }
@@ -368,6 +378,8 @@ pub fn probe() -> [u32; 9] {
         out[index] = memory::word(mask + MASK_RECT + index as u32 * 4).unwrap_or(0);
     }
     out[4] = memory::word(mask + MASK_FLAGS).unwrap_or(0);
+    // The anchor modes as the game holds them: bits 0-1 y, bits 2-3 x, both 0 for a full quad.
+    out[9] = memory::word(mask + MASK_ANCHORS).unwrap_or(0);
     if bar != 0 {
         for index in 0..4 {
             out[5 + index] = memory::word(bar + 0xe0 + index as u32 * 4).unwrap_or(0);

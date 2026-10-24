@@ -1,9 +1,12 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r22 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r22 adds the reacquire path the Forge skill's GUI reference asks
-for: the draw walker checks the inserted mask and re-arms the row path when it is gone, so the
-next area's HUD gets its own mask. r21 removes a box cache that made r20's clip box be written
+Current state: Phase 2 candidate r23 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r23 sets the mask's anchor modes, the one field that explains all
+four runs where the gauge vanished: the game's quad builder collapses the x axis when the x
+anchor mode is 3, and the class factory leaves those two bits as the allocator handed them. r22
+adds the reacquire path the Forge skill's GUI reference asks for: the draw walker checks the
+inserted mask and re-arms the row path when it is gone, so the next area's HUD gets its own
+mask. r21 removes a box cache that made r20's clip box be written
 once per row and never again, which is why the gauge was missing for the third run in a row. r20
 makes a lost mask re-arm the whole row path, because a hunt crosses quest areas through loading
 screens and each area's HUD is a row of its own. r19 moves
@@ -75,6 +78,16 @@ r18's run published exactly that (`records=9`).
    same box. The same run's last 90 seconds show the plugin writing into a freed mask (the row's
    scene ended, the root destructor fired zero times for the sixth session): the mask's parent
    link back to the captured root, checked in the enter hook, is the liveness proof.
+9. The mask's anchor modes live in `mask+0xa0`'s low 4 bits, and they decide the rectangle's
+   size. The quad builder main+0xa4b390 reads `& 3` as the y mode and `& 0xc` as the x mode:
+   mode 0 spans `0..size`, 1 centres, 2 spans `-size..0`, and 3 collapses the axis to zero
+   extent. The class factory sets bits 4-11 and leaves bits 0-3 as the freshly allocated block
+   had them; the class has no `Anchor` property in its DTI record, and the game's own masks get
+   the anchors from the row builder's resource record. So a factory-built mask keeps recycled
+   anchor bits, and mode 3 on the x axis is what produced `left == right` with the height ours
+   in r14, r18, r20 and r22. The enter handler's bit 1 rebuilds `+0xb0..+0xbc` from that quad
+   (the DTI `Size` setter main+0xa4ba40 is "write the pair, set bit 1"), which is why writing
+   the rectangle words never moved the scissor: r23 clears the modes and lets the game rebuild.
 6. r16 read the map. At `instance+0xd8`, the same pointer the controller keeps at `+0xa0`, the
    four entries are the controller, the bar, the glow and the edge: one word per object, length
    `tree_nodes + 1`, in its own allocation, outside the draw cache block. An inserted node needs
@@ -132,7 +145,10 @@ writes into a freed mask. r19 is not run; r20 re-arms the row path on a lost mas
 quests cross areas through loading screens and each area's HUD is its own row. r20 ran the same
 day: the insertion completed again, the gauge disappeared, 206 of 206 probe lines at left ==
 right, and no links-lost line - the box was written once, because the build cached the box it
-had written and sharpness never moved. r21 removes that cache and is not run. r22 puts a read-only mask check in the draw walker, the callback that keeps running when a mask dies with its row, so the next area's gauge row is reacquired and inserted; r22 is not run.
+had written and sharpness never moved. r21 removes that cache and is not run. r22 puts a read-only mask check in the draw walker, the callback that keeps running when a mask dies with its row, so the next area's gauge row is reacquired and inserted. r22 ran the same day: 225 of 225 probe lines at
+left == right with sharpness moving, and the links-lost line fired once and re-armed correctly;
+the gauge was clipped away the whole quest. The cause is in the mask's anchor modes at +0xa0,
+which r23 clears.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -879,6 +895,38 @@ two of its rules govern this insertion (PHASE2_RESEARCH.md quotes them):
 20 host fixtures pass; verify PASSED with 21 signature windows. r22 is not run: the clip
 geometry (r21's) and the reacquire (r22's) both need a run, and recreation across areas is now
 part of what a run has to cover.
+
+## r22 run 2026-10-24 (Eden): 225 of 225 zero-width, and the reacquire proved working
+
+Log `work/modern-sharpness-gauge/runs/r22-eden-2026-10-24.txt` (sha256
+`11215d07f141c1e313560e4bd9c367b644078681549d0c3a96a93526eeb13fa6`), installed bytes
+`a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945`. The user: the gauge
+disappeared from the start of the quest and never recovered. 359 plugin lines to t=714.5.
+
+- `scissor mask inserted: mask=0x48770db0 map=0x48c02000 entries=5 cache=0x48780d50 records=9`
+  at t=139.89; 14 samples, sharpness 350/350 tier 4 down to 328 tier 3, so the clip box changed
+  during the session.
+- 225 of 225 sane probe lines have width 0: `110 32 110 64` (bar at `110,38,238,166`) and
+  `660 192 660 224` (bar at `660,198,788,326`), `flags=0x1`. r21's every-frame write was in
+  effect, so the write site is not the reason the scissor is empty.
+- `inserted mask's links lost (1 times)` at t=591.98: the walker check fired, dropped the
+  addresses and re-armed, and after it the log carries stage-21 lines to t=712 (no gauge HUD to
+  find: the quest had ended). This is the first run where that path proved it works.
+
+## r23, built 2026-10-24: the anchor modes the factory leaves alone
+
+`insert::enter` now writes `mask+0xa0 & !0xf` - both anchor modes 0, the quad spanning
+`0..size` on each axis - and `+0xa4 = 3`, which asks the game's own enter handler to rebuild the
+rectangle from the authored pair and position written in the same call, then apply it. The
+rectangle words are no longer written: main+0xa4b390 and main+0xa4ba94 say they are derived
+state, and the row's layout raises bit 1 every frame, so the game recomputes them from the quad.
+
+The static chain, in PHASE2_RESEARCH.md's section on it: the builder's mode table, the factory's
+`(word & 0xfffff000) | 0xff0`, the DTI's property list (no `Anchor`), and the four runs' shared
+signature (left == right, top = position, bottom = position + the height written). The probe
+prints the anchor word, so a run can read the modes back next to the rectangle.
+
+20 host fixtures pass; verify PASSED with 21 signature windows. r23 is not run.
 
 ## Rules to keep
 
