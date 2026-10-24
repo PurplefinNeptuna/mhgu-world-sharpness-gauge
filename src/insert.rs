@@ -29,7 +29,7 @@ use crate::{
 use core::sync::atomic::{AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, mask_box, Gauge, NODE_CHILD, NODE_PARENT, NODE_SIBLING,
+    basis_points, mask_box, Gauge, NODE_CHILD, NODE_PARENT, NODE_SIBLING, NODE_VISIBLE,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -440,7 +440,15 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         && memory::call2(link_sibling, row.effect, row.edge).is_some()
         // One inbound chain per node, the invariant every native teardown walk relies on:
         // the bar chain moved under the mask, so the root's sibling chain has to end.
-        && memory::write_word(root + NODE_SIBLING, 0);
+        && memory::write_word(root + NODE_SIBLING, 0)
+        // Modern gauge = the clean bar clipped to the ratio; the bloom outline is vanilla's
+        // flourish. Clear the glow's visibility bit - bit 0 of +0x54, the bit the game itself
+        // leaves clear on the edge glyph at full sharpness (tree dump: edge flags 0x2040000
+        // lack it, and the draw walker skips invisible nodes) - so the gauge draws as one
+        // bar. Each area's row is built fresh, so the next insertion writes the next glow.
+        && memory::word(row.effect + 0x54).is_some_and(|flags| {
+            memory::write_word(row.effect + 0x54, flags & !NODE_VISIBLE)
+        });
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);

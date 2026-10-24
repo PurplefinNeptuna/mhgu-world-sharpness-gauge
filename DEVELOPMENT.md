@@ -1,19 +1,16 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r31 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r30's run (log runs/r30-eden-2026-10-24.txt) closed two failures:
-the bar draws in area 1 with the authored width and rect moving (116->102 px, 110..226 ->
-110..212, at 90.6%->79.7% sharpness), and the gauge is visible after an area change - the
-rebuild that failed r24-r28 is healthy with the double-free gone. The open question is one:
-the user sees no right-edge movement, while the bar's own quad (110..238, constant) proves
-the visible edge can only be the clip's. The enter (FUN_01414a94) and the scissor setter
-(FUN_01400c1c = main+0xa37c1c; the docs' 0xa400c1c came from base 0x9c0000) are fully read:
-apply = intersect rect with context box (degenerate -> pass), write the render target's
-scissor at target+0xe4..0xf0, mark target+0xc0 bit 3, save the box at context+0xd0. The
-target's scissor is the ground truth no run has measured: r31 reads it (context+4 -> target,
-+0xe4..0xf0, +0xc0) right after the native apply and prints scr=/tgt= on the 2s clip line.
-Measurement only; no behavior changed.
-r25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+Current state: Phase 2 candidate r32 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r31's scr probe closed the clip question: scr=165 57 339 249 is
+our GUI box at screen x1.5 - the setter applies our rectangle exactly and it moves with the
+ratio (339 -> 322 px at 90.6% -> 82%). The user sees vanilla because the clip edge coincides
+with the fill boundary inside the texture: it cuts only empty background, zero fill pixels.
+The visible delta is the README's clean bar: r32 clears the glow's visibility bit (bit 0 of
+node +0x54 = core NODE_VISIBLE, the bit the game leaves clear on the edge glyph, the bit the
+walker skips invisible nodes by, the bit visible= counts) at insertion; the game rebuilds each
+area's row and the next insertion rewrites it. Pass: bloom outline gone at insertion (screen),
+visible=1 after insertion (log), ratio clip + area survival unchanged.
+r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor

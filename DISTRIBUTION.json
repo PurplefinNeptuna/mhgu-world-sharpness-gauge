@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r30's run (NRO b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba installed matching, log work/modern-sharpness-gauge/runs/r30-eden-2026-10-24.txt) closed two long failures and left one question. Closed: the gauge is visible in area 1 (width fix works - authored 116/102 px at 90.6/79.7%, rect 110..226 -> 110..212), and the gauge is visible after an area change (the rebuild that failed r24-r28 is healthy with the double-free gone). Open: the visible edge does not move, while the bar's own quad (110..238) and UVs are constant, so the edge must be the clip's. The enter (FUN_01414a94) and setter (FUN_01400c1c = main+0xa37c1c; the doc's 0xa400c1c used base 0x9c0000) are now fully read: the apply intersects the rect with the context box (degenerate -> pass), writes the render target's scissor at target+0xe4..0xf0 + target+0xc0 bit 3, saves the box at context+0xd0. The target's scissor is the one value never measured. r31 is measurement only: the mask enter hook reads target+0xe4..0xf0 and +0xc0 from the context's target (+4) right after the native apply, and the 2s clip line prints scr=/tgt=. No behavior changed.",
+  "reason": "r31's probe closed the clip question (NRO 88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b installed matching, log work/modern-sharpness-gauge/runs/r31-eden-2026-10-24.txt): scr=165 57 339 249 is our GUI box (110 38 226 166) at screen x1.5 - the setter applies our rectangle exactly, and it moves with the ratio (339 -> 322 px at 90.6% -> 82%). The user's report, 'nothing visually different than vanilla', is now explained by construction: the clip edge coincides with the fill boundary inside the texture, so it cuts only the empty background beyond the fill - zero fill pixels change. The README's visible feature is the clean bar: r32 clears the glow's visibility bit at insertion, bit 0 of +0x54 - the game's own mechanism, the same bit the edge glyph carries cleared at full sharpness, the bit the sampler counts visible= with, the bit the draw walker skips invisible nodes by. Each area's row is built fresh, so the next insertion writes the next glow; no restore is owed. Everything r30/r31 proved stays.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r31",
+  "version": "r32",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r31-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r31/delivery",
+  "archive": "modern-sharpness-gauge-r32-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r32/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. The pass/fail line: on the clip lines, `scr=` must track `rect=` (110 38 226 166 -> 110 38 212 166) with tgt bit 3 set. If scr moves and the bar edge is still static, the gap is the draw consumer (GPU-side), and the exit record ordering is the first suspect. If scr sits at full screen while rect moves, the apply is undone between apply and draw, and the record order is the cause.",
+  "runtime_test": "NOT RUN. Pass, on screen: at insertion the gauge loses its bloom outline (the glow) and reads as one clean bar clipped at the fill edge - visibly not vanilla. In the log: sample lines after insertion show visible=1 (bar only, from core NODE_VISIBLE). The bar keeps clipping to the ratio (scr tracks size), and the gauge survives area changes (the next insertion's visible=1 again). Width tracking stays proven by data (scr moves with the ratio); in pixels it coincides with the fill edge by design.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {

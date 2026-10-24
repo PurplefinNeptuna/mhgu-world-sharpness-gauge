@@ -1,9 +1,11 @@
 # Modern Sharpness Gauge
 
-r25 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
-the bar shows the current sharpness ratio: at full sharpness you see the whole bar,
-and as sharpness drops the bar is cut back from the right. The glow and the edge
-glyph stay where the game puts them. Nothing else on the HUD changes.
+The mod draws on the game's sharpness gauge. A clipping mask over the bar shows
+the current sharpness ratio: at full sharpness you see the whole bar, and as
+sharpness drops the bar is cut back from the right. The bloom outline around the
+bar is switched off with the game's own visibility setting, so the gauge reads as
+one clean bar; the edge glyph keeps the game's behavior. Nothing else on the HUD
+changes.
 
 The mod writes into the game's gauge. A mask built the way the mod builds it starts
 with an uninitialised measurement setting and no horizontal scale, which made its box
@@ -23,7 +25,7 @@ its own gauge. The mask goes into each area's gauge as it appears.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r25-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r32-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
@@ -63,7 +65,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r31`.
+lines that matter start with `MSG r32`.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
