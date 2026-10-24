@@ -12,6 +12,12 @@ pub const INSTANCE_HOOK: u32 = 0xa39300;
 /// It is the gauge row's teardown: it frees the row's draw cache and deletes the
 /// root's child chain, which is where the inserted mask and its children are freed.
 pub const ROOT_DESTRUCTOR_HOOK: u32 = 0xa486fc;
+/// The cGUIObjScissorMask enter handler main+0xa4ba94, reached through the class vtable
+/// during the draw walk. It is the call that reads the mask's rectangle at +0xb0..+0xbc and
+/// applies the scissor, and the game's layout overwrites that rectangle with the node's own
+/// quad (authored width 0 for a node the animation row has no entry for), so it is the only
+/// point where a written box is certain to be the box that gets applied.
+pub const MASK_ENTER_HOOK: u32 = 0xa4ba94;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     // main+0xa494a0: draw walker entry; the hook target. push {r4,r5,r11,lr} prologue, unique 12-word pattern
     (0xa494a0, [
@@ -159,5 +165,13 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         1, 16, 159, 231, 208, 11, 229, 231,
         0, 1, 145, 231, 30, 255, 47, 225,
         192, 239, 8, 1, 48, 72, 45, 233,
+    ]),
+    // main+0xa4ba94: the mask enter handler; a hook target. push {r4..r11,lr} then
+    // add r11, sp, #0x18: no PC-relative operand in the relocated eight bytes.
+    (0xa4ba94, [
+        240, 77, 45, 233, 24, 176, 141, 226,
+        80, 208, 77, 226, 31, 208, 195, 231,
+        0, 80, 160, 225, 1, 128, 160, 225,
+        164, 0, 149, 229, 2, 0, 16, 227,
     ]),
 ];

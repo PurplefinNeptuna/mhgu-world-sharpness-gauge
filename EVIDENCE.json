@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r18",
+  "version": "r19",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r18",
+    "version": "r19",
     "status": "BUILT",
-    "nro_sha256": "55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330",
+    "nro_sha256": "fb4583380b337e6e690d3fbf609434b22816aa8fff3c92edf6bc2020dce2197d",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -85,13 +85,13 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "4e2873fa57cfe74609d2b95321ed6ae16de5c37dfad27acbe427008658894716",
-      "src/hooks.rs": "fb087efb843f1750d7ebbd565df7214c971f2c8a1b39bc92d23d15f07917a7ec",
-      "src/insert.rs": "e888b4c63e4384dbe97d0f16b2a72a15fa7620cffc829841e17c98cd8f555334",
-      "src/lib.rs": "240e8dd2560995d5428fd23103ae111763b35be4009495a23358f02d2d7ad74d",
+      "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
+      "src/hooks.rs": "aebf625d765cb6c3c1006d6a05d24ca6767f63a63f217d2667729d316644a4e5",
+      "src/insert.rs": "ae56e43bdbaf2fe438206614f420faa76bb425269ec2cf22185e58121eb4ca69",
+      "src/lib.rs": "92c6188a25681db96f31a59dc41cf5bf4b6d3c846808308e4889c78e09fa5491",
       "src/memory.rs": "5fa9d8ed41e34d7ecce775405b2fbfefe13d7df51f36bf82a7b2e69098d3c04c",
       "src/sampling.rs": "e202526f1ec6d723ea9d05d434fd62b08be5fd954d74a34453c4491a47e693fc",
-      "src/signatures.rs": "1215aa86ecc5b9fc9d3cd53cbc24c3032f944cb3a67242da56f97dcedd2a7a43",
+      "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
       "core/src/lib.rs": "37bbbbaad9d67a112d9f96e7da4044c03b334beadf8446d3eb14fa971eedcbe8",
       "core/tests/behavior.rs": "ea91e7c65145aeb3200f5eb82c80441b5c07461f1f77ba66c21bd00fcb21ba56",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330",
-    "elf_sha256": "e3e337f5e8bed5d8c1ef501e1a9481b076df24036ef6c0f9d04f8fe33e11e522",
+    "nro_sha256": "fb4583380b337e6e690d3fbf609434b22816aa8fff3c92edf6bc2020dce2197d",
+    "elf_sha256": "73f99781a4d3b628ae5eb99cf01271388827bc7252ec2d183005fe4856c48de5",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -149,7 +149,8 @@
       "0xa48460",
       "0xa4b6cc",
       "0xa486fc",
-      "0x7aa47c"
+      "0x7aa47c",
+      "0xa4ba94"
     ],
     "hook_address": "0xa494a0",
     "hook_window_words": 12,
@@ -206,7 +207,7 @@
       ]
     },
     "words_per_sample": 116,
-    "note": "r18: 20 host fixtures pass. The cache fixture now pins the row's measured pair (3 objects, 16 sequences) from the r17 run: (3,16) -> (248,192,56) and (4,16) -> (264,192,72), the inserted plan's 9 records as exactly the grown area and 16 bytes past the unmodified row, and the node-count rule on both trees.",
+    "note": "r19: 20 host fixtures pass, unchanged from r18: the change is the mask enter hook as the write site and the liveness check, neither of which is host-testable; the cache/geometry arithmetic fixtures were not touched.",
     "nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed"
   },
   "runs": [
@@ -463,6 +464,25 @@
         "session closed normally at t=961.2 (user stop, ForceStop 959.5); zero guest exceptions and no SIGSEGV; Eden's own Criticals as in r15/r16 (texture_cache page asserts t=10.7, maxwell_3d macro asserts t=237.3 and t=497.9)"
       ],
       "conclusion": "r17's gate stopped its own insertion: it required the row+8 objects field to equal tree_nodes + 1, and the row answers 3 for both, so the rule was the wrong arithmetic and the run wrote nothing. The same line fixes the row's cache geometry at (3 << 4) | 8 = 56 bytes = 7 records (allocation 248), which restores the r14 cache overflow: the inserted tree's 9 records are 72 bytes, 16 past the end. r18 compares objects == tree_nodes and keeps the map at nodes + 1."
+    },
+    {
+      "date": "2026-10-24",
+      "version": "r18",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r18-eden-2026-10-24.txt",
+      "session_seconds": 982,
+      "our_lines": 564,
+      "observed": [
+        "user report for this run: the gauge became missing",
+        "scissor mask inserted: mask=0x48003060 map=0x48802000 entries=5 cache=0x47ffa8a0 records=9 (t=129.78): the first insertion this mod has completed, with the 5-word map and the 9-record cache both published",
+        "425 clip lines: mask rect 110 32 110 64 with the bar at 110,38,238,166 (t=131.8..234.0), then 220 64 220 96 with the bar at 220,70,348,198 (a second HUD layout, t=236..883); 376 of 383 sane lines have left == right, flags=0x1: the scissor box is a zero-width strip and everything under it is hidden",
+        "the authored pair and the position pair survived (top/bottom are ours, height 32), the right edge came back equal to the left: the game rebuilt the rectangle from the node's own quad, whose width is 0 for a node the animation row has no entry for",
+        "from t=885.1 the mask's words are garbage (flags=0x0, implausible coordinates) and the plugin kept writing into the freed block for the session's last ~90 s; the row root destructor fired zero times, for the sixth session running",
+        "22 samples (350/350 tier 4 down to 313/350 tier 3), 29 stage-21 lines, session closed by the user at t=982.6, zero guest exceptions and no SIGSEGV; Eden's own maxwell asserts (9) and one dynarmic line as in r15-r17"
+      ],
+      "conclusion": "The insertion works and the clip does not: the mask, the grown map (5 entries) and the grown cache (9 records) all published, and the bar, glow and edge stopped drawing because the applied scissor was zero-width. The rectangle at mask+0xb0..+0xbc is derived state the game rewrites from the node's quad on every layout, so writing it from the walker's entry does not reach the enter handler. r19 writes the box in the mask's enter hook itself, in the call that applies it, and drops its addresses when the mask's parent link to the captured root is gone (r18's freed-mask window)."
     }
   ],
   "not_proven": [
@@ -471,17 +491,18 @@
     "which pass drove mask+0xa8/+0xac to zero at t=642.30 in the r14 session. The only writer read so far is the Size setter main+0xa4ba40, reached through the vtable; the pass's identity is inference from the log, not a read function.",
     "that a quest end reaches the cGUIObjRoot destructor main+0xa486fc: zero fires in the r14, r15 and r16 sessions, so the teardown path is unproven and no cleanup is claimed.",
     "the mask's transform effect on its children: the factory leaves scale 1.0 and position 0, and no decompile shows how the parent transform enters a child's rect at +0xE0.",
-    "ARM fixtures for insertion, factory failure and teardown: not written. The insertion path has never completed on hardware: r14's ran and failed, r17's stopped at its own gate, so the mask construction, the grown map, the reallocated draw block and the per-frame rectangle write have no runtime evidence at all.",
+    "ARM fixtures for insertion, factory failure and teardown: not written. One insertion has completed on hardware (r18), and it clipped the gauge away; the enter-hook write site and the liveness check have no runtime evidence.",
     "r17's insertion has not been run: the mask, the grown map, the grown cache and the per-frame rectangle write are all built from decompiles and the r14-r16 logs, and none of them is runtime-evidenced.",
     "the root's vtable slots 0x58 and 0x5c as the row's allocate/free pair for its draw block: main+0xa49b28 calls 0x58 to allocate (read in full), and Key Quest Markers uses 0x5c to free; this row's 0x5c has not been observed freeing.",
-    "that the row's layout pass leaves a rectangle written at mask+0xb0..+0xbc in place: r14 proved the rebuilt rectangle comes from the node's own quad, and r17 writes the built rectangle itself, which no run has checked yet."
+    "that the row's layout pass leaves a rectangle written at mask+0xb0..+0xbc in place: r14 proved the rebuilt rectangle comes from the node's own quad, and r17 writes the built rectangle itself, which no run has checked yet.",
+    "that a rectangle written inside the mask's enter handler (main+0xa4ba94) is the rectangle the scissor applies: the decompile shows the handler reading +0xb0..+0xbc after the layout has rewritten them, and r19 is the first build to write there; no run has checked it."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16) and 2026-10-24 (r17, insertion stopped by its own gate); r18 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18 completed insertion with the gauge clipped away); r19 NOT RUN",
     "date": "2026-10-23",
-    "binary_sha256": "626d96f75fe9102febf30d9c09a2b38714fddcb943ca6e55465ab50c3c1f6749",
-    "required": "Exact binary acceptance of this mod's drawing change (the clipped gauge bar) is the user's and has not been given: no build of this mod has completed an insertion on a run.",
-    "correlate": "The r17 log's 95 plugin lines are that run's own output and the installed bytes matched the r17 payload; the insertion stopped at its first gate and the user saw the gauge unchanged, which is what a stopped insertion looks like. No guest exception, session closed normally.",
+    "binary_sha256": "55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330",
+    "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
+    "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
     "previous_runs": [
       "r1 Eden 2026-10-22",
       "r3 Eden 2026-10-22",

@@ -1,14 +1,15 @@
 # Modern Sharpness Gauge
 
-r18 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
+r19 draws on the game's sharpness gauge. It adds a clipping mask over the bar so
 the bar shows the current sharpness ratio: at full sharpness you see the whole bar,
 and as sharpness drops the bar is cut back from the right. The glow and the edge
 glyph stay where the game puts them. Nothing else on the HUD changes.
 
 This is the first version of this mod that changes what you see. The earlier versions
-only read the gauge and wrote lines to the log. r18 differs from r17 by one check: in
-r17's run the build stopped itself before writing anything, because it asked the row's
-cache size and its object count to be one apart and the row reports them equal.
+only read the gauge and wrote lines to the log. r18 inserted the mask and the gauge went
+missing: the clip box arrived as a strip with no width, because the game recomputes that
+rectangle from the node's own geometry and gives a node it has no data for a width of zero.
+r19 writes the box inside the call that uses it.
 
 ## Requirements
 
@@ -18,14 +19,14 @@ cache size and its object count to be one apart and the row reports them equal.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r18-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r19-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r18`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r19`
 should be listed.
 
 ## Usage
@@ -58,7 +59,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r18`.
+lines that matter start with `MSG r19`.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -71,7 +72,9 @@ Report the number exactly as printed.
 
 `clip mask rect` lines appear every couple of seconds while the mask is in, with
 the rectangle that is in the object at that moment and the bar's rectangle it is
-meant to cover.
+meant to cover. The first four numbers are left, top, right, bottom: if the first
+two pairs are equal (for example `110 32 110 64`) the clip has no width, which is
+how r18's missing gauge looked in the log.
 
 `gauge row facts:` is one line per gauge HUD: the controller, its draw cache, the
 animation row and both of its count pairs, the HUD instance, the instance's object
@@ -105,12 +108,13 @@ unload step.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-This build comes from four Eden runs of this mod: r14, r15 and r16 on 2026-10-23, and
-r17 on 2026-10-24. r14 inserted the same mask, clipped the gauge away and crashed at the
-quest end. r17's build stopped itself at its own first check, and the gauge looked
-normal: that is what a stopped insertion looks like. No run has completed the insertion
-yet, so what this build draws has not been seen. A missing bar is r14's known failure
-mode: report it with the log, and the mod can go back to reading only.
+This build comes from five Eden runs of this mod: r14, r15 and r16 on 2026-10-23, and
+r17 and r18 on 2026-10-24. r14 inserted the mask, clipped the gauge away and crashed at
+the quest end. r17's build stopped itself at its own first check and the gauge looked
+normal. r18 completed the insertion, and the gauge went missing: the clip box had no
+width. r19 writes that box in the call that uses it, and stops writing when the game has
+taken the mask back. A missing bar is the known failure mode from r14 and r18: report it
+with the log, and the mod can go back to reading only.
 
 Earlier builds of this mod only logged the gauge: r1 read the sharpness numbers, r3
 measured the gauge tree, and r9 through r16 read the row, the map and the draw

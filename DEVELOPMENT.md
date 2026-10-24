@@ -1,9 +1,13 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r18 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r18 is r17's insertion with one gate comparison corrected, the
-gate being what stopped r17's run from writing anything. r17 is the insertion build, and the
-first of this mod's versions that changes what the game draws: one `cGUIObjScissorMask` under the gauge row's root, over the
+Current state: Phase 2 candidate r19 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r19 moves the clip box to the mask's own enter hook and adds the
+liveness check the r18 run proved necessary. r18 was r17's insertion with one gate comparison
+corrected, and its run is the first completed insertion this mod has had: the mask went in with
+a 5-entry map and a 9-record cache, the bar, glow and edge stopped drawing, and the probe lines
+showed why - the clip box came back as a zero-width strip, because the node's rectangle is the
+game's layout's to compute. r17 is the insertion build, and the first of this mod's versions
+that changes what the game draws: one `cGUIObjScissorMask` under the gauge row's root, over the
 bar, glow and edge, with the sharpness-ratio clip box written into the mask's built rectangle
 from the draw walker. It carries the two storage expansions r14 lacked. The row's object array
 at `instance+0xd8` (the same pointer the controller keeps at `+0xa0`) is grown from 4 words to 5
@@ -54,7 +58,17 @@ ghidra-batch10/`:
    2 spare, and the tree with an inserted mask emits 9 = 72, 16 bytes past the end. r14 had the
    cache overflow and the map desynchronisation, and the cache objects field is the tree's node
    count, not node count + 1 - the map is the field that is one longer, its first entry being
-   the controller. Grown to 4 objects the area is 72, exactly the inserted tree's 9 records.
+   the controller. Grown to 4 objects the area is 72, exactly the inserted tree's 9 records, and
+r18's run published exactly that (`records=9`).
+8. The mask's rectangle at `+0xb0..+0xbc` is a derived value the game rewrites from the node's
+   quad (position + authored size) on every layout. r18's run read it 383 times: 376 lines with
+   `left == right`, top/bottom ours and the width gone, and the gauge invisible. A node the
+   animation row has no entry for has width 0, so a box written earlier in the frame does not
+   reach the scissor. The box has to be written in the mask's enter handler (main+0xa4ba94) in
+   the call that reads it, with the authored pair written too so the game's rebuild computes the
+   same box. The same run's last 90 seconds show the plugin writing into a freed mask (the row's
+   scene ended, the root destructor fired zero times for the sixth session): the mask's parent
+   link back to the captured root, checked in the enter hook, is the liveness proof.
 6. r16 read the map. At `instance+0xd8`, the same pointer the controller keeps at `+0xa0`, the
    four entries are the controller, the bar, the glow and the edge: one word per object, length
    `tree_nodes + 1`, in its own allocation, outside the draw cache block. An inserted node needs
@@ -103,7 +117,9 @@ lines, zero guest exceptions, the bar reported visible, and the map read out as 
 glow, edge at `instance+0xd8` with `tree_nodes = 3`. r17 put the insertion back with both
 expansions and ran on Eden on 2026-10-24: its own gate stopped it at stage 48, the gauge drew
 normally, and the log carried the sizing pair that showed the gate's rule was the wrong one.
-r18 is that one-comparison fix, not run.
+r18 fixed that comparison, ran the same day, inserted the mask, and the gauge disappeared:
+the clip box was a zero-width strip. r19 writes the box in the mask's enter hook, not in the
+draw walker, and drops its addresses when the mask's links are gone.
 
 User-reported play context (2026-10-23), recorded as report, not as runtime evidence of a
 candidate: runs included the hub/base, and weapons with no sharpness (bowgun, prowler). The logs
@@ -721,6 +737,47 @@ trees: 20 pass.
 What r18 asks the run for: `scissor mask inserted` with the mask, map, entry count, cache and
 capacity, then `clip mask rect` lines every ~2 seconds; if it stops, the stage 40..49 code; and
 the bar's visible width as sharpness drops.
+
+## r18 run 2026-10-24 (Eden): the insertion completed and the gauge disappeared
+
+Log `work/modern-sharpness-gauge/runs/r18-eden-2026-10-24.txt` (sha256
+`96c26b4f50bc1177695484aa06f50d05154a1af6dc981fb58791c8a3e3d43dc0`), installed bytes
+`55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330`. The user: "the gauge become
+missing". The session ran 982 s, closed by the user's stop, zero guest exceptions, 22 samples
+(350/350 tier 4 to 313/350 tier 3), 9 maxwell asserts and 1 dynarmic line as in earlier runs.
+
+`scissor mask inserted: mask=0x48003060 map=0x48802000 entries=5 cache=0x47ffa8a0 records=9` at
+t=129.78: the grown map, the grown cache and the mask all published, the first insertion this mod
+has completed. Then 425 `clip mask rect` lines: `110 32 110 64` for the bar at
+`110,38,238,166` (t=131.8..234.0), then `220 64 220 96` for a second HUD layout, bar at
+`220,70,348,198` (t=236.0..883.0) - the box tracking the bar's rect, top and bottom correct, and
+**376 of 383 sane lines with left == right**. A zero-width scissor hides everything under it,
+which is the missing gauge. `flags=0x1` throughout, so bit 1 (rebuild) was clear when we wrote:
+the game rebuilt the rectangle anyway, from the node's quad, and for a node with no animation
+row entry that quad has width 0. From t=885.1 the mask's words are garbage (`flags=0x0`,
+implausible coordinates) while the plugin kept writing to the freed block for the last 90 s of
+the session, the row's root destructor having fired zero times for the sixth session.
+
+## r19, built 2026-10-24: the box at the enter handler, and the liveness check
+
+- Hook 4: `main+0xa4ba94`, the mask's own enter handler, the call that reads `+0xb0..+0xbc` and
+  applies the scissor. `insert::enter` runs first: if `mask+0x50` is not the marker it returns
+  (every other scissor mask in the game pays one word read and a compare); if it is, the box is
+  computed from the bar's live rect and the live ratio, the authored pair, the position pair,
+  the four rectangle words and `+0xa4 = 1` are written, and the original handler applies them.
+  `apply`, the walker-entries write site, is deleted: the r18 probe lines are its refutation.
+- Liveness in the same hook: the mask's parent must be the captured root, the root's child must
+  be the mask, and the bar's parent must be the mask. When that fails the addresses are dropped
+  and the writes stop, which is the freed-mask window r18 showed. The root-destructor hook stays
+  (it is the documented teardown, six sessions of zero fires notwithstanding).
+- Comment trims across `insert.rs`, `gui.rs`, `hooks.rs`, `lib.rs`: the offsets, invariants and
+  caller contracts stay, the run-by-run narrative moves to this file and PHASE2_RESEARCH.md.
+
+20 host fixtures pass (the cache/geometry arithmetic is unchanged, so the fixtures are
+unchanged); verify PASSED with 21 signature windows. r19 is not run. The open question for the
+run is the one r18 posed: is a rectangle written in the enter call the rectangle the scissor
+gets. If it is, the bar shows at the live ratio; if the gauge is missing again, the probe lines
+say whether the box was right at the moment the handler ran.
 
 ## Rules to keep
 

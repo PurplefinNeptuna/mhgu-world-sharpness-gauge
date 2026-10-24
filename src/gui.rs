@@ -1,48 +1,24 @@
-//! Find the gauge row and copy out the row/map facts the insertion needs.
+//! Find the gauge row, validate it, and publish the row/map facts the insertion needs.
 //!
-//! r14 inserted a `cGUIObjScissorMask` as the row root's first child and clipped the
-//! bar with it. The Eden run of 2026-10-23 (its own NRO hash, `work/modern-sharpness-gauge/
-//! runs/r14-eden-2026-10-23.txt`) shows what that cost. r17 inserted one again, grown
-//! map and cache and all, and its own gate stopped it before a write
-//! (`runs/r17-eden-2026-10-24.txt`); r18 is that gate's fix. What r14's log showed:
-//! - the rectangle the game built at `mask+0xb0..+0xbc` was `0 0 W 32` in every one of
-//!   the 2512 lines that printed it, while the box asked for was `x=110 y=32` in 1352
-//!   lines. The mask's position writes at `+0x80/+0x84` never reached the build, and the
-//!   bar's own rect at `+0xe0` is `110,38,238,166`, so the clip and the bar never
-//!   overlapped: the gauge was clipped away, which is the user's "gauge disappeared".
-//! - from t=642.30 the built rectangle is `0 0 0 0` for the remaining 1119 lines while
-//!   the plugin kept writing widths 18/33/49/80. At the same line the bar's rect became
-//!   the authored `0,-6,88,18` and the player's `cmd_tbl_id` changed (1000 → 9999 →
-//!   2003). What the log proves is that a game pass took the mask's authored size away
-//!   when that layout change ran; that the pass is the row's authored-layout pass,
-//!   reached because the mask has no entry in the gauge row's map, is inference.
-//! - the crash at t=1015.539 (1011 dynarmic exceptions, then the emulator's own SIGSEGV)
-//!   is the same map fact: main+0x5456e4 loops over the instance's object array at `+0xd8`
-//!   with the length `main+0xa38ffc` = main+0xa47d2c's node count + 1. That array's 4
-//!   entries are the controller plus the 3 tree nodes (the r16 and r17 runs read them out:
-//!   `obj0` is the controller, `obj1` the bar, `obj2` the glow, `obj3` the edge); the
-//!   inserted mask made 4 tree nodes, so the loop walks 5 entries through a 4-entry array
-//!   and dispatches vtable slot 0x50 on what it finds there. The logged first argument is `0x727272`, a freed block's fill,
-//!   the frame at main+0x5457c8 is that loop, and the frame below it is in the mask
-//!   class's destructor region (main+0xa56758, main+0xa56828, and main+0xa568a4).
-//!
-//! The gates below are r14's gates, widened once (the inserted mask becomes the textures'
-//! parent); the facts below are printed once per gauge row, and they are what told r18 the
-//! row's real sizing pair. Nothing here writes the row: the insertion lives in `insert.rs`.
-//!
-//! What the code below relies on, all read from the hash-checked main NSO and recorded in
-//! `work/modern-sharpness-gauge/PHASE2_RESEARCH.md`:
-//! - the draw walker main+0xa494a0 writes 8-byte records (kind word, node pointer) into
-//!   `controller+0x80`, and main+0xa49b28 sizes that area from the halfwords at **row+8** as
-//!   `objects * 16 + 8 + sequences * 12`, publishing `cache = allocation + sequences * 12`.
-//!   That pair, not the one at `row+4` this file prints as `counts`, is the sizing pair: the
-//!   r17 run read `row+8` as 3 objects (the tree's node count) and 16 sequences, with the
-//!   published cache 192 = 16 * 12 into the allocation, so the record area is 56 = 7 records;
-//! - main+0xa47d2c counts the nodes in the child and sibling chains under `+0x68` with no
-//!   visibility test, main+0xa38ffc returns that + 1, and main+0x5456e4 uses the sum as the
-//!   length of the instance's array at `+0xd8`;
-//! - the root destructor main+0xa486fc frees `root+0xa4`, then walks `root+0x68` and each
-//!   `+0x6c`, calling slot 0x04 of each, then frees the root.
+//! The gauge row is the animation controller the walker reports, its root at `root+0x68`, and
+//! the bar, glow and edge as its child/sibling chain, identified by authored size. What the
+//! gates and facts rest on, from the decompiles and runs in work/modern-sharpness-gauge/
+//! PHASE2_RESEARCH.md:
+//! - main+0xa494a0 writes 8-byte records (kind, node) into `controller+0x80`; main+0xa49b28
+//!   sizes that area from the halfwords at **row+8** as `objects * 16 + 8 + sequences * 12` and
+//!   publishes `cache = allocation + sequences * 12`. The row measured 3 objects, 16 sequences:
+//!   area 56 = 7 records, and the inserted tree's 9 do not fit, which is r14's cache overflow.
+//! - main+0xa47d2c counts the nodes under `+0x68`/`+0x6c` with no visibility test;
+//!   main+0xa38ffc returns that + 1 and main+0x5456e4 uses it as the length of the instance's
+//!   array at `+0xd8`, dispatching slot 0x50 per entry. The r16/r17 runs read the four entries
+//!   as controller, bar, glow, edge: r14's inserted node made five indexes against four words,
+//!   and the crash log's `0x727272` is that loop's read of freed fill.
+//! - the root destructor main+0xa486fc frees `root+0xa4` and deletes the child chain.
+//! - r14's mask clipped the gauge away: the rectangle the game built at `mask+0xb0..+0xbc` was
+//!   `0 0 W 32` in all 2,512 printed lines for a box asking `110,32`, and r18 proved the same
+//!   from the other side, writing the rectangle from the walker's entry and leaving 376 of 383
+//!   probe lines at left == right. The geometry belongs to the game's layout, so the box is
+//!   written at the mask's enter handler: see `src/insert.rs`.
 use crate::{
     hooks,
     insert,

@@ -1,15 +1,12 @@
-//! Modern sharpness gauge: a read-only diagnostic candidate.
+//! Modern sharpness gauge: the game's sharpness bar, clipped to the live ratio.
 //!
-//! Three hooks: the draw walker entry (main+0xa494a0), which observes the native
-//! sharpness gauge controller, the local player's sharpness fields and the gauge
-//! node tree; the instance draw entry (main+0xa39300), which records the gauge
-//! row's instance; and the row root's destructor (main+0xa486fc), which clears
-//! that capture. The build reads game memory and logs: it never writes game
-//! memory, never creates GUI objects and never changes what is drawn. r14
-//! inserted a scissor mask and the Eden run of 2026-10-23 shows why that is
-//! gone; `src/gui.rs` names the log lines and the native code behind them.
-//! Forge supplies lifecycle, allocation and logging; stock Forge filters log
-//! levels below ERROR.
+//! Four hooks: the draw walker (main+0xa494a0) observes the gauge controller, the player's
+//! sharpness fields and the node tree; the instance draw entry (main+0xa39300) records the row
+//! instance; the row root's destructor (main+0xa486fc) clears that capture; the scissor mask's
+//! enter handler (main+0xa4ba94) writes the clip box in the call that applies it. The build
+//! writes game memory and inserts one GUI object, so it changes what is drawn. `src/gui.rs`
+//! names the log lines and the native code behind them. Forge supplies lifecycle, allocation
+//! and logging; stock Forge filters levels below ERROR, hence log::error! for diagnostics.
 #![no_std]
 extern crate alloc;
 use alloc::string::String;
@@ -214,8 +211,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
             env!("MSG_VERSION"),
             " gauge row facts:{line}"
         ), line = line);
-        // One insertion per gauge row, reported once with the addresses it published. The
-        // stage codes 40..49 are the insertion's own, kept apart from the row gates 21..34.
+        // One insertion per gauge row; 40..49 are the insertion's own codes.
         match reading.outcome {
             Ok(done) => log::error!(concat!(
                 "MSG ",
@@ -277,10 +273,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
             log::error!("{}", node_line(number, index, &words));
         }
     }
-    // Every two seconds while a mask is inserted: the rectangle that is in the object right
-    // now, and the bar's rect it is meant to cover. This is the evidence for whether the
-    // write below the walker survived the game's layout pass, which is the question r14's
-    // 2,512 lines of `0 0` left open.
+    // The rectangle the layout pass left in the mask between frames, next to the bar's rect.
     let probe = insert::probe();
     if probe[0] | probe[1] | probe[2] | probe[3] != 0 && CLIP_LOG.tick() {
         log::error!(concat!(
@@ -293,10 +286,8 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         l = probe[5] as i32, t = probe[6] as i32, r = probe[7] as i32, bb = probe[8] as i32);
     }
     let (calls, taken, matched) = sampling::stats();
-    // The row's root destructor main+0xa486fc is the only teardown evidence this plugin
-    // has, and it fired zero times in the r14 session that played quests. Each fire means
-    // the game freed the gauge row and its objects, and the row facts start over on the
-    // next HUD.
+    // Each fire means the game freed the gauge row; it has fired zero times in six sessions,
+    // so the mask's own liveness check is the teardown this build relies on.
     let tears = hooks::teardowns();
     if tears > LAST_TEARDOWNS.swap(tears, Ordering::Relaxed) {
         log::error!(concat!(

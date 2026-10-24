@@ -1,16 +1,14 @@
-//! Two Forge-owned trampolines: the draw walker entry main+0xa494a0, and the
-//! instance draw entry main+0xa39300 that hands the walker its controller. The
-//! second one only records the pair (instance, controller) so the insertion
-//! code can reach the cGUIInstance that owns the gauge row, which is not
-//! derivable from the controller. Installation is all-or-nothing: every
-//! signature window is checked before any write, and a failure restores the
-//! originals it touched.
+//! Four Forge-owned trampolines: the draw walker (main+0xa494a0), the instance draw entry
+//! that hands it a controller (main+0xa39300, its first argument is the cGUIInstance owning
+//! the row), the row root's destructor (main+0xa486fc), and the scissor mask's enter handler
+//! (main+0xa4ba94). Installation is all-or-nothing: every signature window is checked before
+//! any write, and a failure restores the originals it touched.
 use crate::{
     gui,
     insert,
     memory,
     sampling,
-    signatures::{HOOK, INSTANCE_HOOK, ROOT_DESTRUCTOR_HOOK, SIGNATURES},
+    signatures::{HOOK, INSTANCE_HOOK, MASK_ENTER_HOOK, ROOT_DESTRUCTOR_HOOK, SIGNATURES},
 };
 use alloc::vec::Vec;
 use core::{
@@ -22,7 +20,8 @@ use forge::patch::Patch;
 core::arch::global_asm!(
     ".hidden msg_walker\n.hidden msg_walker_original\n.hidden msg_active\n\
      .hidden msg_instance\n.hidden msg_instance_original\n.hidden msg_instance_active\n\
-     .hidden msg_root_dtor\n.hidden msg_root_dtor_original\n.hidden msg_root_dtor_active"
+     .hidden msg_root_dtor\n.hidden msg_root_dtor_original\n.hidden msg_root_dtor_active\n\
+     .hidden msg_mask_enter\n.hidden msg_mask_enter_original\n.hidden msg_mask_enter_active"
 );
 #[unsafe(no_mangle)]
 pub static msg_walker_original: AtomicU32 = AtomicU32::new(0);
@@ -36,9 +35,12 @@ pub static msg_instance_active: AtomicBool = AtomicBool::new(false);
 pub static msg_root_dtor_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
 pub static msg_root_dtor_active: AtomicBool = AtomicBool::new(false);
-// The instance whose +0xdc is the gauge controller, recorded as plain integers.
-// Game pointers never leave this module; readers only use them synchronously
-// on the same thread that the game called them on.
+#[unsafe(no_mangle)]
+pub static msg_mask_enter_original: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static msg_mask_enter_active: AtomicBool = AtomicBool::new(false);
+// The instance whose +0xdc is the gauge controller, as plain integers: readers use them
+// synchronously on the thread the game called them on.
 static INSTANCE: AtomicU32 = AtomicU32::new(0);
 static CONTROLLER: AtomicU32 = AtomicU32::new(0);
 #[cfg(target_pointer_width = "32")]
@@ -50,17 +52,14 @@ const _: () = assert!(
         && core::mem::align_of::<forge::sys::hook::Hook>() == 4
 );
 
-/// The walker takes (controller, context): the animation controller whose draw
-/// cache is about to be built and consumed. The observation runs before the
-/// native walker so the copied values are the state native code will draw with,
-/// and it performs no allocation, formatting, file access, floating point or
-/// logging. Once its sample budget is spent it reads no game memory at all.
+/// The walker takes (controller, context). The observation runs before the native walker so
+/// the copied values are the state native code will draw with; it allocates, formats, logs,
+/// does floating point and, past its sample budget, reads no game memory.
 ///
-/// Flags: the relocated window main+0xa494a0..0xa494ac keeps `cmp r1,#0` and
-/// the flag-consuming `popeq` in the same unit; this callback restores NZCVQ
-/// through the normal AAPCS return and never writes APSR (verified by
-/// scripts/verify.py disassembly scan; the window has no SEL/USAD8/MRS/MSR, so
-/// no APSR_ge producer exists).
+/// Flags: the relocated window main+0xa494a0..0xa494ac keeps `cmp r1,#0` and the
+/// flag-consuming `popeq` in the same unit; this callback restores NZCVQ through the normal
+/// AAPCS return and never writes APSR (verify.py scans the disassembly; the window has no
+/// SEL/USAD8/MRS/MSR, so no APSR_ge producer exists).
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
     let original = msg_walker_original.load(Ordering::Acquire);
@@ -69,22 +68,14 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
     } // Installation never publishes an original of zero.
     if msg_active.load(Ordering::Acquire) {
         sampling::observe(controller, context);
-        // The clip box is re-asserted here, after the game's writes for this frame and
-        // before the original walker builds the draw cache. It returns after one compare
-        // for every controller that is not the gauge row, and writes nothing while the box
-        // is unchanged.
-        insert::apply(controller);
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(controller, context) };
 }
 
-/// The instance draw entry takes (instance, context) and reads the controller at
-/// instance+0xdc before calling the walker. It is the only caller of the walker in
-/// the whole program (one `bl` in .text), but every animation instance on the HUD
-/// reaches it, so the pair is recorded only when its controller is the gauge
-/// controller the sampler identified. Anything else is not the gauge row and is
-/// ignored, which is what makes the recorded instance unambiguous.
+/// The instance draw entry takes (instance, context) and reads the controller at instance+0xdc
+/// before calling the walker. Every HUD animation instance reaches it, so the pair is recorded
+/// only when the controller is the gauge controller the sampler identified.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
     let original = msg_instance_original.load(Ordering::Acquire);
@@ -106,14 +97,11 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
     unsafe { f(instance, context) };
 }
 
-/// The row's root is being destroyed. cGUIObjRoot's vtable slot 0x04 is main+
-/// +0xa486fc: it frees the row's draw cache, then walks root+0x68 and each +0x6c
-/// sibling and calls slot 0x04 on every one of them, which is how the mask and the
-/// three textures this insertion linked into that chain get freed. The gauge HUD's
-/// teardown is therefore this call, on this thread, with the object as its argument.
-/// The capture is dropped before the original runs, so nothing in this plugin
-/// touches the tree, the mask or the cache once the game owns them again. Roots
-/// other than the captured controller are untouched.
+/// The row root's destructor (cGUIObjRoot vtable slot 0x04, main+0xa486fc) frees the row's
+/// draw cache and then deletes its child chain, which is where the inserted mask and its
+/// children go. The capture is dropped before the original runs. Roots other than the captured
+/// controller are untouched. It has fired zero times in six sessions: the mask's liveness is
+/// checked at its enter hook, which is the teardown this build can prove.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_root_dtor(root: u32) {
     let original = msg_root_dtor_original.load(Ordering::Acquire);
@@ -133,22 +121,38 @@ pub unsafe extern "C" fn msg_root_dtor(root: u32) {
     unsafe { f(root) };
 }
 
-/// Times the captured gauge row's root destructor ran. Zero for a whole session
-/// means this hook never proved the row's teardown, and the plugin kept no
-/// assumption that it did.
+/// The mask's own enter handler (main+0xa4ba94), reached through the class vtable during the
+/// draw walk: the call that reads the mask's rectangle at +0xb0..+0xbc and applies the scissor.
+/// The game's layout rebuilds that rectangle from the node's own quad, and a node the animation
+/// row has no entry for comes out with width 0, which is r18's missing gauge: 376 of 383 probe
+/// lines read left == right with flags 0x1. The box is written here, in this same call,
+/// immediately before the original reads it. Only the mask carrying this plugin's marker is
+/// touched; every other scissor mask pays one word read and a compare.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn msg_mask_enter(mask: u32, context: u32) {
+    let original = msg_mask_enter_original.load(Ordering::Acquire);
+    if original == 0 {
+        return;
+    }
+    if msg_mask_enter_active.load(Ordering::Acquire) {
+        insert::enter(mask);
+    }
+    let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
+    unsafe { f(mask, context) };
+}
+
+/// Times the captured row's root destructor ran: the teardown count the log prints.
 pub fn teardowns() -> u32 {
     TEARDOWNS.load(Ordering::Relaxed)
 }
 static TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 
-/// The raw recorded pair, for the log line. Zeros mean the instance hook never
-/// saw a controller matching the gauge controller.
+/// The recorded pair, for the log line; zeros mean it was never captured.
 pub fn capture() -> (u32, u32) {
     (INSTANCE.load(Ordering::Relaxed), CONTROLLER.load(Ordering::Relaxed))
 }
 
-/// The recorded pair, only handed out when the gauge controller is the controller
-/// this instance draws. Returns (instance, controller).
+/// The recorded pair, only when its controller is still the gauge controller.
 pub fn gauge_instance() -> Option<(u32, u32)> {
     let instance = INSTANCE.load(Ordering::Relaxed);
     let controller = CONTROLLER.load(Ordering::Relaxed);
@@ -159,11 +163,8 @@ pub fn gauge_instance() -> Option<(u32, u32)> {
     Some((instance, controller))
 }
 
-/// Drop a capture whose object is gone. Called when a row read fails (the row
-/// pointer is unreadable) or the row is no longer the sharpness animation, which
-/// is how the log shows a captured controller after its scene was torn down. The
-/// pair is only cleared when it is the pair that failed, so a fresh capture taken
-/// by the instance hook in the meantime stays.
+/// Drop a capture whose object is gone. Only the failing pair is cleared, so a fresh capture
+/// taken in the meantime stays.
 pub fn clear_capture(controller: u32) {
     if controller == 0 {
         return;
@@ -174,9 +175,7 @@ pub fn clear_capture(controller: u32) {
     }
 }
 
-/// Restore only our branch words (or a partially installed original/branch
-/// pair). Foreign modifications keep their ownership; Forge keeps allocated
-/// continuations reachable for the process lifetime.
+/// Restore only our branch words; foreign modifications keep their ownership.
 fn rollback(patch: &mut Patch) -> bool {
     msg_active.store(false, Ordering::Release);
     let mut current = [0; 8];
@@ -200,10 +199,10 @@ fn rollback(patch: &mut Patch) -> bool {
         && current == original
 }
 
-/// Plant one Forge hook over the first eight bytes of a function entry. Both
-/// targets start with a `push` plus a stack-pointer arithmetic word, so neither
-/// relocated word contains a PC-relative operand. The continuation must show the
-/// original eight bytes, then the same branch form back to target+8.
+/// Plant one Forge hook over the first eight bytes of a function entry. Every target in this
+/// mod starts with a `push` plus a stack-pointer arithmetic word, so no relocated word is
+/// PC-relative. The continuation must show the original eight bytes, then the branch back to
+/// target+8.
 fn plant(base: u32, offset: u32, detour: u32, published: &AtomicU32) -> Result<Patch, &'static str> {
     let target = base + offset;
     let mut branch = [0; 8];
@@ -261,11 +260,9 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
             return Err("MHGU 1.4.0 code mismatch at a required function");
         }
     }
-    // The walker is planted first: the gauge row must be identifiable before the
-    // instance pair is of any use, and the instance capture only records pairs. The
-    // root destructor is last, because clearing a capture is only useful once the
-    // other two hooks can produce one. A failure restores every patch this call
-    // planted, newest first, and publishes nothing.
+    // The walker goes first (the row must be identifiable before the instance pair means
+    // anything), the mask enter handler last (it only matters once an insertion exists). A
+    // failure restores every patch this call planted, newest first, and publishes nothing.
     let plan = [
         (
             HOOK,
@@ -284,6 +281,12 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
             msg_root_dtor as *const () as u32,
             &msg_root_dtor_original,
             &msg_root_dtor_active,
+        ),
+        (
+            MASK_ENTER_HOOK,
+            msg_mask_enter as *const () as u32,
+            &msg_mask_enter_original,
+            &msg_mask_enter_active,
         ),
     ];
     let mut planted: Vec<Patch> = Vec::new();
@@ -309,5 +312,6 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
     msg_active.store(true, Ordering::Release);
     msg_instance_active.store(true, Ordering::Release);
     msg_root_dtor_active.store(true, Ordering::Release);
+    msg_mask_enter_active.store(true, Ordering::Release);
     Ok(planted)
 }
