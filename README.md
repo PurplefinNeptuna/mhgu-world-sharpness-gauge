@@ -32,7 +32,7 @@ its own gauge. The mask goes into each area's gauge as it appears.
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r25`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r32`
 should be listed.
 
 ## Usage
