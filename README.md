@@ -22,14 +22,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r38-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r39-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r38`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r39`
 should be listed.
 
 ## Usage
@@ -59,12 +59,15 @@ Open **Plugin UI > Modern Sharpness Gauge** in Forge's overlay.
 | Setting | Default | Effect |
 | --- | --- | --- |
 | Gauge shown % | 100 | How much of the blade the clip leaves: 0 draws nothing, 25 a quarter, 50 half, 100 the whole blade. Drag it and the gauge changes at once, so each value can be screenshotted on demand. Until you touch it, the clip cycles 0, 25, 50 and 100% every 20 seconds. |
-| Cut start px | 124 | Where 0% lands, in screen pixels along the bar (its rect is 110..238). The box's right edge stops here at 0%. |
-| Cut end px | 204 | Where 100% lands, in the same pixels. The cut moves linearly between the two numbers, so 25% and 50% land a quarter and a half of the way between them. |
+| Cut start px | 124.0 | Where 0% lands, in screen pixels along the bar (its rect is 110..238), in 0.1 px steps. The box's right edge stops here at 0%. |
+| Cut end px | 204.0 | Where 100% lands, in the same pixels, in 0.1 px steps. The cut moves linearly between the two numbers, so 25% and 50% land a quarter and a half of the way between them. |
+| Apply | button | Publishes the three settings together: the gauge changes on the next frame. The sliders alone change nothing on the gauge. |
+| Reset | button | Returns the sliders to their defaults and gives control back to the 20 s cycle on the measured track. |
 
-All three are session-only: nothing is written to a file, and they reset when the game restarts.
-Left untouched, the clip cycles 0, 25, 50 and 100% every 20 seconds on the 124..204 px track the
-last run measured.
+All of it is session-only: nothing is written to a file, and it resets when the game restarts.
+The sliders are a draft: drag them freely, then press Apply to put them on the gauge, and press
+Reset to hand control back to the 20 s cycle on the 124..204 px track the last run measured. The
+line under the buttons says which is live.
 
 ### Which log to send
 
@@ -76,7 +79,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r38`.
+lines that matter start with `MSG r39`.
 
 `forced ratio_bp` lines are the four steps, one line each time the step changes:
 `0`, `2500`, `5000` and `10000` basis points. The line carries the box the mod

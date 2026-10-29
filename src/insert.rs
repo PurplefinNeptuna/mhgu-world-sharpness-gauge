@@ -85,55 +85,88 @@ pub fn tick_clock() {
 /// no save data, so the slider resets when the game restarts.
 static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
 
-/// The slider's current position as a percentage (100.0 while untouched).
-pub fn slider_percent() -> f32 {
-    let points = SLIDER_BP.load(Ordering::Relaxed);
-    if points == u32::MAX {
-        100.0
-    } else {
-        points as f32 / 100.0
-    }
-}
-
-/// The r38 test control: the box's right edge at 0% and at 100%, in pixels from the bar rect's
-/// left. Defaults are core's measured track at the gauge's 128 px rect (14 px in, ending 94 px
-/// in, i.e. 124..204 px on screen), so an untouched panel reproduces r37 exactly. The panel's
-/// two sliders write them on the overlay thread, the enter handler reads them on the game
-/// thread: two atomics, no lock, no game pointer crossing. Session-only, like the percent.
+/// The r38/r39 test control: the box's right edge at 0% and at 100%, in absolute screen pixels
+/// on the bar's rect (its 110..238 span). Defaults are core's measured track at the gauge's
+/// 128 px rect (124 and 204), so an untouched panel reproduces r37 exactly. Stored as float bits
+/// in atomics: written on the overlay thread by the panel, read in the mask's enter handler on
+/// the game thread. No lock, no game pointer crossing, nothing persisted.
 pub const CUT_START_DEFAULT: f32 = 124.0;
 pub const CUT_END_DEFAULT: f32 = 204.0;
-static CUT_START: AtomicU32 = AtomicU32::new(0);
-static CUT_END: AtomicU32 = AtomicU32::new(0);
+pub const PERCENT_DEFAULT: f32 = 100.0;
+static CUT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
+static CUT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
+/// 0 until Apply has been pressed, which is when the panel's endpoints and percent drive the box
+/// instead of core's measured track and the 20 s cycle.
+static APPLIED: AtomicU32 = AtomicU32::new(0);
 
-/// The endpoints as the sliders show them: absolute screen pixels on the bar's rect. 0 means
-/// untouched, in which case core's measured track drives the box.
-fn read_cut(stored: u32, default: f32) -> f32 {
-    if stored == 0 {
-        default
-    } else {
-        f32::from_bits(stored)
-    }
+/// The sliders' draft values. A drag edits the draft; `apply` copies it into the live set the
+/// enter handler reads, and `reset` returns both sets to the defaults, which puts core's measured
+/// track and the 20 s cycle back in charge.
+static DRAFT_PERCENT: AtomicU32 = AtomicU32::new(f32::to_bits(PERCENT_DEFAULT));
+static DRAFT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
+static DRAFT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
+
+pub fn draft_percent() -> f32 {
+    f32::from_bits(DRAFT_PERCENT.load(Ordering::Relaxed))
 }
 
-pub fn cut_start_px() -> f32 {
-    read_cut(CUT_START.load(Ordering::Relaxed), CUT_START_DEFAULT)
+pub fn draft_cut_start() -> f32 {
+    f32::from_bits(DRAFT_START.load(Ordering::Relaxed))
 }
 
-pub fn cut_end_px() -> f32 {
-    read_cut(CUT_END.load(Ordering::Relaxed), CUT_END_DEFAULT)
+pub fn draft_cut_end() -> f32 {
+    f32::from_bits(DRAFT_END.load(Ordering::Relaxed))
 }
 
-pub fn set_cut_start_px(px: f32) {
-    CUT_START.store(px.max(111.0).to_bits(), Ordering::Relaxed);
+pub fn set_draft_percent(value: f32) {
+    DRAFT_PERCENT.store(value.clamp(0.0, 100.0).to_bits(), Ordering::Relaxed);
 }
 
-pub fn set_cut_end_px(px: f32) {
-    CUT_END.store(px.max(113.0).to_bits(), Ordering::Relaxed);
+pub fn set_draft_cut_start(value: f32) {
+    // 0.1 px steps: the slider shows one decimal and the stored value snaps to it. Integer
+    // centi-pixels because this crate is no_std and has no f32::round.
+    DRAFT_START.store((((value * 10.0) + 0.5) as i32 as f32 / 10.0).to_bits(), Ordering::Relaxed);
 }
 
-pub fn set_slider_percent(percent: f32) {
-    SLIDER_BP.store((percent.clamp(0.0, 100.0) * 100.0) as u32, Ordering::Relaxed);
+pub fn set_draft_cut_end(value: f32) {
+    // 0.1 px steps, integer centi-pixels, as in set_draft_cut_start.
+    DRAFT_END.store((((value * 10.0) + 0.5) as i32 as f32 / 10.0).to_bits(), Ordering::Relaxed);
 }
+
+/// Publish the draft: all three values become live together on the next frame. Publishing them
+/// as one set is the point - r38 read the two endpoints as a pair, so dragging one of them while
+/// the other was untouched changed nothing.
+pub fn apply() {
+    let percent = draft_percent();
+    SLIDER_BP.store((percent * 100.0) as u32, Ordering::Relaxed);
+    CUT_START.store(draft_cut_start().max(111.0).to_bits(), Ordering::Relaxed);
+    CUT_END.store(draft_cut_end().max(113.0).to_bits(), Ordering::Relaxed);
+    APPLIED.store(1, Ordering::Relaxed);
+}
+
+/// Drop the draft and go back to core's measured track and the 20 s cycle.
+pub fn reset() {
+    DRAFT_PERCENT.store(f32::to_bits(PERCENT_DEFAULT), Ordering::Relaxed);
+    DRAFT_START.store(f32::to_bits(CUT_START_DEFAULT), Ordering::Relaxed);
+    DRAFT_END.store(f32::to_bits(CUT_END_DEFAULT), Ordering::Relaxed);
+    SLIDER_BP.store(u32::MAX, Ordering::Relaxed);
+    CUT_START.store(f32::to_bits(CUT_START_DEFAULT), Ordering::Relaxed);
+    CUT_END.store(f32::to_bits(CUT_END_DEFAULT), Ordering::Relaxed);
+    APPLIED.store(0, Ordering::Relaxed);
+}
+
+/// What is live: (applied, percent, start px, end px). Percent reads -1 while the 20 s cycle
+/// drives it.
+pub fn live_state() -> (bool, f32, f32, f32) {
+    let percent = SLIDER_BP.load(Ordering::Relaxed);
+    (
+        APPLIED.load(Ordering::Relaxed) == 1,
+        if percent == u32::MAX { -1.0 } else { percent as f32 / 100.0 },
+        f32::from_bits(CUT_START.load(Ordering::Relaxed)),
+        f32::from_bits(CUT_END.load(Ordering::Relaxed)),
+    )
+}
+
 
 /// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
@@ -452,16 +485,14 @@ pub fn enter(mask: u32) {
         .unwrap_or(0);
     // With both endpoints set the box runs between them, linear in the ratio; untouched, it
     // follows core's measured track.
-    let stored_start = CUT_START.load(Ordering::Relaxed);
-    let stored_end = CUT_END.load(Ordering::Relaxed);
-    let box_words = if stored_start == 0 || stored_end == 0 {
+    let box_words = if APPLIED.load(Ordering::Relaxed) == 0 {
         mask_box(rect, ratio, rect[2] - rect[0])
     } else {
         span_box(
             rect,
             ratio,
-            f32::from_bits(stored_start) as i32 - rect[0],
-            f32::from_bits(stored_end) as i32 - rect[0],
+            f32::from_bits(CUT_START.load(Ordering::Relaxed)) as i32 - rect[0],
+            f32::from_bits(CUT_END.load(Ordering::Relaxed)) as i32 - rect[0],
         )
     };
     // One line per change of the driving ratio, rate-limited so dragging the slider cannot
@@ -488,8 +519,8 @@ pub fn enter(mask: u32) {
         FORCED[17].store(authored as u32, Ordering::Relaxed);
         FORCED[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
         FORCED[19].store(from_slider as u32, Ordering::Relaxed);
-        FORCED[20].store(stored_start, Ordering::Relaxed);
-        FORCED[21].store(stored_end, Ordering::Relaxed);
+        FORCED[20].store(CUT_START.load(Ordering::Relaxed), Ordering::Relaxed);
+        FORCED[21].store(CUT_END.load(Ordering::Relaxed), Ordering::Relaxed);
         FORCED_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these

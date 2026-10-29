@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r37 added the tester's 0-100 slider and r36's measured track. r38 adds the two endpoints the previous runs had to be measured for: Cut start px (where 0% lands, default 124) and Cut end px (where 100% lands, default 204), in screen px on the bar's 110..238 rect, with the cut moving linearly between them. core owns the math (span_box), so a host fixture pins the endpoints, the defaults reproduce r37's boxes exactly (14/34/54/94 px = 124/144/164/204 px), and an untouched panel leaves core's measured track in charge. The forced line prints both endpoints (`cut=`, `0 0` for untouched). Session-only like the percent: no INI, no save data. Gates, insertion order, links, the mask's writes and the glow are unchanged from the build the tester ran.",
+  "reason": "The tester reported that r38's sliders were not applied directly, and the code confirms why: enter took the custom endpoints only when both were set, so dragging one slider while the other was untouched changed nothing. r39 turns the panel into a draft with explicit publish: Gauge shown %, Cut start px and Cut end px edit draft values, Apply publishes all three together on the next frame, Reset returns to the defaults and hands control back to core's measured track and the 20 s cycle, and a readout line under the buttons says which is live. The endpoints stay absolute screen px on the bar's 110..238 rect (defaults 124 and 204) and core's span_box keeps the linear math, so the endpoints are always published as a pair and a single drag can no longer be ignored. Still session-only: no INI, no save data, resets on restart. Gates, insertion order, links, the mask's writes and the glow are unchanged from the build the tester ran. The same pass set the two pixel sliders to 0.1 px steps: the raw slider binding shows one decimal, and set_draft_cut_start/end snap the stored value to the same 0.1 grid with integer centi-pixels (no_std has no f32::round).",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r38",
+  "version": "r39",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r38-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r38/delivery",
+  "archive": "modern-sharpness-gauge-r39-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r39/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: the three controls change the gauge as you drag them; 0% shows nothing, 100% shows the whole blade with the tip uncut; moving Cut start px and Cut end px moves the whole four-step range with them, and 25% and 50% land a quarter and a half of the way between the two numbers. Untouched, the bar cycles the four steps on the 124..204 px track. In the log: one forced line per change with the box, bar_w=88, feed=128, src=cycle|slider and cut=<start> <end> (0 0 while untouched). Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN. Pass, on screen: the sliders change nothing until Apply is pressed, then the gauge shows the published value at once; with Cut start px and Cut end px set around the blade and Apply pressed, dragging Gauge shown % to 0 shows no blade, 25 a quarter, 50 half and 100 the whole blade, and moving the endpoints with Apply moves the whole range. Reset returns to the 20 s cycle on the 124..204 px track. In the log: one forced line per published change with the box, bar_w=88, feed=128, src=cycle|slider and cut=<start> <end>. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -108,8 +108,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r38/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0"
+      "source": "build/modern-sharpness-gauge/candidates/r39/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de"
     }
   }
 }

@@ -416,7 +416,7 @@ fn panel() {
         }
     }
     let _tree = Tree;
-    let mut percent = insert::slider_percent();
+    let mut percent = insert::draft_percent();
     if forge::imgui::slider_float(
         c"Gauge shown %##modern-sharpness-gauge",
         &mut percent,
@@ -424,31 +424,66 @@ fn panel() {
         100.0,
         forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
     ) {
-        insert::set_slider_percent(percent);
+        insert::set_draft_percent(percent);
     }
-    // The two endpoints the previous runs had to be measured for, now settable live: the box's
-    // right edge at 0% and at 100%, in screen px on the bar's rect (110..238).
-    let mut start = insert::cut_start_px();
-    if forge::imgui::slider_float(
-        c"Cut start px##modern-sharpness-gauge",
-        &mut start,
-        111.0,
-        237.0,
-        forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
-    ) {
-        insert::set_cut_start_px(start);
+    // The two endpoints the previous runs had to be measured for, settable live: the box's right
+    // edge at 0% and at 100%, in screen px on the bar's rect (110..238).
+    // The two endpoints in 0.1 px steps. forge::imgui::slider_float hardcodes ImGui's default
+    // format, so the raw binding is used here to show one decimal; set_draft_cut_* snaps the
+    // stored value to the same 0.1 grid, so what the row shows is what gets applied.
+    let mut start = insert::draft_cut_start();
+    let mut end = insert::draft_cut_end();
+    // SAFETY: both labels and formats are static NUL-terminated C strings, the value pointers
+    // point at the locals' f32 storage, and the slider writes only through them for this frame.
+    unsafe {
+        if forge::sys::imgui::igSliderFloat(
+            c"Cut start px##modern-sharpness-gauge".as_ptr(),
+            &mut start,
+            111.0,
+            237.0,
+            c"%.1f px".as_ptr(),
+            forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
+        ) {
+            insert::set_draft_cut_start(start);
+        }
+        if forge::sys::imgui::igSliderFloat(
+            c"Cut end px##modern-sharpness-gauge".as_ptr(),
+            &mut end,
+            113.0,
+            238.0,
+            c"%.1f px".as_ptr(),
+            forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
+        ) {
+            insert::set_draft_cut_end(end);
+        }
     }
-    let mut end = insert::cut_end_px();
-    if forge::imgui::slider_float(
-        c"Cut end px##modern-sharpness-gauge",
-        &mut end,
-        113.0,
-        238.0,
-        forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
-    ) {
-        insert::set_cut_end_px(end);
+    // The sliders edit a draft; Apply publishes all three together, so tuning the endpoints
+    // before the gauge changes is the point. Reset returns to the measured track and the cycle.
+    if forge::imgui::button(c"Apply##modern-sharpness-gauge", forge::sys::imgui::ImVec2::new(0.0, 0.0)) {
+        insert::apply();
     }
-    forge::imgui::text(
-        "Drag Gauge shown % to set how much of the blade shows, and the two px sliders to set where 0% and 100% land on the bar (its rect is 110..238). Untouched, the clip cycles 0, 25, 50 and 100% every 20 s on the measured 124..204 px track.",
-    );
+    forge::imgui::same_line(0.0, 0.0);
+    if forge::imgui::button(c"Reset##modern-sharpness-gauge", forge::sys::imgui::ImVec2::new(0.0, 0.0)) {
+        insert::reset();
+    }
+    let (applied, live_percent, live_start, live_end) = insert::live_state();
+    let mut line = String::with_capacity(96);
+    if applied {
+        let _ = write!(
+            line,
+            "Applied: {:.1}% cut {:.1}..{:.1} px",
+            live_percent,
+            live_start,
+            live_end
+        );
+    } else {
+        let _ = write!(
+            line,
+            "Not applied: cycle on the measured track. Draft {:.1}% {:.1}..{:.1} px",
+            percent,
+            start,
+            end
+        );
+    }
+    forge::imgui::text(&line);
 }

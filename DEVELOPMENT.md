@@ -1,14 +1,17 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r38 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r38 adds the tester's request: the two endpoints the previous runs
-had to be measured for are now sliders. `Cut start px` (where 0% lands, default 124) and
-`Cut end px` (where 100% lands, default 204) in screen px on the bar's 110..238 rect, with the cut
-moving linearly between them; `Gauge shown %` from r37 stays. core owns the math (`span_box`), the
-defaults reproduce r37's boxes (14/34/54/94 px = 124/144/164/204 px), and an untouched panel leaves
-core's measured track in charge. Session-only: no INI, no save data. The forced line prints
-`src=cycle|slider` and `cut=<start> <end>` (`0 0` while untouched). 22 host fixtures pass; verify
-PASSED with the same 21 signature windows. NRO `dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0`. Gameplay NOT RUN.
+Current state: Phase 2 candidate r39 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). The tester reported r38's sliders "not applied directly", and the r38
+code shows why: `enter` took the custom endpoints only when both were set, so dragging one slider
+while the other was untouched changed nothing on the gauge. r39 makes the panel a draft with an
+explicit publish. `Gauge shown %`, `Cut start px` and `Cut end px` edit draft values; **Apply**
+publishes all three together (the box changes on the next frame), **Reset** restores the defaults
+and hands control back to core's measured track and the 20 s cycle, and a readout line under the
+buttons says which is live. The endpoints stay absolute screen px on the bar's 110..238 rect
+(defaults 124 and 204), core's `span_box` keeps the linear math, and the publish is always a set of
+three, so a single drag can no longer be ignored. Session-only: no INI, no save data. 22 host
+fixtures pass; verify PASSED with the same 21 signature windows and the new `igButton`/`igSameLine`
+imports. NRO `40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de`. Gameplay NOT RUN.
 r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1167,6 +1170,28 @@ r37's behaviour.
 The endpoint math is in core, so the fixture tests it: the defaults (14 and 94 px from the rect's
 left) give 124/144/164/204 px, match `mask_box` at the 128 px rect, shift by exactly the pixels the
 tester drags, and stay inside the rect. 22 fixtures pass. NRO `dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0`. Gameplay NOT RUN.
+
+## r39, built 2026-10-29: a draft, an Apply and a Reset
+
+"Please add apply and reset button", and the report that r38's sliders were not applied directly.
+Reading the r38 code, the cause is a gate I wrote: `enter` used the custom endpoints only if both
+were stored, and an untouched slider stores nothing, so dragging one endpoint kept the box on
+core's track and the drag did nothing visible.
+
+r39 changes the shape of the control instead of patching that gate. The three sliders write
+draft values; `apply()` publishes percent, start and end as one set and marks the panel live, and
+`enter` then uses `span_box` with all three. Before the first Apply the panel is inert and core's
+measured track plus the 20 s cycle drive the box, so the earlier runs' evidence stays comparable.
+`reset()` clears the draft, the live set and the live mark. The row shows `Applied: 40.0% cut
+124.0..204.0 px` or `Not applied: cycle on the measured track. Draft ...` so there is no guessing
+which state the gauge is in. The two pixel sliders move in 0.1 px steps: the raw
+`igSliderFloat` binding is used with the `%.1f px` format (forge::imgui::slider_float hardcodes
+ImGui's default), and `set_draft_cut_start/end` snap the stored value to the same grid with integer
+centi-pixels, because this crate is no_std and has no `f32::round`.
+
+22 host fixtures pass (the endpoint fixture from r38 still pins `span_box`'s linearity and
+bounds); verify PASSED with the same 21 signature windows, imports now also `igButton` and
+`igSameLine`. NRO `40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de`. Gameplay NOT RUN.
 
 ## Rules to keep
 
