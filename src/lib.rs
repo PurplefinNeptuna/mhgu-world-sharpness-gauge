@@ -1,4 +1,6 @@
-//! Modern sharpness gauge: the game's sharpness bar, clipped to the live ratio.
+//! Modern sharpness gauge: the game's sharpness bar, clipped to a ratio. r33 feeds that ratio
+//! the plan's fixed prototype values (0, 25, 50, 100%, 20 s each) from this thread's update
+//! count; the live ratio is still computed in the mask's enter hook and unused.
 //!
 //! Four hooks: the draw walker (main+0xa494a0) observes the gauge controller, the player's
 //! sharpness fields and the node tree; the instance draw entry (main+0xa39300) records the row
@@ -196,6 +198,20 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
 #[unsafe(no_mangle)]
 pub extern "C" fn forge_onUpdate(delta: f32) {
     let _ = delta;
+    // The clip box is fed the plan's fixed ratios; one line each time that ratio steps.
+    insert::tick_clock();
+    if let Some(forced) = insert::take_forced_line() {
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " forced ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th}"
+        ),
+        ratio = forced[0],
+        bl = forced[1] as i32, bt = forced[2] as i32, bw = forced[3] as i32, bh = forced[4] as i32,
+        l = forced[5] as i32, t = forced[6] as i32, r = forced[7] as i32, b = forced[8] as i32,
+        el = forced[9] as i32, et = forced[10] as i32, er = forced[11] as i32, eb = forced[12] as i32,
+        tu = forced[13] as i32, tv = forced[14] as i32, tw = forced[15] as i32, th = forced[16] as i32);
+    }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;
         let mut line = String::with_capacity(512);

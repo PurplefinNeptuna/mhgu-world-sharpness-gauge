@@ -11,7 +11,7 @@ use sharpness_gauge_core::{
     PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
     SHARPNESS_TYPE, SPLAYER_CELL, basis_points, draw_plan, fill_ratio, gauge_of,
     is_sharp_animation, local_player, ratio_of_words, read_gauge, sample_controller,
-    scan_walk, count_nodes, cache_layout, SHARP_OBJECTS,
+    scan_walk, count_nodes, cache_layout, SHARP_OBJECTS, SPRITE_WIDTH,
 };
 use std::collections::BTreeMap;
 
@@ -582,4 +582,29 @@ fn a_mask_left_open_never_stops_clipping() {
     assert_eq!(kinds[0], 0);
     assert_eq!(&kinds[1..5], [0, 1, 0, 1]);
     assert_eq!(plan.count * 8, 48);
+}
+
+#[test]
+fn the_forced_ratios_step_the_mask_box_the_bar_sees() {
+    // r33 feeds mask_box the plan's fixed ratios from the plugin's own update count. The bar's
+    // live screen rect is 110..238, so the width the ink is scaled by is 128, not the authored
+    // 88 the r3 fixtures measure.
+    let bar = [110, 38, 238, 166];
+    let width = bar[2] - bar[0];
+    let ratios: Vec<u32> = (0..160u32).step_by(20).map(prototype_ratio).collect();
+    let steps: Vec<[i32; 4]> = ratios.iter().map(|r| mask_box(bar, *r, width)).collect();
+    // 0, 25, 50 and 100% for 20 s each, and the cycle repeats.
+    assert_eq!(ratios[..4].to_vec(), vec![0, 2_500, 5_000, 10_000]);
+    assert_eq!(ratios[4..8].to_vec(), ratios[0..4].to_vec());
+    assert_eq!(
+        steps[..4].to_vec(),
+        vec![[110, 32, 26, 32], [110, 32, 48, 32], [110, 32, 71, 32], [110, 32, 116, 32]]
+    );
+    // The empty step keeps a non-zero box: 26 columns of the sprite's empty left part, so the
+    // degenerate zero-size scissor is never asked for.
+    for box_ in &steps {
+        assert!(box_[2] > 0 && box_[3] > 0, "ratio step {box_:?} has no width");
+    }
+    assert_eq!(steps[0][2], BAR_INK_LEFT * width / SPRITE_WIDTH);
+    assert_eq!(steps[3][2], boundary(bar, 10_000, width) - bar[0]);
 }

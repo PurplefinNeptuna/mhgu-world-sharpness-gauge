@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r31's probe closed the clip question (NRO 88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b installed matching, log work/modern-sharpness-gauge/runs/r31-eden-2026-10-24.txt): scr=165 57 339 249 is our GUI box (110 38 226 166) at screen x1.5 - the setter applies our rectangle exactly, and it moves with the ratio (339 -> 322 px at 90.6% -> 82%). The user's report, 'nothing visually different than vanilla', is now explained by construction: the clip edge coincides with the fill boundary inside the texture, so it cuts only the empty background beyond the fill - zero fill pixels change. The README's visible feature is the clean bar: r32 clears the glow's visibility bit at insertion, bit 0 of +0x54 - the game's own mechanism, the same bit the edge glyph carries cleared at full sharpness, the bit the sampler counts visible= with, the bit the draw walker skips invisible nodes by. Each area's row is built fresh, so the next insertion writes the next glow; no restore is owed. Everything r30/r31 proved stays.",
+  "reason": "r33 replaces r32, which was packaged and never run, and starts from r31's behaviour. The glow write is reverted: the glow keeps its visibility bit and the mask clips it along with the bar, which is what the design asks for (clip it, never hide it). The clip box is fed sharpness_gauge_core::prototype_ratio, the plan's Phase 2 fixed ratios 0/25/50/100% at 20 s each, read from this thread's own update count (60 ticks ≈ 1 s, the divider lib.rs's clip probe logs at). The live ratio stays computed in the mask's enter hook and is unused. One line per change of the forced ratio prints the ratio_bp, the box written, and the bar's +0xe0, +0xf0 and +0x10c rectangles: the offsets core/src/lib.rs already reads, nothing new. Forced ratios answer r31. That run (NRO 88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b installed matching, log work/modern-sharpness-gauge/runs/r31-eden-2026-10-24.txt) showed the setter applying our rectangle in screen coordinates and moving with the ratio (339 -> 322 px), and the user reported no visual difference from vanilla. The lowest ratio that hunt reached is 8771 basis points. mask_box scales the sprite's ink columns 18..79 of 88 into the node rect 110..238, the default core/src/lib.rs calls unproven, so a live hunt may never put the cut inside the drawn blade. The fixed steps put the cut at the ink's left edge, a quarter, a half and its right edge, where the eye can see it.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r32",
+  "version": "r33",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r32-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r32/delivery",
+  "archive": "modern-sharpness-gauge-r33-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r33/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: at insertion the gauge loses its bloom outline (the glow) and reads as one clean bar clipped at the fill edge - visibly not vanilla. In the log: sample lines after insertion show visible=1 (bar only, from core NODE_VISIBLE). The bar keeps clipping to the ratio (scr tracks size), and the gauge survives area changes (the next insertion's visible=1 again). Width tracking stays proven by data (scr moves with the ratio); in pixels it coincides with the fill edge by design.",
+  "runtime_test": "NOT RUN. Pass, on screen: the bar steps through empty, a quarter, half and full, 20 seconds on each, with the cut at the sword ink's left edge, a quarter, a half and its right edge, and a screenshot at each step showing where the cut falls on the blade. The bar is there from the quest start and survives an area change, as in the r30/r31 runs. In the log: one forced-ratio line per step with the box and the bar's three rectangles, and the glow counted visible again in the sample lines, since r33 does not touch its visibility bit. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -108,8 +108,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r4/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "63b69bc93edf3dec646a7028e3bfaebf41b017b166ca827a28ba01447bf62992"
+      "source": "build/modern-sharpness-gauge/candidates/r33/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4"
     }
   }
 }

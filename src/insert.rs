@@ -26,10 +26,11 @@ use crate::{
     gui, memory,
     sampling,
 };
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, mask_box, Gauge, NODE_CHILD, NODE_PARENT, NODE_SIBLING, NODE_VISIBLE,
+    basis_points, mask_box, prototype_ratio, Gauge, NODE_CHILD, NODE_EFFECTIVE_RECT, NODE_PARENT,
+    NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -62,6 +63,51 @@ static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
+
+/// The prototype clock fed to `prototype_ratio`: the plugin thread's own update tick, the same
+/// counter lib.rs's 120-update clip-probe divider logs at (120 updates ≈ 2 s, so 60 ≈ 1 s).
+/// Seconds are that counter divided by the rate, so no new timekeeping type is added.
+/// shortcut: 60 updates a second is that log's own divider, not a measured frame rate, so the
+/// 20 s steps drift with the frame rate. Upgrade if a run needs exact seconds.
+const UPDATES_PER_SECOND: u32 = 60;
+static UPDATES: AtomicU32 = AtomicU32::new(0);
+
+/// One tick of the prototype clock, called from `forge_onUpdate` and read in the mask's enter
+/// handler: a plain counter, no game pointer, no allocation and no formatting.
+pub fn tick_clock() {
+    UPDATES.fetch_add(1, Ordering::Relaxed);
+}
+
+/// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
+/// +0xe0, its effective rect at +0xf0 and its atlas rect at +0x10c (core's NODE_RECT,
+/// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT).
+pub const FORCED_WORDS: usize = 17;
+static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
+static FORCED_READY: AtomicBool = AtomicBool::new(false);
+/// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
+static FORCED_RATIO: AtomicU32 = AtomicU32::new(u32::MAX);
+
+/// The queued line, taken once per change of the forced ratio. `forge_onUpdate` prints it, so
+/// nothing is formatted in the hook and nothing is logged per frame.
+pub fn take_forced_line() -> Option<[u32; FORCED_WORDS]> {
+    if !FORCED_READY.swap(false, Ordering::Acquire) {
+        return None;
+    }
+    let mut out = [0u32; FORCED_WORDS];
+    for (index, slot) in out.iter_mut().enumerate() {
+        *slot = FORCED[index].load(Ordering::Relaxed);
+    }
+    Some(out)
+}
+
+/// The four words of one rectangle field on a node.
+fn rect_at(node: u32, offset: u32) -> [i32; 4] {
+    let mut out = [0i32; 4];
+    for edge in 0..4 {
+        out[edge] = memory::word(node + offset + edge as u32 * 4).unwrap_or(0) as i32;
+    }
+    out
+}
 // The r25 run: the gauge row is never rebuilt after an area change. Which link broke at the
 // drop, and what the kept addresses read as afterwards, are the facts no log line carries.
 static LINK_LOST: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
@@ -308,19 +354,17 @@ pub fn enter(mask: u32) {
     let Some((current, maximum, tier)) = sampling::gauge_points() else {
         return;
     };
-    let Some(ratio) = basis_points(Gauge {
+    // The live ratio, kept computed and unused: r33 clips with the plan's fixed ratios so the
+    // eye can see each step. The gate above is unchanged.
+    let Some(_live) = basis_points(Gauge {
         current: current as i32,
         maximum: maximum as i32,
         tier,
     }) else {
         return;
     };
-    let rect = [
-        memory::word(bar + 0xe0).unwrap_or(0) as i32,
-        memory::word(bar + 0xe4).unwrap_or(0) as i32,
-        memory::word(bar + 0xe8).unwrap_or(0) as i32,
-        memory::word(bar + 0xec).unwrap_or(0) as i32,
-    ];
+    let ratio = prototype_ratio(UPDATES.load(Ordering::Relaxed) / UPDATES_PER_SECOND);
+    let rect = rect_at(bar, NODE_RECT);
     // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
     // enter: the clip line's own bar probe read 0xFFFF64EE there, and mask_box saw width 0
     // every frame - the authored pair stayed (0,128), the rect stayed 110..110, and the mask
@@ -331,6 +375,25 @@ pub fn enter(mask: u32) {
         return;
     }
     let box_words = mask_box(rect, ratio, rect[2] - rect[0]);
+    if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed) {
+        // One line per change of the forced ratio, queued for the plugin thread to print:
+        // the box written, then the bar's own rect, the rect prepaint leaves after the clip
+        // intersection, and the rect inside the atlas. A screenshot and that line then name
+        // the same cut.
+        let effective = rect_at(bar, NODE_EFFECTIVE_RECT);
+        let texture = rect_at(bar, NODE_TEXTURE_RECT);
+        FORCED[0].store(ratio, Ordering::Relaxed);
+        for (edge, word) in box_words
+            .iter()
+            .chain(rect.iter())
+            .chain(effective.iter())
+            .chain(texture.iter())
+            .enumerate()
+        {
+            FORCED[1 + edge].store(*word as u32, Ordering::Relaxed);
+        }
+        FORCED_READY.store(true, Ordering::Release);
+    }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
     // are the writes that matter. The r23 run read the rectangle 225 times with width 0 and
     // height 32 at the parent's origin (110,38), against authored 128x32, which pins each input:
@@ -440,15 +503,7 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         && memory::call2(link_sibling, row.effect, row.edge).is_some()
         // One inbound chain per node, the invariant every native teardown walk relies on:
         // the bar chain moved under the mask, so the root's sibling chain has to end.
-        && memory::write_word(root + NODE_SIBLING, 0)
-        // Modern gauge = the clean bar clipped to the ratio; the bloom outline is vanilla's
-        // flourish. Clear the glow's visibility bit - bit 0 of +0x54, the bit the game itself
-        // leaves clear on the edge glyph at full sharpness (tree dump: edge flags 0x2040000
-        // lack it, and the draw walker skips invisible nodes) - so the gauge draws as one
-        // bar. Each area's row is built fresh, so the next insertion writes the next glow.
-        && memory::word(row.effect + 0x54).is_some_and(|flags| {
-            memory::write_word(row.effect + 0x54, flags & !NODE_VISIBLE)
-        });
+        && memory::write_word(root + NODE_SIBLING, 0);
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);

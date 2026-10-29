@@ -1,21 +1,17 @@
 # Modern Sharpness Gauge
 
-The mod draws on the game's sharpness gauge. A clipping mask over the bar shows
-the current sharpness ratio: at full sharpness you see the whole bar, and as
-sharpness drops the bar is cut back from the right. The bloom outline around the
-bar is switched off with the game's own visibility setting, so the gauge reads as
-one clean bar; the edge glyph keeps the game's behavior. Nothing else on the HUD
-changes.
+The mod clips the game's sharpness bar. A mask over the bar cuts it back from the right, so the
+part you see starts at the hilt. The glow around the bar and the glyph at its edge keep drawing,
+inside the same cut. Nothing else on the HUD changes.
 
-The mod writes into the game's gauge. A mask built the way the mod builds it starts
-with an uninitialised measurement setting and no horizontal scale, which made its box
-have no width and hid the bar; the last run fixed that and the bar drew from the quest
-start. What failed then was the area change: the game moved the gauge to a new area and
-the old mask kept clipping, hiding the bar. r25 turns that mask off when that happens,
-and the bar draws normally until the mod puts a new one in. A bar that vanishes mid-quest
-is the known failure of this build; the log says whether it happened.
-A quest is split into areas with a loading screen between them, and each area builds
-its own gauge. The mask goes into each area's gauge as it appears.
+This build cuts at four fixed widths so the cut is easy to see: empty, a quarter full, half
+full, and the whole bar. Each one holds for 20 seconds, then the next starts, and the four repeat
+for the whole session. Your own sharpness does not move the cut in this build. Take a screenshot
+at each of the four steps and say where the cut falls on the sword in each one.
+
+The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
+the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
+them, and each area builds its own gauge, so the mask goes into each area's gauge as it appears.
 
 ## Requirements
 
@@ -25,22 +21,23 @@ its own gauge. The mask goes into each area's gauge as it appears.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r32-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r33-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r32`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r33`
 should be listed.
 
 ## Usage
 
-Start a quest with a melee weapon that has sharpness, and watch the gauge bar as
-you hit monsters and as sharpness drops. The bar's visible width should follow
-sharpness: full bar at full sharpness, a shorter bar as it drops, and an empty bar
-at zero. Say whether it does.
+Start a quest with a melee weapon that has sharpness, and watch the gauge. The bar
+steps through empty, a quarter, half and full, 20 seconds on each, and repeats. At
+every step, take a screenshot of the gauge and note where the cut falls on the
+sword: how much of the blade is left, and how far from the hilt the cut is. Say
+which step each screenshot belongs to.
 
 Tell me if any of these happen:
 
@@ -65,7 +62,13 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r32`.
+lines that matter start with `MSG r33`.
+
+`forced ratio_bp` lines are the four steps, one line each time the step changes:
+`0`, `2500`, `5000` and `10000` basis points. The line carries the box the mod
+wrote (`box=`), the bar's own rectangle (`bar=`), the rectangle the game draws
+inside (`eff=`) and the part of the sword picture the bar uses (`tex=`). Match
+your screenshot's step to the line with the same number.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -77,19 +80,19 @@ draws unmodified, 49 the gauge already carries a mask from an earlier quest.
 Report the number exactly as printed.
 
 `inserted mask's links lost (N times)` means the game took a gauge row away at
-an area's loading screen: the mod turns the old mask off and looks for the new area's
-gauge. The line carries the tree links as the game left them and a count of gauge
-draws it still sees; a `dropped gauge row now:` line repeats those links when they
-change. Report how many areas you crossed and whether the bar behaved the same in each.
+an area's loading screen: the mod turns the old mask off and looks for the new
+area's gauge. The line carries the tree links as the game left them and a count of
+gauge draws it still sees; a `dropped gauge row now:` line repeats those links when
+they change. Report how many areas you crossed and whether the bar behaved the same
+in each.
 
 `clip mask rect` lines appear every couple of seconds while the mask is in, with
 the rectangle that is in the object at that moment, the measurement setting, and the
 bar's rectangle it is meant to cover. The first four numbers are left, top, right,
-bottom: if the left and right are equal (for example `110 32 110 64`) the clip has no
-width, which is what a missing gauge looks like in the log. `anchors=` should read
-with its low digits as `0` (`0xf0`), and `mat=` should start with `0x3f800000`, the
-scale 1.0: a low digit of `c` in the first, or `0x0` at the start of the second, is
-the missing measurement the bar needs to be visible.
+bottom: if the left and right are equal (for example `110 32 110 64`) the clip has
+no width, which is what a missing gauge looks like in the log. `anchors=` should
+read with its low digits as `0` (`0xf0`), and `mat=` should start with
+`0x3f800000`, the scale 1.0.
 
 `gauge row facts:` is one line per gauge HUD: the controller, its draw cache, the
 animation row and both of its count pairs, the HUD instance, the instance's object
@@ -123,12 +126,14 @@ unload step.
 Works with the base game; the MHGU HD Project is optional. Native Switch
 compatibility is unconfirmed.
 
-The mask has gone into the gauge in five runs and hid the gauge every time, with a
-clip box of no width; in one of those runs the game also crashed at the quest end. The
-cause is read out of the game's own code: a mask built directly keeps an
-uninitialised measurement setting, and its transform has no horizontal scale, so the
-box has no width. r24 sets both and lets the game do the measurement. Report a
-missing bar with the log, and the drawing can be taken out again.
+A bar that vanishes mid-quest is the known failure of this build, at an area's
+loading screen in particular. The log says whether it happened: the `links lost`
+line counts the gauge rows the game took away. Report it with the log, and the
+drawing can be taken out again.
+
+The last run showed the bar from the quest start, and kept it after an area change,
+with the clip moving where the mod asked for it. Nobody has reported seeing the cut
+on the sword, which is why the cut now steps through four fixed widths.
 
 Linked components: MHGU Forge by Fexty; Original Forge by Jeffi and the Skyline
 Project; forge-rs by Fexty; libnx by Hydrosphere Developers.

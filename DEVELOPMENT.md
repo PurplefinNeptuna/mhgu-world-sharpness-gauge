@@ -1,15 +1,27 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r32 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r31's scr probe closed the clip question: scr=165 57 339 249 is
-our GUI box at screen x1.5 - the setter applies our rectangle exactly and it moves with the
-ratio (339 -> 322 px at 90.6% -> 82%). The user sees vanilla because the clip edge coincides
-with the fill boundary inside the texture: it cuts only empty background, zero fill pixels.
-The visible delta is the README's clean bar: r32 clears the glow's visibility bit (bit 0 of
-node +0x54 = core NODE_VISIBLE, the bit the game leaves clear on the edge glyph, the bit the
-walker skips invisible nodes by, the bit visible= counts) at insertion; the game rebuilds each
-area's row and the next insertion rewrites it. Pass: bloom outline gone at insertion (screen),
-visible=1 after insertion (log), ratio clip + area survival unchanged.
+Current state: Phase 2 candidate r33 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r33 replaces r32, which was packaged and never run, and starts
+from r31's behaviour. r32's glow write is reverted: the design clips the glow, it never hides
+it, so the glow's own visibility bit is left alone and `NODE_VISIBLE` is out of the insertion.
+The clip box is fed `sharpness_gauge_core::prototype_ratio`, the plan's Phase 2 fixed ratios
+0/25/50/100% at 20 s each, read from the plugin thread's update count (60 ticks ≈ 1 s, the
+divider lib.rs's clip probe logs at, so no new timer type). The live ratio stays computed in the
+mask's enter hook and is unused. One line per change of the forced ratio prints ratio_bp, the box
+written, and the bar's +0xe0, +0xf0 and +0x10c rectangles, the offsets core/src/lib.rs already
+reads; nothing is logged per frame.
+The question r31 left open, and the reason for forced values: r31 (NRO
+`88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b` installed matching, log
+`work/modern-sharpness-gauge/runs/r31-eden-2026-10-24.txt`) showed the setter applying our
+rectangle in screen coordinates and moving with the ratio (scr 339 -> 322 px at 90.6% -> 82%),
+and the user reported no visual difference from vanilla. That hunt's lowest ratio is 8771 bp.
+`mask_box` scales the sprite's ink columns 18..79 of 88 into the node rect 110..238, the default
+core/src/lib.rs calls unproven. Taken at its authored 88 px width the last ink column is 189, and
+the cut passes it at any ratio above 59%, so a hunt that never drops below 87.7% puts the cut on
+background every time. Taken as scaled to the 128 px rect the ink runs 136..226, and the four
+fixed steps land the cut at 136, 158, 181 and 226 px: the ink's left edge, a quarter, a half and
+its right edge. A screenshot at each step says which of the two readings the screen agrees with.
+Gameplay NOT RUN.
 r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -988,6 +1000,35 @@ mask's own enter handler where the game has handed over a live object, through
 second argument. The walker's check stays read-only, as the rules require.
 
 20 host fixtures pass; verify PASSED with 21 signature windows. r25 is not run.
+
+## r33, built 2026-10-29: the plan's fixed ratios, where the eye can see each step
+
+r32 (NRO `7a551d24e91e5c888ece19189d57505c5fb9acf0d2d17c6505439486feed97f1`) was packaged and
+never run, so r33 replaces it and its candidate folder stays as it is. r33 starts from r31's
+behaviour, the last build a user ran. Two changes, both in `src/insert.rs`:
+
+1. The glow write in `run()` is gone, with the `NODE_VISIBLE` import it needed. The insertion
+   ends at the root's sibling write, exactly as r31's did. The glow's flags are untouched, so the
+   sampler counts it visible again and the mask clips it along with the bar and the edge.
+2. `enter` feeds `mask_box` the plan's `prototype_ratio` (0, 2500, 5000, 10000 bp, 20 s each)
+   from a counter `forge_onUpdate` ticks. 60 updates count as one second, the same divider as
+   lib.rs's 120-update clip-probe log, so the step length follows the frame rate and not a clock:
+   the shortcut is named beside the constant. The live ratio is still read and computed and is
+   unused, and the row path, the gates, the insertion order, the links and the mask's own writes
+   are unchanged. Nothing was deleted.
+
+The ratio-change line is queued inside the enter hook when the forced ratio steps and printed by
+`forge_onUpdate`: ratio_bp, the box, the bar's own rect at `+0xe0`, the effective rect at `+0xf0`
+and the atlas rect at `+0x10c`. Those are core's `NODE_RECT`, `NODE_EFFECTIVE_RECT` and
+`NODE_TEXTURE_RECT`, which the sampler already walks, so no offset and no field read is new, and
+no formatting happens in the hook.
+
+21 host fixtures pass. The new fixture feeds `mask_box` the four ratios at the bar's live 128 px
+rect: the boxes are `[110, 32, 26, 32]`, `[110, 32, 48, 32]`, `[110, 32, 71, 32]` and
+`[110, 32, 116, 32]`, the cycle repeats after four steps, and the empty step keeps a 26 px box,
+so the degenerate zero-size scissor is never asked for. Verify PASSED with the same 21 signature
+windows, the same exports and the same hook window as r31. NRO
+`ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4`. Gameplay NOT RUN.
 
 ## Rules to keep
 
