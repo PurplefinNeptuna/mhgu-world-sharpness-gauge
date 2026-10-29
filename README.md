@@ -4,10 +4,11 @@ The mod clips the game's sharpness bar. A mask over the bar cuts it back from th
 part you see starts at the hilt. The glow around the bar and the glyph at its edge keep drawing,
 inside the same cut. Nothing else on the HUD changes.
 
-This build cuts at four fixed widths so the cut is easy to see: empty, a quarter full, half
-full, and the whole bar. Each one holds for 20 seconds, then the next starts, and the four repeat
-for the whole session. Your own sharpness does not move the cut in this build. Take a screenshot
-at each of the four steps and say where the cut falls on the sword in each one.
+This build cuts at four fixed widths so the cut is easy to see: the hilt with no blade, a
+quarter of the blade, half, and the whole blade. Each one holds for 20 seconds, then the next
+starts, and the four repeat for the whole session. Your own sharpness does not move the cut in
+this build. Take a screenshot at each of the four steps and say where the cut falls on the sword
+in each one.
 
 The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
 the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
@@ -21,23 +22,23 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r33-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r34-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r33`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r34`
 should be listed.
 
 ## Usage
 
 Start a quest with a melee weapon that has sharpness, and watch the gauge. The bar
-steps through empty, a quarter, half and full, 20 seconds on each, and repeats. At
-every step, take a screenshot of the gauge and note where the cut falls on the
-sword: how much of the blade is left, and how far from the hilt the cut is. Say
-which step each screenshot belongs to.
+steps through the hilt alone, a quarter of the blade, half, and the whole blade,
+20 seconds on each, and repeats. At every step, take a screenshot of the gauge and
+note where the cut falls on the sword: how much of the blade is left, and how far
+from the hilt the cut is. Say which step each screenshot belongs to.
 
 Tell me if any of these happen:
 
@@ -62,13 +63,14 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r33`.
+lines that matter start with `MSG r34`.
 
 `forced ratio_bp` lines are the four steps, one line each time the step changes:
 `0`, `2500`, `5000` and `10000` basis points. The line carries the box the mod
 wrote (`box=`), the bar's own rectangle (`bar=`), the rectangle the game draws
-inside (`eff=`) and the part of the sword picture the bar uses (`tex=`). Match
-your screenshot's step to the line with the same number.
+inside (`eff=`), the part of the sword picture the bar uses (`tex=`) and the bar's
+own width (`bar_w=`, 88). Match your screenshot's step to the line with the same
+number.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -131,9 +133,11 @@ loading screen in particular. The log says whether it happened: the `links lost`
 line counts the gauge rows the game took away. Report it with the log, and the
 drawing can be taken out again.
 
-The last run showed the bar from the quest start, and kept it after an area change,
-with the clip moving where the mod asked for it. Nobody has reported seeing the cut
-on the sword, which is why the cut now steps through four fixed widths.
+The last run showed all four steps, and the gauge survived sharpness changes, area
+changes and quest changes. At the 0% step the hilt and a strip of the blade stayed
+visible: the bar's own width is 88 px, and the box was built from the 128 px layout
+box, which pushed the cut 8 px into the blade. This build builds the box from the
+bar's own 88 px.
 
 Linked components: MHGU Forge by Fexty; Original Forge by Jeffi and the Skyline
 Project; forge-rs by Fexty; libnx by Hydrosphere Developers.

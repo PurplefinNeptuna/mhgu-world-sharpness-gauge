@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r33 replaces r32, which was packaged and never run, and starts from r31's behaviour. The glow write is reverted: the glow keeps its visibility bit and the mask clips it along with the bar, which is what the design asks for (clip it, never hide it). The clip box is fed sharpness_gauge_core::prototype_ratio, the plan's Phase 2 fixed ratios 0/25/50/100% at 20 s each, read from this thread's own update count (60 ticks ≈ 1 s, the divider lib.rs's clip probe logs at). The live ratio stays computed in the mask's enter hook and is unused. One line per change of the forced ratio prints the ratio_bp, the box written, and the bar's +0xe0, +0xf0 and +0x10c rectangles: the offsets core/src/lib.rs already reads, nothing new. Forced ratios answer r31. That run (NRO 88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b installed matching, log work/modern-sharpness-gauge/runs/r31-eden-2026-10-24.txt) showed the setter applying our rectangle in screen coordinates and moving with the ratio (339 -> 322 px), and the user reported no visual difference from vanilla. The lowest ratio that hunt reached is 8771 basis points. mask_box scales the sprite's ink columns 18..79 of 88 into the node rect 110..238, the default core/src/lib.rs calls unproven, so a live hunt may never put the cut inside the drawn blade. The fixed steps put the cut at the ink's left edge, a quarter, a half and its right edge, where the eye can see it.",
+  "reason": "r33 ran on Eden 2026-10-29 (installed NRO ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4 matching, log work/modern-sharpness-gauge/runs/r33-eden-2026-10-29.txt): all four forced steps show, the gauge survives sharpness changes, area changes and quest changes, and each cut sits at the box's right edge (boxes 26/48/71/116 wide built as rect 110..136/158/181/226, screenshots with blue ink to 141/163/184/202 px). The tester's report, 'no empty gauge', names the width fed to mask_box. The bar's authored pair is 88x24 with transform x scale 1.0 (facts bar_w=88, clip line mat=0x3f800000), so the sprite draws 88 px from the rect's left and its ink columns are pixels 1:1 at 128..189; r33 fed the 128 px layout rect, scaling the inset to 26 and the track to 90, so ratio 0 ended the box at 136 with 8 px of blade inside. Re-measuring the atlas frames splits the ink: columns 18..27 are the hilt square and 28..79 the blade. r34 reads the bar's authored width at bar+0xb4 and feeds that, and the track is the blade's 52 columns from column 28: the steps are 0, 13, 26 and 52 blade columns, so 0% keeps the hilt and clips every blade column. The forced-ratio line now prints the width used. Everything r33 proved stays.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r33",
+  "version": "r34",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r33-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r33/delivery",
+  "archive": "modern-sharpness-gauge-r34-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r34/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: the bar steps through empty, a quarter, half and full, 20 seconds on each, with the cut at the sword ink's left edge, a quarter, a half and its right edge, and a screenshot at each step showing where the cut falls on the blade. The bar is there from the quest start and survives an area change, as in the r30/r31 runs. In the log: one forced-ratio line per step with the box and the bar's three rectangles, and the glow counted visible again in the sample lines, since r33 does not touch its visibility bit. Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN. Pass, on screen: the bar steps through hilt-only, a quarter, half and full, 20 seconds on each; at the 0% step the hilt shows with no blue blade, at 100% the whole blade shows, and a screenshot at each step names where the cut falls. The gauge is present from the quest start and survives area and quest changes, as in the r33 run. In the log: one forced-ratio line per step with the box, the bar's three rectangles and bar_w=88. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -108,8 +108,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r33/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4"
+      "source": "build/modern-sharpness-gauge/candidates/r34/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75"
     }
   }
 }

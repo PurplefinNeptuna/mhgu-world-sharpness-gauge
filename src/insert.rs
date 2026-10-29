@@ -29,8 +29,8 @@ use crate::{
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, mask_box, prototype_ratio, Gauge, NODE_CHILD, NODE_EFFECTIVE_RECT, NODE_PARENT,
-    NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
+    basis_points, mask_box, prototype_ratio, Gauge, NODE_AUTHORED_WIDTH, NODE_CHILD,
+    NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -79,9 +79,9 @@ pub fn tick_clock() {
 }
 
 /// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
-/// +0xe0, its effective rect at +0xf0 and its atlas rect at +0x10c (core's NODE_RECT,
-/// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT).
-pub const FORCED_WORDS: usize = 17;
+/// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
+/// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), and the authored width the box was built from.
+pub const FORCED_WORDS: usize = 18;
 static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
 static FORCED_READY: AtomicBool = AtomicBool::new(false);
 /// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
@@ -354,7 +354,7 @@ pub fn enter(mask: u32) {
     let Some((current, maximum, tier)) = sampling::gauge_points() else {
         return;
     };
-    // The live ratio, kept computed and unused: r33 clips with the plan's fixed ratios so the
+    // The live ratio, kept computed and unused: the plan's fixed ratios drive the box so the
     // eye can see each step. The gate above is unchanged.
     let Some(_live) = basis_points(Gauge {
         current: current as i32,
@@ -374,12 +374,27 @@ pub fn enter(mask: u32) {
     if rect[2] <= rect[0] {
         return;
     }
-    let box_words = mask_box(rect, ratio, rect[2] - rect[0]);
+    // The r33 run measures the draw scale: the bar's authored pair at +0xb4/+0xb8 is 88x24
+    // (the facts line's bar_w/bar_h) and its transform x scale is 1.0 (`mat=0x3f800000` in
+    // every clip line), so the sprite draws 88 px wide from the rect's left and its ink
+    // columns 18..79 land at 128..189 px. r33 fed mask_box the rect's 128 px, which scales
+    // the columns by 128/88: the ink inset became 26 instead of 18, so the ratio-0 box
+    // (110..136) kept 8 px of blade - the user's "no empty gauge". The r33 screenshots showed 8,
+    // 30, 53 and 62 px of that 62 px blade; inside the ink the first 10 columns are the hilt, so
+    // core starts the track at column 28 and the authored feed gives 0, 13, 26 and 52 px.
+    let Some(width_word) = memory::word(bar + NODE_AUTHORED_WIDTH) else {
+        return;
+    };
+    let authored = f32::from_bits(width_word) as i32;
+    // The same range gui.rs's stage 32 gate accepts for this field.
+    if !(1..=1024).contains(&authored) {
+        return;
+    }
+    let box_words = mask_box(rect, ratio, authored);
     if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed) {
         // One line per change of the forced ratio, queued for the plugin thread to print:
         // the box written, then the bar's own rect, the rect prepaint leaves after the clip
-        // intersection, and the rect inside the atlas. A screenshot and that line then name
-        // the same cut.
+        // intersection, the rect inside the atlas, and the width the box was built from.
         let effective = rect_at(bar, NODE_EFFECTIVE_RECT);
         let texture = rect_at(bar, NODE_TEXTURE_RECT);
         FORCED[0].store(ratio, Ordering::Relaxed);
@@ -392,6 +407,7 @@ pub fn enter(mask: u32) {
         {
             FORCED[1 + edge].store(*word as u32, Ordering::Relaxed);
         }
+        FORCED[17].store(authored as u32, Ordering::Relaxed);
         FORCED_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these

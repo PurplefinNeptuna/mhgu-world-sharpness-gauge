@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r33",
+  "version": "r34",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r33",
+    "version": "r34",
     "status": "BUILT",
-    "nro_sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4",
+    "nro_sha256": "d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +87,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "185616466f5cc49dc662ff1d890f313b896c0641161a4364a700a3366ead0392",
-      "src/insert.rs": "37f67dd90cdc964c5466f3773c22e298a23cf9521e5432e8518d62954ea9a44e",
-      "src/lib.rs": "40088ff0b66bda48d13c822a04b326ad8946caf143073cbd152e809338d75fea",
+      "src/insert.rs": "c0fe152368f3fc699d19ca68f397705c3b56615fe25491cf016fda7b683093f2",
+      "src/lib.rs": "0f344f8ab3eaf16aa6803f41885c8a9fd6a0eeb218f15a224e72d72a2476f5a8",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "37bbbbaad9d67a112d9f96e7da4044c03b334beadf8446d3eb14fa971eedcbe8",
-      "core/tests/behavior.rs": "f569bda9a21e923f13c659c2e2fa82e3218cc2e04505fe6974edab6207429092",
+      "core/src/lib.rs": "cd3ab36858859c12b8de4f7aca9e753d7eeed7a5d7803940be7221b7867bcc6e",
+      "core/tests/behavior.rs": "2968a83975f350d56e6a09158dfd0baf47c663f4ef30ad1f9bb5dc7999854ab0",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4",
-    "elf_sha256": "252ebdd7ff4851978692d4da7f587e5a4791808aa081afe5a5514b7dcef02ee8",
+    "nro_sha256": "d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75",
+    "elf_sha256": "1848d9df12d49e9bdf11e607f7b286dbee40a4fa3bf58ea2a96031d3ca251e01",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -194,7 +194,7 @@
       "the mask's clip is asked for by bit 0 of mask+0xa4 (main+0xa4ba20's bit); the rectangle rebuild is bit 1",
       "cache sizing main+0xa49b28: (objects << 4 | 8) + sequences * 12, the r17-measured pair (3 objects, 16 sequences): 248-byte allocation, 56-byte area = 7 records, and 72 = 9 for the grown 4-object row",
       "main+0xa47d2c's node count (+1) against the row's object count, on the unmodified and the inserted tree",
-      "the plan's fixed ratios through mask_box at the bar's live 128 px rect: 0/2500/5000/10000 repeat every four 20 s steps, and the empty step keeps a 26 px wide box"
+      "the plan's fixed ratios through mask_box at the bar's authored 88 px: 0/2500/5000/10000 repeat every four 20 s steps, the boxes are 28/41/54/80 px, the empty step keeps the hilt and no blade column, and the 128 px rect feed is refuted"
     ],
     "sampling_budget": {
       "max_samples": 320,
@@ -209,7 +209,7 @@
     },
     "words_per_sample": 116,
     "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
-    "nro_sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4"
+    "nro_sha256": "d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75"
   },
   "runs": [
     {
@@ -697,6 +697,24 @@
         "tree lines keep showing edge flags 0x2040000 (no bit 0) vs bar/glow 0x2800005 (bit 0 set): bit 0 of node +0x54 is the game's own visibility bit, and the sampler's visible=2 counts with it (core NODE_VISIBLE = 1)"
       ],
       "conclusion": "The clip chain works end to end: authored pair -> built rect -> intersection -> setter -> render target scissor in screen coordinates, moving with the ratio (339 -> 322 px). The invisible result is by construction: the clip edge coincides with vanilla's fill edge, so it clips only empty background. The README's visible delta is the glow: the modern gauge is the clean bar; vanilla's bloom outline is the flourish. r32 clears the glow's visibility bit (bit 0 of +0x54) at insertion - the game's own mechanism (the edge glyph carries the same cleared bit at full sharpness, and the draw walker skips invisible nodes), reset by each area's row rebuild and rewritten by each insertion. Sample lines print visible= after insertion: 1 (bar only) proves it ran; the gauge losing its bloom outline is the on-screen proof."
+    },
+    {
+      "date": "2026-10-29",
+      "version": "r33",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r33-eden-2026-10-29.txt",
+      "our_lines": 1598,
+      "observed": [
+        "user report: it is working and persists through sharpness changes, area changes and quest changes, but there is no empty gauge; 0% is expected to mean no blue blade parts",
+        "44 forced-ratio lines cycle 0/2500/5000/10000 on 20 s steps with boxes 26/48/71/116 px, and the clip lines build them exactly: rect=110 38 136 166, 158, 181, 226, anchors=0xff0, mat starting 0x3f800000, size=<box>,128",
+        "the four screenshots measure blue ink from preview column 22 to 45, 77, 108 and 135, i.e. GUI 125..141, 163, 184, 202: every cut lands at its box's right edge, plus the glow's bloom",
+        "the facts line prints bar_w=88 bar_h=24 and every clip line reads the bar's transform mat=0x3f800000: the sprite draws 88 px from the rect's left, so its ink columns 18..79 land at 128..189 px, not the 136..226 px the rect-width feed assumes",
+        "the bar's effective rect reads 0 0 0 0 in every forced line: at the mask's enter call prepaint has not written it for this frame, so that field measures nothing; tex= is the atlas rect as float bits (0, 280, 88, 304)",
+        "2 insertions, 1 links-lost recovery, 0 insertion failures, 617 clip lines, no guest exception in the plugin's own lines"
+      ],
+      "conclusion": "The clip chain shows on screen for the first time: four distinct steps, each at its box's right edge, surviving sharpness, area and quest changes. The width fed to mask_box is refuted (the rect's 128 px against the bar's authored 88 px with scale 1.0), and the atlas re-measure splits the ink into the hilt (18..27) and the blade (28..79), so ratio 0 at 136 px keeps the hilt and 8 px of blade. r34 feeds the authored width and moves the track to the blade."
     }
   ],
   "not_proven": [
@@ -719,10 +737,10 @@
     "that r28's area-1 regression is exactly the cache leak: r26/r27 drew area 1 with the release; r28 (leak, identical probe) did not; the causal line is not read, and r29 restores the release.",
     "that the gauge row rebuilds after an area change with the free-list poison gone: r29's teardown was clean (fill state, no tombstones) and the post-drop window (45 s) found no controller; the earlier long windows ran while the double-free was live, so they do not settle it.",
     "a visible difference from vanilla: r31's probe data proves the clip's right edge moves with the ratio (339 -> 322 screen px at 90.6% -> 82%), but it lands on vanilla's fill edge and cuts only empty background. r32's glow removal is the first delta meant to be seen: the user has never reported any visual difference from vanilla, and acceptance is unconfirmed.",
-    "r33's four forced steps have no runtime evidence. The step length comes from the plugin thread's update count at 60 ticks a second, which is lib.rs's own log divider and not a measured frame rate, and mask_box's mapping of the sprite's ink columns onto the node rect stays the default core/src/lib.rs calls unproven. A run says at which of the four steps a cut shows on the blade."
+    "r34's hilt-anchored track has no runtime evidence. The hilt's 10 columns and the blade's 52 are measured from the decoded atlas frame, and the authored 88 px is measured from the r33 run's facts line and transform scale; whether the bar's authored width at +0xb4 reads 88 inside the mask's enter call is what the new bar_w= field in the forced line proves on the next run."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 and r33 NOT RUN",
+    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 NOT RUN",
     "date": "2026-10-23",
     "binary_sha256": "88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
