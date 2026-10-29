@@ -62,7 +62,10 @@ def verify():
     disasm=subprocess.check_output([Path(CONFIG['devkitarm'])/'bin/arm-none-eabi-objdump','-d',elf],text=True)
     writes=[line for line in disasm.splitlines() if '\tmsr\t' in line]
     if writes: raise ValueError('Processor status writes are forbidden (NZCVQ/GE rule): '+str(writes))
-    if imports&{'forge_config_create','igTreeNode_Str','igColorEdit3','igSliderFloat','forge_fs_mountSaveData'}:
+    # r37: the tester asked for an in-session 0-100 slider as the test control, so the tree row
+    # and the slider imports are now expected. Persistent settings stay out: no config creation,
+    # no save-data mount, no colour editor.
+    if imports&{'forge_config_create','igColorEdit3','forge_fs_mountSaveData'}:
         raise ValueError('Unrequested settings/overlay dependency')
     if 'forge_onImGuiFreeRender' in exports: raise ValueError('No free rendering is used by this mod')
     expected={'romfs/nativeNX/plugins/'+NRO}

@@ -383,12 +383,12 @@ fn the_prototype_fill_shares_one_boundary_column() {
     // cut. In sprite columns that is 10 in and 70 long at the rect's 128 px.
     let sword = [110, 38, 238, 166];
     let effect = [116, 32, 244, 160];
-    for (ratio, column) in [(0u32, 120), (2_500, 137), (5_000, 155), (10_000, 190)] {
+    for (ratio, column) in [(0u32, 120), (2_500, 133), (5_000, 147), (10_000, 175)] {
         assert_eq!(boundary(sword, ratio, 88), column);
         assert_eq!(kept(sword, column), [110, 38, column, 166]);
         assert_eq!(kept(effect, column), [116, 32, column.max(116), 160]);
     }
-    for (ratio, column) in [(0u32, 124), (2_500, 149), (5_000, 174), (10_000, 225)] {
+    for (ratio, column) in [(0u32, 124), (2_500, 144), (5_000, 164), (10_000, 204)] {
         assert_eq!(boundary(sword, ratio, 128), column);
     }
     // Ratio 0 keeps a non-zero clip (14 px at the rect's width), so the degenerate zero-size
@@ -396,7 +396,7 @@ fn the_prototype_fill_shares_one_boundary_column() {
     // screenshots show. Ratio 1 covers the whole blade. The clip rows start at the effect
     // glyph's top and cover the bar's rows.
     assert_eq!(boundary(sword, 0, 128) - sword[0], BAR_INK_LEFT * 128 / SPRITE_WIDTH);
-    assert_eq!(boundary(sword, 10_000, 128), 225);
+    assert_eq!(boundary(sword, 10_000, 128), 204);
     assert_eq!((CLIP_TOP, CLIP_HEIGHT), (-6, 32));
     assert_eq!(kept([200, 0, 100, 10], 260), [200, 0, 200, 10]);
     assert_eq!(
@@ -412,9 +412,9 @@ fn the_mask_box_covers_the_bar_and_the_effect() {
     // offset rows (-6..+25) both fall inside. Width is never zero.
     for (ratio, box_) in [
         (0u32, [110, 32, 10, 32]),
-        (2_500, [110, 32, 27, 32]),
-        (5_000, [110, 32, 45, 32]),
-        (10_000, [110, 32, 80, 32]),
+        (2_500, [110, 32, 23, 32]),
+        (5_000, [110, 32, 37, 32]),
+        (10_000, [110, 32, 65, 32]),
     ] {
         assert_eq!(mask_box(sword, ratio, 88), box_);
         assert!(box_[2] > 0 && box_[3] > 0);
@@ -422,16 +422,16 @@ fn the_mask_box_covers_the_bar_and_the_effect() {
     assert_eq!(mask_box(sword, 10_000, 88)[2], boundary(sword, 10_000, 88) - sword[0]);
     assert_eq!(mask_box(sword, 0, 88)[2], BAR_INK_LEFT);
     assert_eq!(mask_box(sword, 0, 128)[2], 14);
-    assert_eq!(mask_box(sword, 10_000, 128)[2], 115);
+    assert_eq!(mask_box(sword, 10_000, 128)[2], 94);
 }
 #[test]
 fn the_fill_track_scales_with_the_live_bar_width() {
     // A 176-wide bar is the same art at double scale: the inset and the track double.
     let sword = [110, 38, 238, 166];
-    assert_eq!(boundary(sword, 10_000, 176), 110 + 20 + 140);
+    assert_eq!(boundary(sword, 10_000, 176), 110 + 20 + 110);
     assert_eq!(boundary(sword, 0, 176), 110 + 20);
-    assert_eq!(boundary(sword, 5_000, 176), 110 + 20 + 70);
-    assert_eq!(mask_box(sword, 10_000, 176)[2], 160);
+    assert_eq!(boundary(sword, 5_000, 176), 110 + 20 + 55);
+    assert_eq!(mask_box(sword, 10_000, 176)[2], 130);
 }
 
 /// The gauge tree as the runs show it, with every link the walker follows: the
@@ -601,12 +601,14 @@ fn the_forced_ratios_step_the_box_from_the_rect_width() {
     assert_eq!(ratios[..4].to_vec(), vec![0, 2_500, 5_000, 10_000]);
     assert_eq!(ratios[4..8].to_vec(), ratios[0..4].to_vec());
     let widths: Vec<i32> = ratios[..4].iter().map(|r| mask_box(bar, *r, rect_width)[2]).collect();
-    assert_eq!(widths, vec![14, 39, 64, 115]);
-    // The kept widths 14, 39, 64 and 115 px, i.e. the box's right edge at 124, 149, 174 and
-    // 225 px: the empty step stops left of the hilt glyph, and 100% covers the blade.
-    assert_eq!(widths.iter().map(|w| bar[0] + w).collect::<Vec<_>>(), vec![124, 149, 174, 225]);
+    assert_eq!(widths, vec![14, 34, 54, 94]);
+    // The kept widths 14, 34, 54 and 94 px, i.e. the box's right edge at 124, 144, 164 and
+    // 204 px: the empty step stops left of the hilt glyph, and 100% covers the blade.
+    assert_eq!(widths.iter().map(|w| bar[0] + w).collect::<Vec<_>>(), vec![124, 144, 164, 204]);
     assert!(widths[0] > 0 && widths[0] < 18, "the empty step must stop left of the hilt glyph");
-    assert!(bar[0] + widths[3] >= 225);
-    // The authored 88 px feed r34 used is refuted: its 100% box ends at 190, inside the blade.
-    assert!(mask_box(bar, 10_000, 88)[2] + bar[0] < 225);
+    assert!(bar[0] + widths[3] >= 200);
+    // The drawn gauge ends at the measured 200 px: the 100% box covers it, and r34's authored
+    // 88 px feed ended at 190, which photographed as a cut tip.
+    assert!(bar[0] + widths[3] >= 200 && bar[0] + widths[3] <= 210);
+    assert!(mask_box(bar, 10_000, 88)[2] + bar[0] < 200);
 }

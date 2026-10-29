@@ -1,4 +1,4 @@
-//! Modern sharpness gauge: the game's sharpness bar, clipped to a ratio. r35 feeds that ratio
+//! Modern sharpness gauge: the game's sharpness bar, clipped to a ratio. r36 feeds that ratio
 //! the plan's fixed prototype values (0, 25, 50, 100%, 20 s each) from this thread's update
 //! count, and builds the box from the node's rect width; the live ratio is still computed in
 //! the mask's enter hook and unused.
@@ -205,14 +205,15 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " forced ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed}"
+            " forced ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed} src={src}"
         ),
         ratio = forced[0],
         bl = forced[1] as i32, bt = forced[2] as i32, bw = forced[3] as i32, bh = forced[4] as i32,
         l = forced[5] as i32, t = forced[6] as i32, r = forced[7] as i32, b = forced[8] as i32,
         el = forced[9] as i32, et = forced[10] as i32, er = forced[11] as i32, eb = forced[12] as i32,
         tu = forced[13] as i32, tv = forced[14] as i32, tw = forced[15] as i32, th = forced[16] as i32,
-        bw2 = forced[17] as i32, feed = forced[18] as i32);
+        bw2 = forced[17] as i32, feed = forced[18] as i32,
+        src = if forced[19] == 1 { "slider" } else { "cycle" });
     }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;
@@ -397,5 +398,33 @@ pub unsafe extern "C" fn forge_onImGuiInit(
     }
 }
 
+/// The row below is the r37 test control: a 0-100 slider for how much of the gauge is shown, so
+/// a step can be set and photographed on demand instead of waiting for the 20 s cycle. It is
+/// session-only (this mod ships no INI and writes no save data), the row starts closed, and the
+/// TreePop is paired through Drop so an early return cannot leave it open.
 #[forge::imgui_render]
-fn panel() {}
+fn panel() {
+    if !forge::imgui::tree_node(c"Modern Sharpness Gauge##modern-sharpness-gauge") {
+        return;
+    }
+    struct Tree;
+    impl Drop for Tree {
+        fn drop(&mut self) {
+            forge::imgui::tree_pop();
+        }
+    }
+    let _tree = Tree;
+    let mut percent = insert::slider_percent();
+    if forge::imgui::slider_float(
+        c"Gauge shown %##modern-sharpness-gauge",
+        &mut percent,
+        0.0,
+        100.0,
+        forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
+    ) {
+        insert::set_slider_percent(percent);
+    }
+    forge::imgui::text(
+        "Drag to set how much of the blade shows. Untouched, the clip cycles 0, 25, 50 and 100% every 20 s.",
+    );
+}

@@ -196,22 +196,24 @@ pub fn prototype_ratio(seconds: u32) -> u32 {
 /// fed the authored 88 px, whose 100% box (right 190) cuts the blade near the tip. So a sprite
 /// column measures rect_width / SPRITE_WIDTH px, and the runtime feeds the rect width.
 pub const SPRITE_WIDTH: i32 = 88;
-/// Where the drawn bar starts and stops, in sprite columns, measured from the two runs the
-/// tester photographed. The r33 0% box (right 136) and the r34 0% box (right 138) look the same
-/// on screen and both show the hilt glyph, whose left edge measures 125 px, i.e. 15 px from the
-/// rect's left and 10 sprite columns. The r33 100% box (right 226) shows the whole blade with no
-/// cut, so the track ends 115 px from the rect's left: 101 px long, 70 columns.
+/// Where the drawn bar starts and stops, in sprite columns, measured from the r35 run's four
+/// photographs with that run's own logged box rights as the ruler (scale 1.4 image px per GUI px,
+/// fitted on the 25% and 50% cuts at 149 and 174). The drawn ink runs 124..200 px: the 0% box
+/// (124) photographs no blue at all, and the 100% box (225) photographs blue up to 200 with the
+/// box 25 px past the blade, so the old track (124..225, 128 px) overshot the gauge by half again
+/// its length and put the 25% and 50% steps at 27% and 63% of the blade. Ending at 204 px is
+/// 201..204, the measured tip (200) with margin: overshoot lands on empty sprite, undershoot cuts
+/// the tip, which is what r34's 190 px box photographed.
 pub const BAR_INK_LEFT: i32 = 10;
-pub const BAR_INK_TRACK: i32 = 70;
+pub const BAR_INK_TRACK: i32 = 55;
 pub const CLIP_TOP: i32 = -6;
 pub const CLIP_HEIGHT: i32 = 32;
 
 /// The shared screen column the fill stops at. The hilt is the left edge. The kept part grows
 /// from the left and the tip side is clipped. The column is measured on the bar's own rect, the
 /// rectangle the node reports at +0xE0, because the runs show the sprite drawn across that rect:
-/// at the rect's 128 px the track is 14 px in and 101 px long, which lands the steps at 124, 149,
-/// 174 and 225 px, matching the r33 run's 158, 181 and 226 within a pixel, and moving only the
-/// empty step (136 -> 124) to stop left of the hilt. The effect glyph is clipped at the same column, because its rect
+/// at the rect's 128 px the track is 14 px in and 80 px long, which lands the steps at 124, 144,
+/// 164 and 204 px: the whole measured gauge (124..200) in four linear steps. The effect glyph is clipped at the same column, because its rect
 /// carries its `+6,-6` local offset.
 pub fn boundary(sword: [i32; 4], ratio_bp: u32, bar_width: i32) -> i32 {
     let width = bar_width.max(1);

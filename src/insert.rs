@@ -78,15 +78,38 @@ pub fn tick_clock() {
     UPDATES.fetch_add(1, Ordering::Relaxed);
 }
 
+/// The r37 test control: the overlay slider's value in basis points, `u32::MAX` until the panel
+/// is touched, which is when the 20 s cycle stops driving the box. Written on the overlay thread
+/// by `set_slider_percent`, read in the mask's enter handler on the game thread: one atomic, no
+/// lock, and no game pointer crosses the two. Session-only by design: this mod ships no INI and
+/// no save data, so the slider resets when the game restarts.
+static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
+
+/// The slider's current position as a percentage (100.0 while untouched).
+pub fn slider_percent() -> f32 {
+    let points = SLIDER_BP.load(Ordering::Relaxed);
+    if points == u32::MAX {
+        100.0
+    } else {
+        points as f32 / 100.0
+    }
+}
+
+pub fn set_slider_percent(percent: f32) {
+    SLIDER_BP.store((percent.clamp(0.0, 100.0) * 100.0) as u32, Ordering::Relaxed);
+}
+
 /// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
 /// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the width
-/// the box was built from.
-pub const FORCED_WORDS: usize = 19;
+/// the box was built from, and whether the slider (1) or the cycle (0) drove it.
+pub const FORCED_WORDS: usize = 20;
 static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
 static FORCED_READY: AtomicBool = AtomicBool::new(false);
 /// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
 static FORCED_RATIO: AtomicU32 = AtomicU32::new(u32::MAX);
+/// The last clock tick that queued a line, for the rate limit above.
+static FORCED_LOG_AT: AtomicU32 = AtomicU32::new(0);
 
 /// The queued line, taken once per change of the forced ratio. `forge_onUpdate` prints it, so
 /// nothing is formatted in the hook and nothing is logged per frame.
@@ -364,7 +387,13 @@ pub fn enter(mask: u32) {
     }) else {
         return;
     };
-    let ratio = prototype_ratio(UPDATES.load(Ordering::Relaxed) / UPDATES_PER_SECOND);
+    let slider = SLIDER_BP.load(Ordering::Relaxed);
+    let updates = UPDATES.load(Ordering::Relaxed);
+    let (ratio, from_slider) = if slider == u32::MAX {
+        (prototype_ratio(updates / UPDATES_PER_SECOND), false)
+    } else {
+        (slider, true)
+    };
     let rect = rect_at(bar, NODE_RECT);
     // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
     // enter: the clip line's own bar probe read 0xFFFF64EE there, and mask_box saw width 0
@@ -385,7 +414,12 @@ pub fn enter(mask: u32) {
         .map(|word| f32::from_bits(word) as i32)
         .unwrap_or(0);
     let box_words = mask_box(rect, ratio, rect[2] - rect[0]);
-    if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed) {
+    // One line per change of the driving ratio, rate-limited so dragging the slider cannot
+    // flood the log: a change inside the last 30 updates is not printed.
+    if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed)
+        && updates.wrapping_sub(FORCED_LOG_AT.load(Ordering::Relaxed)) >= 30
+    {
+        FORCED_LOG_AT.store(updates, Ordering::Relaxed);
         // One line per change of the forced ratio, queued for the plugin thread to print:
         // the box written, then the bar's own rect, the rect prepaint leaves after the clip
         // intersection, the rect inside the atlas, and the width the box was built from.
@@ -403,6 +437,7 @@ pub fn enter(mask: u32) {
         }
         FORCED[17].store(authored as u32, Ordering::Relaxed);
         FORCED[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
+        FORCED[19].store(from_slider as u32, Ordering::Relaxed);
         FORCED_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these

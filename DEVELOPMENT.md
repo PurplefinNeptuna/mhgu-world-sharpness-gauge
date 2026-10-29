@@ -1,15 +1,16 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r35 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r33 and r34 both ran on Eden 2026-10-29 with the installed bytes
-matching, and the tester's photographs settle the box's width. r33 fed `mask_box` the node's 128 px
-rect: its 100% box (right 226) shows the whole blade with no cut. r34 fed the bar's authored 88 px
-(the read is logged, `bar_w=88`): its 100% box (right 190) cuts the blade near the tip, and its 0%
-box (138) looks the same as r33's 0% box (136) - the hilt glyph, whose left edge measures ~125 px,
-is inside both. So the node's rect is the draw scale, and the empty step has to stop left of the
-hilt. r35 feeds the rect width and measures the track from those two photographs: 14 px in and 101
-px long, so the steps are 124, 149, 174 and 225 px. 21 host fixtures pass; NRO
-`21413972b0f2ce8c6db01e8de5cdc5b9cab1d062e5e830237e7f89c2acaaf482`. Gameplay NOT RUN.
+Current state: Phase 2 candidate r37 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r37 carries r36's measured geometry and adds the tester's requested
+test control: a session-only 0-100 slider in the Plugin UI row (`Gauge shown %`) that sets the clip
+directly, with the 20 s prototype cycle driving the box until it is touched. No INI, no save data,
+and it resets on restart. The forced line prints `src=cycle|slider`, so a log says which one drove
+a box. r36's geometry stays: the rect-width feed and the track measured from the r35 run (the drawn
+gauge ink is 124..200 px), steps 124, 144, 164 and 204 px. 21 host fixtures pass; verify PASSED
+with the same 21 signature windows and the new `igSliderFloat`, `igTreeNode_Str`, `igTreePop` and
+`igTextUnformatted` imports, with persistent-settings imports (config creation, save-data mount,
+colour editor) still refused. NRO
+`3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b`. Gameplay NOT RUN.
 r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1102,6 +1103,58 @@ photographed the whole blade. The forced line prints both widths, `bar_w=` (the 
 225, and that the authored 88 feed's 100% box ends at 190, inside the blade). Verify PASSED with
 the same 21 signature windows. NRO `21413972b0f2ce8c6db01e8de5cdc5b9cab1d062e5e830237e7f89c2acaaf482`.
 Gameplay NOT RUN.
+
+## r35 run 2026-10-29 (Eden): the ends are right, the middle steps are not
+
+Log `work/modern-sharpness-gauge/runs/r35-eden-2026-10-29.txt` (sha256
+`963a5b388507ad70b6b552f5d52ba06ec736b27758f84ef1277e0666e54641f6`), installed NRO
+`21413972b0f2ce8c6db01e8de5cdc5b9cab1d062e5e830237e7f89c2acaaf482`, matching the r35 payload.
+61 forced lines, `feed=128` and `bar_w=88` on every one, boxes 14/39/64/115 (rights 124, 149, 174,
+225), 1 insertion. The tester: 0% is good and 100% is full, the 25% and 50% positions look wrong,
+and the 100% fill may already be past the gauge length.
+
+Measuring the four screenshots with the logged rights 149 and 174 as the ruler (1.4 image px per
+GUI px): the 0% step has no blue pixels at all; the 25% step's blue runs 130..149; the 50% step's
+130..174; the 100% step's 124..**200**, i.e. the drawn gauge's ink ends at 200 px while the box
+ran to 225. So the visible blade was 0, 19, 44 and 70 px of a 70 px blade: the steps read 0, 27,
+63 and 100%, which is the tester's report, stated as arithmetic.
+
+Refuted: the track's outer end. 225 is the 128 px rect's own edge, not the gauge's: the drawn
+gauge is 124..200 (76 px), and a track of 111 px (124..235) spread the four steps over 1.45x the
+gauge's length. r33's 100% box (226) looked right only because it was past the tip.
+
+## r36, built 2026-10-29: the track ends at the blade's tip
+
+One constant: `BAR_INK_TRACK` 70 -> 55 columns, so at the rect's 128 px the track is 80 px long
+and the four steps end at 124, 144, 164 and 204 px. The 204 is the measured tip (200) with margin,
+measured with the r35 log's cuts as the ruler. Everything else is r35's: the rect-width feed, the
+gates, the insertion order, the links, the mask's writes, the glow, the forced-ratio clock and the
+log line.
+
+21 host fixtures pass (the geometry fixtures now assert the 124/144/164/204 steps, that the 100%
+box covers 200 px and stays under 210, and that the authored 88 px feed ends at 190, which
+photographed as the cut tip). Verify PASSED with the same 21 signature windows. NRO
+`52ecec7b87561293fc44f992d94e777ff549f165775d0a733acdd127cc888c3f`. Gameplay NOT RUN.
+
+## r37, built 2026-10-29: a 0-100 slider, so a value can be set on demand
+
+The tester asked for a better test than the 20 s cycle: a Forge option, a slider 0-100 that
+changes how much of the gauge shows. `panel()` opens one closed tree row
+(`Modern Sharpness Gauge##modern-sharpness-gauge`, TreePop paired through Drop) with
+`Gauge shown %`, 0..100 clamped. Dragging stores basis points in one atomic; the mask's enter
+handler reads it in place of the cycle, so the box changes the next frame. Untouched
+(`u32::MAX`) keeps the cycle, which is how the previous runs' evidence stays comparable. The
+forced line adds `src=cycle|slider`, rate-limited to one line per 30 updates so dragging cannot
+flood the log.
+
+Session-only on purpose: no `forge_config_create`, no save-data mount, no INI. `verify.py`'s
+forbidden-import list was narrowed for exactly that reason (the tree row and slider imports are
+now expected; config creation, save-data mount and the colour editor are still refused) and the
+comment beside it says so.
+
+r36's measurement is in this build too: `BAR_INK_TRACK` 55 columns (80 px at the 128 px rect),
+steps 124, 144, 164 and 204 px against the measured 124..200 px gauge. 21 host fixtures pass.
+NRO `3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b`. Gameplay NOT RUN.
 
 ## Rules to keep
 
