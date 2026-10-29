@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "The tester reported that r38's sliders were not applied directly, and the code confirms why: enter took the custom endpoints only when both were set, so dragging one slider while the other was untouched changed nothing. r39 turns the panel into a draft with explicit publish: Gauge shown %, Cut start px and Cut end px edit draft values, Apply publishes all three together on the next frame, Reset returns to the defaults and hands control back to core's measured track and the 20 s cycle, and a readout line under the buttons says which is live. The endpoints stay absolute screen px on the bar's 110..238 rect (defaults 124 and 204) and core's span_box keeps the linear math, so the endpoints are always published as a pair and a single drag can no longer be ignored. Still session-only: no INI, no save data, resets on restart. Gates, insertion order, links, the mask's writes and the glow are unchanged from the build the tester ran. The same pass set the two pixel sliders to 0.1 px steps: the raw slider binding shows one decimal, and set_draft_cut_start/end snap the stored value to the same 0.1 grid with integer centi-pixels (no_std has no f32::round).",
+  "reason": "The tester ran r39 and the panel did what it was built to do: 14 forced lines, all src=slider, and the box's right edge landing on the published endpoints (124/204, then 126/201, then 129/201), with the middle ratios in between them in a straight line. Their accepted pair is 129 px as the start and 201 px as the end, so r40 makes those the defaults: the sliders open at 129.0 and 201.0, and Reset returns to them. Nothing else moves. The endpoints stay absolute screen px on the bar's 110..238 rect, core's span_box keeps the linear math, the untouched 20 s cycle keeps core's measured 124..204 px track, and the control is still session-only: no INI, no save data, resets on restart. Gates, insertion order, links, the mask's writes and the glow are unchanged from the build the tester ran.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r39",
+  "version": "r40",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r39-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r39/delivery",
+  "archive": "modern-sharpness-gauge-r40-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r40/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: the sliders change nothing until Apply is pressed, then the gauge shows the published value at once; with Cut start px and Cut end px set around the blade and Apply pressed, dragging Gauge shown % to 0 shows no blade, 25 a quarter, 50 half and 100 the whole blade, and moving the endpoints with Apply moves the whole range. Reset returns to the 20 s cycle on the 124..204 px track. In the log: one forced line per published change with the box, bar_w=88, feed=128, src=cycle|slider and cut=<start> <end>. Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN. Pass, on screen: with the sliders at their defaults 129.0 and 201.0 and Apply pressed, 0% shows no blade, 25 a quarter, 50 half and 100 the whole blade, and moving the endpoints with Apply moves the whole range. Reset returns to the 20 s cycle on core's measured 124..204 px track. In the log: one forced line per published change with the box, bar_w=88, feed=128, src=cycle|slider and the two endpoints. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -70,7 +70,8 @@
     "the game's destructor is assumed to free the map block r17 publishes through the cGUIInstance DTI's MT allocator; that free has not been observed, and r17 frees the old 4-word block itself",
     "The per-weapon tier tables live in RomFS weapon data and are not read in this workspace: no weapon data file is extracted here.",
     "The gauge itself is not part of r4.",
-    "r25 has not been run. r24's run drew the gauge from the quest start and lost it at an area change, where a mask kept clipping after its links broke; the disable-on-loss path has no runtime evidence, and a mask inserted into a second area's row has never been observed (r24's log ends 12 s after the transition, gauge HUD absent)"
+    "r25 has not been run. r24's run drew the gauge from the quest start and lost it at an area change, where a mask kept clipping after its links broke; the disable-on-loss path has no runtime evidence, and a mask inserted into a second area's row has never been observed (r24's log ends 12 s after the transition, gauge HUD absent)",
+    "r40 has not been run. Its two defaults are the endpoints the r39 log shows applied (right edge 129 px at 0% and 201 px at 100%), read from the tester's run, not from an r40 run."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -108,8 +109,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r39/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de"
+      "source": "build/modern-sharpness-gauge/candidates/r40/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "3d5623a7a99b844b8dd22edb69e375a262529c46d1ad6041c8a21e7ca476dce5"
     }
   }
 }

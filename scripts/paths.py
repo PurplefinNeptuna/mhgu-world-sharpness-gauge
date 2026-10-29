@@ -10,7 +10,7 @@ CONFIG=json.loads((MOD/'build.local.json').read_text()) if (MOD/'build.local.jso
 # build.sh stays usable from any working directory after an independent export.
 for key in ('rust_bin','cargo_home','cargo_forge','devkitarm','inputs','python'):
     if key in CONFIG and not Path(CONFIG[key]).is_absolute(): CONFIG[key]=str(MOD/CONFIG[key])
-VERSION='r39'
+VERSION='r40'
 BUILD_ROOT=ROOT/('build/modern-sharpness-gauge/candidates/'+VERSION)
 WORK_ROOT=ROOT/('work/modern-sharpness-gauge/candidates/'+VERSION)
 CARGO_TARGET=WORK_ROOT/'cargo-target'

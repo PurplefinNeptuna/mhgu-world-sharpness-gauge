@@ -616,31 +616,29 @@ fn the_forced_ratios_step_the_box_from_the_rect_width() {
 #[test]
 fn the_cut_endpoints_land_the_box_where_the_slider_puts_it() {
     // r38: the tester sets the box's right edge at 0% and at 100% in screen px on the bar's
-    // rect (110..238). The r35 measurement put the drawn gauge at 124..200 px, and the defaults
-    // are 124..204, so an untouched panel reproduces r37's steps exactly.
+    // rect (110..238). The accepted pair is 129..201 px, the endpoints the r39 log shows applied
+    // (right edge 129 at 0% and 201 at 100%), and it is what the shipped defaults carry.
     let rect = [110, 38, 238, 166];
-    let (start, end) = (14, 94); // 124 and 204 px on screen, from the rect's left
-    let widths: Vec<i32> = [0u32, 2_500, 5_000, 10_000]
+    let (start, end) = (19, 91); // 129 and 201 px on screen, from the rect's left
+    let widths: Vec<i32> = [0u32, 2_500, 5_000, 7_500, 10_000]
         .iter()
         .map(|r| span_box(rect, *r, start, end)[2])
         .collect();
-    assert_eq!(widths, vec![14, 34, 54, 94]);
+    assert_eq!(widths, vec![19, 37, 55, 73, 91]);
     assert_eq!(
         widths.iter().map(|w| rect[0] + w).collect::<Vec<_>>(),
-        vec![124, 144, 164, 204]
+        vec![129, 147, 165, 183, 201]
     );
-    // Linear in the endpoints, and the same boxes core's measured track builds at 128 px.
-    assert_eq!(
-        span_box(rect, 5_000, start, end),
-        mask_box(rect, 5_000, rect[2] - rect[0])
-    );
+    // Linear in the endpoints: every 25% moves the right edge a quarter of the 72 px track.
+    let steps: Vec<i32> = widths.windows(2).map(|w| w[1] - w[0]).collect();
+    assert_eq!(steps, vec![18, 18, 18, 18]);
     // A tester who drags the endpoints 20 px right gets the box's right edge 20 px further at
     // every step, and the width never collapses to zero.
     let shifted: Vec<i32> = [0u32, 5_000, 10_000]
         .iter()
         .map(|r| span_box(rect, *r, start + 20, end + 20)[2])
         .collect();
-    assert_eq!(shifted, vec![34, 74, 114]);
+    assert_eq!(shifted, vec![39, 75, 111]);
     assert!(span_box(rect, 0, 1, 238)[2] >= 1);
     assert_eq!(span_box(rect, 10_000, 1, 400)[2], 128, "never past the rect");
 }

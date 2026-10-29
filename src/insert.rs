@@ -86,12 +86,13 @@ pub fn tick_clock() {
 static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
 
 /// The r38/r39 test control: the box's right edge at 0% and at 100%, in absolute screen pixels
-/// on the bar's rect (its 110..238 span). Defaults are core's measured track at the gauge's
-/// 128 px rect (124 and 204), so an untouched panel reproduces r37 exactly. Stored as float bits
-/// in atomics: written on the overlay thread by the panel, read in the mask's enter handler on
-/// the game thread. No lock, no game pointer crossing, nothing persisted.
-pub const CUT_START_DEFAULT: f32 = 124.0;
-pub const CUT_END_DEFAULT: f32 = 204.0;
+/// on the bar's rect (its 110..238 span). Defaults are the endpoints the tester dialled in and
+/// accepted on r39 (129 and 201 px), confirmed by that run's log: at 0% the box's right edge is
+/// 129 and at 100% it is 201. Stored as float bits in atomics: written on the overlay thread by
+/// the panel, read in the mask's enter handler on the game thread. No lock, no game pointer
+/// crossing, nothing persisted.
+pub const CUT_START_DEFAULT: f32 = 129.0;
+pub const CUT_END_DEFAULT: f32 = 201.0;
 pub const PERCENT_DEFAULT: f32 = 100.0;
 static CUT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
 static CUT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));

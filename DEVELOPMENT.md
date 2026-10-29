@@ -1,18 +1,16 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r39 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). The tester reported r38's sliders "not applied directly", and the r38
-code shows why: `enter` took the custom endpoints only when both were set, so dragging one slider
-while the other was untouched changed nothing on the gauge. r39 makes the panel a draft with an
-explicit publish. `Gauge shown %`, `Cut start px` and `Cut end px` edit draft values; **Apply**
-publishes all three together (the box changes on the next frame), **Reset** restores the defaults
-and hands control back to core's measured track and the 20 s cycle, and a readout line under the
-buttons says which is live. The endpoints stay absolute screen px on the bar's 110..238 rect
-(defaults 124 and 204), core's `span_box` keeps the linear math, and the publish is always a set of
-three, so a single drag can no longer be ignored. Session-only: no INI, no save data. 22 host
-fixtures pass; verify PASSED with the same 21 signature windows and the new `igButton`/`igSameLine`
-imports. NRO `40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de`. Gameplay NOT RUN.
-r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
+Current state: Phase 2 candidate r40 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). The tester ran r39 and the panel did what it was built to do: 14 forced
+lines, every one `src=slider`, and the box's right edge landing on the published endpoints (124/204,
+then 126/201, then 129/201), with the middle ratios in a straight line between them. Their accepted
+pair is 129 px as the start and 201 px as the end, so r40 ships it as the defaults: `Cut start px`
+opens at 129.0, `Cut end px` at 201.0, and **Reset** returns to them. Nothing else moves. The endpoints
+stay absolute screen px on the bar's 110..238 rect, core's `span_box` keeps the linear math, the
+untouched 20 s cycle keeps core's measured 124..204 px track, and the control stays session-only: no
+INI, no save data. 22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
+`3d5623a7a99b844b8dd22edb69e375a262529c46d1ad6041c8a21e7ca476dce5`. Gameplay NOT RUN.
+r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
 transform's x scale, which the r23 run pinned as the reason the clip had no width. r23 cleared the mask's anchor
@@ -1192,6 +1190,48 @@ centi-pixels, because this crate is no_std and has no `f32::round`.
 22 host fixtures pass (the endpoint fixture from r38 still pins `span_box`'s linearity and
 bounds); verify PASSED with the same 21 signature windows, imports now also `igButton` and
 `igSameLine`. NRO `40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de`. Gameplay NOT RUN.
+
+## r39 run and r40, 2026-10-29: the accepted endpoints become the defaults
+
+The tester ran r39 on Eden. Installed NRO `40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de`,
+matching the packaged payload. Log copy `work/modern-sharpness-gauge/runs/r39-eden-2026-10-29.txt`
+(sha256 `55c332f5c129dc63afb8d4174d554a525b32f255c48833eb7ec7b9c5daf81878`), 1125 lines, 563 of them
+ours, 14 forced, no insertion failure.
+
+The panel path works. Every forced line in that run reads `src=slider`, so the overlay thread's write
+reached the enter handler, and the box's right edge is the published endpoint at both ends:
+
+| cut (start, end px) | ratio_bp | box width | right edge |
+| --- | --- | --- | --- |
+| 124 / 204 | 0 | 14 | 124 |
+| 124 / 204 | 10000 | 94 | 204 |
+| 126 / 201 | 0 | 16 | 126 |
+| 126 / 201 | 1938 | 30 | 140 |
+| 126 / 201 | 2881 | 37 | 147 |
+| 126 / 201 | 4871 | 52 | 162 |
+| 126 / 201 | 10000 | 91 | 201 |
+| 129 / 201 | 0 | 19 | 129 |
+| 129 / 201 | 10000 | 91 | 201 |
+
+`126 + 75 * ratio_bp / 10000` predicts 140.5, 147.6 and 162.5 for those three middle ratios, and the
+run logged 140, 147 and 162: the floor of the same line. So the endpoints land where the panel puts
+them, and the fill is linear between them, which is what r35 and r37 were measured to get wrong.
+
+One cosmetic gap: the log prints the endpoints as raw float bits (`cut=1123811328 1128857600` is 122.0
+and 200.0) because no_std has no float formatting. The panel's readout line is the readable form.
+
+"Okay, now we got a good start/end, which is 129 as start, and 201 as end." r40 makes that pair the
+defaults: `CUT_START_DEFAULT` 129.0 and `CUT_END_DEFAULT` 201.0, so the sliders open there, Apply
+publishes them, and Reset returns to them. The endpoint fixture now pins that pair (rights
+129/147/165/183/201 at 0/25/50/75/100%, 18 px per quarter) instead of the measured track's
+124/144/164/204, which core's untouched cycle still uses through `mask_box`. The slider range
+111..237 px, gates, insertion order, links, the mask's writes and the glow are unchanged.
+
+22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
+`3d5623a7a99b844b8dd22edb69e375a262529c46d1ad6041c8a21e7ca476dce5`, ZIP
+`build/modern-sharpness-gauge/candidates/r40/delivery/modern-sharpness-gauge-r40-candidate.zip`
+sha256 `69834c41be65da238db751a284b1c16763031933e690ed91cb27c851ca9b8eff`. Gameplay NOT RUN: the
+defaults themselves have not been seen on screen, only the same numbers applied by hand in r39.
 
 ## Rules to keep
 

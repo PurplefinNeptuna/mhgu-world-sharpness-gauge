@@ -225,8 +225,8 @@ pub fn boundary(sword: [i32; 4], ratio_bp: u32, bar_width: i32) -> i32 {
 /// The box from two measured endpoints, in pixels from the bar rect's left: the box's right
 /// edge is `start` at ratio 0 and `end` at ratio 10000, linear between them. Width is never
 /// below 1 and never past the rect's right, so the degenerate zero-size scissor is never asked
-/// for. This is the tester's r38 test control: the two endpoints the previous runs had to be
-/// measured for (124..204 px, i.e. 14 and 94 from the rect's left) are set from the overlay.
+/// for. This is the tester's r38 test control: the two endpoints are set from the overlay, and
+/// the accepted pair is 129..201 px, i.e. 19 and 91 from the rect's left.
 pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4] {
     let width = (start + (end - start) * ratio_bp as i32 / 10_000).max(1);
     [
