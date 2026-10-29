@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r41",
+  "version": "r42",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r41",
+    "version": "r42",
     "status": "BUILT",
-    "nro_sha256": "2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579",
+    "nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,10 +87,10 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "185616466f5cc49dc662ff1d890f313b896c0641161a4364a700a3366ead0392",
-      "src/insert.rs": "c206f805e18066729c7cbe020392686641c0be38ed684ece59dfa4ab76518c99",
-      "src/lib.rs": "e60f63eca0bebbc0d8b1681b205147b6ab8c5940e018add7a73ae190d827e310",
+      "src/insert.rs": "87faa1ea9b79a4b4fd36bc0955753e3a1adbd5dcedc4e528ac38127f91f703e7",
+      "src/lib.rs": "1d074079c45375ea6759c45f482f7721ceb727cf9661b6f74686a79da1f324e8",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
-      "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
+      "src/sampling.rs": "530935a9c8c5ad19c1d2bf0ad91d4c4ce17125f2e98a40473a5931697edf71cd",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
       "core/src/lib.rs": "d70f8c19c0af22ab42fe418dd41e28ebc931849ac1b7f23bd23f8c721595c7c1",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579",
-    "elf_sha256": "336e3fc92ece4e306b925380934343812fc50a641b5770fe25485d8307fe24bf",
+    "nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
+    "elf_sha256": "2fc52ab6f8f7606781a596dbea58b96220ab8f98565ddfc0010606e728fe9af7",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -217,7 +217,7 @@
     },
     "words_per_sample": 116,
     "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
-    "nro_sha256": "2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579"
+    "nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a"
   },
   "runs": [
     {
@@ -778,6 +778,25 @@
         "the log prints the endpoints as raw float bits (cut=1123811328 1128857600 is 122.0 and 200.0): no_std has no float formatting, so the panel's readout line is the readable form"
       ],
       "conclusion": "The draft/Apply/Reset control works on the gauge, and the tester's chosen endpoints are 129..201 px. r40 ships them as the defaults; core's untouched 20 s cycle keeps its measured 124..204 px track."
+    },
+    {
+      "date": "2026-10-29",
+      "version": "r41",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r41-eden-2026-10-29.txt",
+      "log_sha256": "6583fa69d8e19b620d2820780d316da838ec8243e494b2a29872075fcc5b0c8f",
+      "our_lines": 170,
+      "screenshots": "work/modern-sharpness-gauge/visual/r41/",
+      "observed": [
+        "user report: its right, looks right",
+        "6 cycle lines at rights 129, 147, 165, 201 px (the accepted endpoints, 18 px per quarter) and 2 slider lines at 25% and 50%",
+        "the four cycle crops measure a blue ink right edge at 34, 63, 89 and 142 image px; the box rights are 129, 147, 165 and 201; the ink fits right = 34 + 1.5 * (box_right - 129), so the ink lands on the box within 1-2 image px (under 1.4 GUI px) and the steps are linear",
+        "at 0% the ink ends at 34 image px, i.e. only the hilt glyph: nothing on the empty side",
+        "at 100% the ink ends at 142 image px, inside the accepted 201 px box, so the box still sits past the tip as in r35's measurement"
+      ],
+      "conclusion": "The fixed-ratio prototype is accepted on the accepted track: anchored at the hilt, linear, empty side clear, tip covered. Phase 2's geometry exit evidence is met by this run and the user's report."
     }
   ],
   "not_proven": [
@@ -803,7 +822,7 @@
     "r35's 124/149/174/225 px steps have no runtime evidence. The endpoints come from the tester's two 100% photographs (226 whole, 190 cut) and the hilt's left edge from the two 0% photographs (~125 px), so each number carries the measurement noise of a downscaled screenshot, roughly a few px. The forced line prints bar_w= and feed= so a run confirms the mapping from the log.",
     "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here.",
     "r39's draft/Apply/Reset flow ran on Eden and published the endpoints, so the panel path is proven; what is not is r40's shipped defaults 129.0/201.0, which are the r39 log's applied pair, and the panel readout line's text.",
-    "r41's cycle on the accepted 129..201 px endpoints has no runtime evidence of its own: the right edge at 129 and 201 is proven for the applied state in the r39 log, and r41's cycle uses the same span_box with the same values."
+    "r42's per-frame fill has no runtime evidence: the fields, the clamping (core fixtures) and the endpoints (the r41 run) are each proven on their own, and the live path is new."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",

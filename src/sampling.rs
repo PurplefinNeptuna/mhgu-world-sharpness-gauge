@@ -138,6 +138,20 @@ pub fn gauge_controller() -> u32 {
 /// starts again when a new HUD is built.
 pub fn clear_controller() {
     CTRL.store(0, Ordering::Relaxed);
+    // The player pointer goes with it: reading a captured player after its HUD is gone is the
+    // stale capture the plan's Phase 2 blocker names, and the fill reads this pointer per frame.
+    PLAYER.store(0, Ordering::Relaxed);
+}
+
+/// The gauge to fill from, read fresh from the captured local player: the live sharpness points
+/// through the same checked mapping the sampler logs. Nothing captured yet, or an unsupported
+/// player state, is None, and the caller leaves the native gauge alone.
+pub fn live_gauge() -> Option<sharpness_gauge_core::Gauge> {
+    let player = PLAYER.load(Ordering::Relaxed);
+    if player == 0 {
+        return None;
+    }
+    sharpness_gauge_core::read_gauge(&Machine, player)
 }
 
 pub fn take() -> Option<(u32, [u32; WORDS])> {

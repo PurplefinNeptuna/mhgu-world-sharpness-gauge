@@ -1,7 +1,6 @@
-//! Modern sharpness gauge: the game's sharpness bar, clipped to a ratio. r36 feeds that ratio
-//! the plan's fixed prototype values (0, 25, 50, 100%, 20 s each) from this thread's update
-//! count, and builds the box from the node's rect width; the live ratio is still computed in
-//! the mask's enter hook and unused.
+//! Modern sharpness gauge: the game's sharpness bar, clipped to the local player's own sharpness
+//! ratio, read in the mask's enter hook. The box is built from the tester's accepted 129..201 px
+//! endpoints on the bar's rect.
 //!
 //! Four hooks: the draw walker (main+0xa494a0) observes the gauge controller, the player's
 //! sharpness fields and the node tree; the instance draw entry (main+0xa39300) records the row
@@ -199,7 +198,7 @@ fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> Strin
 #[unsafe(no_mangle)]
 pub extern "C" fn forge_onUpdate(delta: f32) {
     let _ = delta;
-    // The clip box is fed the plan's fixed ratios; one line each time that ratio steps.
+    // The clip box follows the player's sharpness; one line each time that ratio steps.
     insert::tick_clock();
     if let Some(forced) = insert::take_forced_line() {
         log::error!(concat!(
@@ -213,8 +212,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         el = forced[9] as i32, et = forced[10] as i32, er = forced[11] as i32, eb = forced[12] as i32,
         tu = forced[13] as i32, tv = forced[14] as i32, tw = forced[15] as i32, th = forced[16] as i32,
         bw2 = forced[17] as i32, feed = forced[18] as i32,
-        src = if forced[19] == 1 { "slider" } else { "cycle" },
-        // 0 0 means the endpoints are untouched and core's measured track drives the box.
+        src = if forced[19] == 1 { "slider" } else { "live" },
         cs = forced[20] as i32, ce = forced[21] as i32);
     }
     if let Some(reading) = gui::tick() {
@@ -400,10 +398,11 @@ pub unsafe extern "C" fn forge_onImGuiInit(
     }
 }
 
-/// The row below is the r37 test control: a 0-100 slider for how much of the gauge is shown, so
-/// a step can be set and photographed on demand instead of waiting for the 20 s cycle. It is
-/// session-only (this mod ships no INI and writes no save data), the row starts closed, and the
-/// TreePop is paired through Drop so an early return cannot leave it open.
+/// The row below is the test control: a 0-100 slider that pins how much of the gauge is shown, so
+/// a level can be set and photographed on demand instead of waiting for the fill to move, plus the
+/// cut's two endpoints. It is session-only (this mod ships no INI and writes no save data), the
+/// row starts closed, and the TreePop is paired through Drop so an early return cannot leave it
+/// open. Untouched, the gauge follows the player's own sharpness.
 #[forge::imgui_render]
 fn panel() {
     if !forge::imgui::tree_node(c"Modern Sharpness Gauge##modern-sharpness-gauge") {
@@ -458,7 +457,7 @@ fn panel() {
         }
     }
     // The sliders edit a draft; Apply publishes all three together, so tuning the endpoints
-    // before the gauge changes is the point. Reset returns to the measured track and the cycle.
+    // before the gauge changes is the point. Reset hands the gauge back to the player's sharpness.
     if forge::imgui::button(c"Apply##modern-sharpness-gauge", forge::sys::imgui::ImVec2::new(0.0, 0.0)) {
         insert::apply();
     }
@@ -479,7 +478,7 @@ fn panel() {
     } else {
         let _ = write!(
             line,
-            "Not applied: cycle on the measured track. Draft {:.1}% {:.1}..{:.1} px",
+            "Live: the gauge follows your sharpness. Draft {:.1}% {:.1}..{:.1} px",
             percent,
             start,
             end

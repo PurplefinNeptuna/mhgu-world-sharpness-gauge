@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "Phase 2 continues: the accepted geometry becomes the build's own. The tester accepted 129 px as the start and 201 px as the end on the r39 run, so the box is now built from those endpoints in every state, the untouched 20 s cycle included, and core's measured 124..204 track is no longer what the gauge draws (mask_box stays in core as the authored-88 refutation record). The four fixed steps land at 129, 147, 165 and 201 px, 18 px per quarter. Apply publishes Gauge shown % with the endpoints, Reset returns to 129.0/201.0 and the cycle. Session-only: no INI, no save data. Gates, insertion order, links, the mask's writes and the glow are unchanged.",
+  "reason": "Phase 3: the fill is the player's own sharpness. The r41 run was accepted (\"its right, looks right\"), and its four cycle crops fit the box rights 129/147/165/201 within 1.4 GUI px with 0% showing only the hilt, so the geometry is settled and the fixed-ratio cycle is no longer needed. enter now reads the local player's sharpness through the sampler's verified chain and cuts at current/max on the accepted 129..201 px track; a player it cannot read, or a gauge with no positive maximum, is unsupported state, and the clip is turned off there so the native gauge draws as the game draws it. The panel keeps its meaning: Gauge shown % pins a level for screenshots, Apply publishes it, Reset hands the gauge back to your sharpness. The sampler's captured player pointer is dropped with the controller, the stale capture the plan's Phase 2 blocker named. Gates, insertion order, links, the mask's writes and the glow are unchanged. Session-only: no INI, no save data.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r41",
+  "version": "r42",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r41-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r41/delivery",
+  "archive": "modern-sharpness-gauge-r42-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r42/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: untouched, the gauge cycles 0, 25, 50 and 100% every 20 s cutting at 129, 147, 165 and 201 px; the sword silhouette is unchanged, the glow is clipped at the same edge, the empty side shows nothing and no other HUD is clipped. Then Apply with Gauge shown % at 25 and 50 and screenshot. Reset returns to the cycle. Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN. Pass, on screen: play a hunt normally - the cut tracks your sharpness, full sharpness shows the whole blade, hits move the cut from the tip toward the hilt, empty leaves only the hilt, sharpening moves it back; the glow and the tier colour stay native, and the other HUD gauges are untouched. Then a weapon with no sharpness (a bowgun) and a quest end. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -72,7 +72,7 @@
     "The gauge itself is not part of r4.",
     "r25 has not been run. r24's run drew the gauge from the quest start and lost it at an area change, where a mask kept clipping after its links broke; the disable-on-loss path has no runtime evidence, and a mask inserted into a second area's row has never been observed (r24's log ends 12 s after the transition, gauge HUD absent)",
     "r40 has not been run. Its two defaults are the endpoints the r39 log shows applied (right edge 129 px at 0% and 201 px at 100%), read from the tester's run, not from an r40 run.",
-    "r41 has not been run. Its cycle endpoints are the r39 log's accepted pair, read from the tester's run."
+    "r42 has not been run. Its fill comes from the player fields Phase 1 verified and the r41 run's accepted geometry; the per-frame fill has not been seen on screen."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -110,8 +110,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r41/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579"
+      "source": "build/modern-sharpness-gauge/candidates/r42/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a"
     }
   }
 }

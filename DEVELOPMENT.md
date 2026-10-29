@@ -1,15 +1,17 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r41 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). The tester accepted 129 px as the start and 201 px as the end, so r41
-makes that the build's own geometry: the box is built from those endpoints in every state, the
-untouched 20 s cycle included, and core's measured 124..204 track no longer drives the gauge
-(`mask_box` stays in core as the authored-88 refutation record). The four fixed steps land at 129,
-147, 165 and 201 px, 18 px per quarter. The endpoints stay absolute screen px on the bar's 110..238
-rect, `span_box` keeps the linear math, Apply publishes Gauge shown % with the endpoints, Reset
-returns to 129.0/201.0 and the cycle, and the control stays session-only: no INI, no save data. 22
-host fixtures pass; verify PASSED with the same 21 signature windows. NRO
-`2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579`. Gameplay NOT RUN.
+Current state: Phase 3 candidate r42 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). Phase 2 is closed: the tester ran r41 and said "its right, looks
+right", and that run's four cycle crops fit the box rights 129/147/165/201 px within 1.4 GUI px, with
+0% showing only the hilt glyph. So the geometry is settled and r42 stops driving it from the test
+cycle: `enter` reads the local player's sharpness through the sampler's verified chain and cuts at
+`current/max` on the accepted 129..201 px track. No readable player, or no positive maximum, is
+unsupported state: the clip is turned off there and the native gauge draws as the game draws it. The
+captured player pointer is dropped with the controller, which is the stale capture the plan's Phase 2
+blocker named. The panel keeps its shape: Gauge shown % pins a level for screenshots, Apply publishes
+it, Reset hands the gauge back to your sharpness. 22 host fixtures pass; verify PASSED with the same
+21 signature windows. NRO `40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`.
+Gameplay NOT RUN.
 r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1254,6 +1256,34 @@ ratio source: Apply publishes `Gauge shown %`, Reset hands the ratio back to the
 `build/modern-sharpness-gauge/candidates/r41/delivery/modern-sharpness-gauge-r41-candidate.zip`
 sha256 `e996f73556d88a41aada2f6ae6d3cac2f55849348b6afcc00fc609b6d93034b3`. Gameplay NOT RUN: what the
 cycle lands on is measured from the r39 log's applied pair, not seen on screen in r41.
+
+## r41 run and r42, 2026-10-29: Phase 2 closes, the gauge follows your sharpness
+
+The tester ran r41 on Eden. Installed NRO `2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579`
+= the packaged payload. Log copy `work/modern-sharpness-gauge/runs/r41-eden-2026-10-29.txt` (sha256
+`6583fa69d8e19b620d2820780d316da838ec8243e494b2a29872075fcc5b0c8f`), 1125 lines, 170 ours: 6 cycle lines
+at rights 129, 147, 165 and 201 px, 2 slider lines (25% and 50% published), no insertion failure. Four
+crops and the two panel shots are in `work/modern-sharpness-gauge/visual/r41/`.
+
+"its right, looks right". Measured, that report is exact: the blue ink's right edge in the four crops is
+34, 63, 89 and 142 image px against box rights 129, 147, 165 and 201 px, and `34 + 1.5 * (box_right -
+129)` reproduces all four within 1-2 image px (under 1.4 GUI px). 0% leaves only the hilt glyph, 100%
+covers the tip with the box sitting past it, as in r35's measurement. That is the plan's Phase 2 exit
+evidence on the accepted track: anchored at the hilt, linear, empty side clear, tip covered.
+
+r42 is Phase 3's functional candidate. The fixed-ratio cycle is gone, so `enter` drives the box from the
+player's own sharpness: `sampling::live_gauge()` reads the captured local player's sharpness points
+through the same checked mapping Phase 1 verified, `basis_points` clamps them, and `span_box` puts the
+result on the accepted 129..201 px track. Two things follow from that and are both plan rules, not new
+invention: an unreadable player or a non-positive maximum is unsupported state, and the clip is turned
+off there (`ENABLE_SETTER` with 0) so the native gauge draws as the game draws it; and the captured
+player pointer is dropped with the controller in `clear_controller`, which is the stale capture the
+plan's Phase 2 blocker named. The prototype clock is gone with the cycle; `UPDATES` stays only to rate
+limit the log line.
+
+22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
+`40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`. Gameplay NOT RUN: the per-frame fill
+has not been seen on screen, only the fields, the clamping and the endpoints, each proven on its own.
 
 ## Rules to keep
 

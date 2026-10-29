@@ -29,7 +29,7 @@ use crate::{
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, prototype_ratio, span_box, Gauge, NODE_AUTHORED_WIDTH, NODE_CHILD,
+    basis_points, span_box, NODE_AUTHORED_WIDTH, NODE_CHILD,
     NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -64,22 +64,18 @@ static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
 
-/// The prototype clock fed to `prototype_ratio`: the plugin thread's own update tick, the same
-/// counter lib.rs's 120-update clip-probe divider logs at (120 updates ≈ 2 s, so 60 ≈ 1 s).
-/// Seconds are that counter divided by the rate, so no new timekeeping type is added.
-/// shortcut: 60 updates a second is that log's own divider, not a measured frame rate, so the
-/// 20 s steps drift with the frame rate. Upgrade if a run needs exact seconds.
-const UPDATES_PER_SECOND: u32 = 60;
+/// The plugin thread's own update tick, used only to rate-limit the forced-ratio log line.
+/// shortcut: pacing the log by update count, not seconds; 30 updates is a fraction of a second.
 static UPDATES: AtomicU32 = AtomicU32::new(0);
 
-/// One tick of the prototype clock, called from `forge_onUpdate` and read in the mask's enter
-/// handler: a plain counter, no game pointer, no allocation and no formatting.
+/// One tick of the log clock, called from `forge_onUpdate`: a plain counter, no game pointer,
+/// no allocation and no formatting.
 pub fn tick_clock() {
     UPDATES.fetch_add(1, Ordering::Relaxed);
 }
 
-/// The r37 test control: the overlay slider's value in basis points, `u32::MAX` until the panel
-/// is touched, which is when the 20 s cycle stops driving the box. Written on the overlay thread
+/// The test control: the overlay slider's value in basis points, `u32::MAX` until the panel is
+/// published, which is when it overrides the player's own sharpness. Written on the overlay thread
 /// by `set_slider_percent`, read in the mask's enter handler on the game thread: one atomic, no
 /// lock, and no game pointer crosses the two. Session-only by design: this mod ships no INI and
 /// no save data, so the slider resets when the game restarts.
@@ -88,8 +84,8 @@ static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
 /// The tester's accepted cut geometry: the box's right edge at 0% and at 100%, in absolute screen
 /// pixels on the bar's rect (its 110..238 span). The pair is what the tester dialled in and
 /// accepted on r39 (129 and 201 px), confirmed by that run's log: with cut 129/201 the box's right
-/// edge is 129 at 0% and 201 at 100%. The 20 s cycle cuts between these two, so a run sees the
-/// accepted track before anyone touches the panel. Stored as float bits in atomics: written on the
+/// edge is 129 at 0% and 201 at 100%. Every fill level cuts between these two, so a run sees
+/// the accepted track before anyone touches the panel. Stored as float bits in atomics: written on the
 /// overlay thread by the panel, read in the mask's enter handler on the game thread. No lock, no
 /// game pointer crossing, nothing persisted.
 pub const CUT_START_DEFAULT: f32 = 129.0;
@@ -98,12 +94,12 @@ pub const PERCENT_DEFAULT: f32 = 100.0;
 static CUT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
 static CUT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
 /// 0 until Apply has been pressed, which is when the panel's Gauge shown % drives the ratio
-/// instead of the 20 s cycle. The endpoints apply either way.
+/// instead of the player's sharpness. The endpoints apply either way.
 static APPLIED: AtomicU32 = AtomicU32::new(0);
 
 /// The sliders' draft values. A drag edits the draft; `apply` copies it into the live set the
 /// enter handler reads, and `reset` returns both sets to the defaults, which puts core's measured
-/// track and the 20 s cycle back in charge.
+/// player's own sharpness back in charge.
 static DRAFT_PERCENT: AtomicU32 = AtomicU32::new(f32::to_bits(PERCENT_DEFAULT));
 static DRAFT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
 static DRAFT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
@@ -146,7 +142,7 @@ pub fn apply() {
     APPLIED.store(1, Ordering::Relaxed);
 }
 
-/// Drop the draft and go back to core's measured track and the 20 s cycle.
+/// Drop the draft and hand the gauge back to the player's own sharpness.
 pub fn reset() {
     DRAFT_PERCENT.store(f32::to_bits(PERCENT_DEFAULT), Ordering::Relaxed);
     DRAFT_START.store(f32::to_bits(CUT_START_DEFAULT), Ordering::Relaxed);
@@ -157,8 +153,8 @@ pub fn reset() {
     APPLIED.store(0, Ordering::Relaxed);
 }
 
-/// What is live: (applied, percent, start px, end px). Percent reads -1 while the 20 s cycle
-/// drives it.
+/// What is live: (applied, percent, start px, end px). Percent reads -1 while the player's own
+/// sharpness drives it.
 pub fn live_state() -> (bool, f32, f32, f32) {
     let percent = SLIDER_BP.load(Ordering::Relaxed);
     (
@@ -173,8 +169,8 @@ pub fn live_state() -> (bool, f32, f32, f32) {
 /// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
 /// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the width
-/// the box was built from, whether the slider (1) or the cycle (0) drove it, and the two
-/// endpoints in screen px (0 when untouched, i.e. core's measured track).
+/// the box was built from, whether the slider (1) or the player's sharpness (0) drove it, and the two
+/// endpoints in screen px the box was built between.
 pub const FORCED_WORDS: usize = 22;
 static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
 static FORCED_READY: AtomicBool = AtomicBool::new(false);
@@ -446,26 +442,22 @@ pub fn enter(mask: u32) {
         crate::hooks::teardown_gauge_row(root);
         return;
     }
-    // The tier travels with the points; each tier is its own segment of the bar.
-    let Some((current, maximum, tier)) = sampling::gauge_points() else {
-        return;
-    };
-    // The live ratio, kept computed and unused: the plan's fixed ratios drive the box so the
-    // eye can see each step. The gate above is unchanged.
-    let Some(_live) = basis_points(Gauge {
-        current: current as i32,
-        maximum: maximum as i32,
-        tier,
-    }) else {
-        return;
-    };
+    // The live fill (plan Phase 3): the local player's own sharpness points, read fresh in this
+    // call through the same checked mapping the sampler uses. No valid gauge - no player yet, a
+    // zero maximum, points above the maximum - is unsupported state, so the clip is turned off
+    // here and the native gauge is left as the game draws it.
+    let live = sampling::live_gauge().and_then(|gauge| basis_points(gauge));
     let slider = SLIDER_BP.load(Ordering::Relaxed);
     let updates = UPDATES.load(Ordering::Relaxed);
-    let (ratio, from_slider) = if slider == u32::MAX {
-        (prototype_ratio(updates / UPDATES_PER_SECOND), false)
-    } else {
-        (slider, true)
+    let ratio = match (slider, live) {
+        (bp, _) if bp != u32::MAX => (bp, true),
+        (_, Some(bp)) => (bp, false),
+        (_, None) => {
+            let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
+            return;
+        }
     };
+    let (ratio, from_slider) = ratio;
     let rect = rect_at(bar, NODE_RECT);
     // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
     // enter: the clip line's own bar probe read 0xFFFF64EE there, and mask_box saw width 0
@@ -486,9 +478,9 @@ pub fn enter(mask: u32) {
         .map(|word| f32::from_bits(word) as i32)
         .unwrap_or(0);
     // The box always runs between the panel's endpoints, linear in the ratio. Untouched those are
-    // the tester's accepted 129..201 px, so the untouched 20 s cycle cuts the accepted track;
-    // core's measured 124..204 track (mask_box) stays in core as the refutation record for the
-    // authored-88 feed and is no longer what the gauge draws.
+    // the tester's accepted 129..201 px, so every fill level cuts the accepted track; core's
+    // measured 124..204 track (mask_box) stays in core as the refutation record for the authored-88
+    // feed and is no longer what the gauge draws.
     let box_words = span_box(
         rect,
         ratio,
