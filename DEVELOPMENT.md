@@ -1,16 +1,14 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r37 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r37 carries r36's measured geometry and adds the tester's requested
-test control: a session-only 0-100 slider in the Plugin UI row (`Gauge shown %`) that sets the clip
-directly, with the 20 s prototype cycle driving the box until it is touched. No INI, no save data,
-and it resets on restart. The forced line prints `src=cycle|slider`, so a log says which one drove
-a box. r36's geometry stays: the rect-width feed and the track measured from the r35 run (the drawn
-gauge ink is 124..200 px), steps 124, 144, 164 and 204 px. 21 host fixtures pass; verify PASSED
-with the same 21 signature windows and the new `igSliderFloat`, `igTreeNode_Str`, `igTreePop` and
-`igTextUnformatted` imports, with persistent-settings imports (config creation, save-data mount,
-colour editor) still refused. NRO
-`3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b`. Gameplay NOT RUN.
+Current state: Phase 2 candidate r38 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r38 adds the tester's request: the two endpoints the previous runs
+had to be measured for are now sliders. `Cut start px` (where 0% lands, default 124) and
+`Cut end px` (where 100% lands, default 204) in screen px on the bar's 110..238 rect, with the cut
+moving linearly between them; `Gauge shown %` from r37 stays. core owns the math (`span_box`), the
+defaults reproduce r37's boxes (14/34/54/94 px = 124/144/164/204 px), and an untouched panel leaves
+core's measured track in charge. Session-only: no INI, no save data. The forced line prints
+`src=cycle|slider` and `cut=<start> <end>` (`0 0` while untouched). 22 host fixtures pass; verify
+PASSED with the same 21 signature windows. NRO `dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0`. Gameplay NOT RUN.
 r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1155,6 +1153,20 @@ comment beside it says so.
 r36's measurement is in this build too: `BAR_INK_TRACK` 55 columns (80 px at the 128 px rect),
 steps 124, 144, 164 and 204 px against the measured 124..200 px gauge. 21 host fixtures pass.
 NRO `3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b`. Gameplay NOT RUN.
+
+## r38, built 2026-10-29: the endpoints become sliders
+
+"Add option to pixel start-end for 0-100% settings": the numbers we kept measuring after each run
+(124..200 px from the r35 photographs) are now input fields. Two more sliders in the same Plugin UI
+row, `Cut start px` 111..237 and `Cut end px` 113..238, absolute screen px on the bar's rect.
+core's `span_box(rect, ratio_bp, start, end)` puts the box's right edge at `start` at 0% and at
+`end` at 100%, linear in between, width never below 1 and never past the rect. `enter` uses it once
+both sliders are set and core's `mask_box` track while they are not, so an untouched panel is
+r37's behaviour.
+
+The endpoint math is in core, so the fixture tests it: the defaults (14 and 94 px from the rect's
+left) give 124/144/164/204 px, match `mask_box` at the 128 px rect, shift by exactly the pixels the
+tester drags, and stay inside the rect. 22 fixtures pass. NRO `dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0`. Gameplay NOT RUN.
 
 ## Rules to keep
 

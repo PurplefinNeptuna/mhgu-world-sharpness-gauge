@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r37",
+  "version": "r38",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r37",
+    "version": "r38",
     "status": "BUILT",
-    "nro_sha256": "3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b",
+    "nro_sha256": "dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +87,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "185616466f5cc49dc662ff1d890f313b896c0641161a4364a700a3366ead0392",
-      "src/insert.rs": "bd5840f1f48379f5de8c4b1d3a2603a5c3d4cb860986ef422b7d952b2e2ca2e3",
-      "src/lib.rs": "54ebec093f6b35283d68f87b33abb0e1d58dba7073339b87c32a3f4465d42ec9",
+      "src/insert.rs": "f09ae44f910e33c16d120eadb19323d0170499d17354f2d84a643d54024b18f6",
+      "src/lib.rs": "221281650ba8402399c6e39bd12dc4d0a682f3a2f63586e0758ab1037e8eafcc",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "0afa92746dcd2491903607dbca9c605a16618e5adefa2f8ebe41d62cbe1dba47",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "b3d87742c7ab9b106bd70e8064667871da052e1328bf8af6386e2db89776dd81",
-      "core/tests/behavior.rs": "f8d63363ef0ab0a2a6cf126897b6544148a699d2207657ddaea86f593d8b9562",
+      "core/src/lib.rs": "d846bb7fce437f3b1a5475395e9926aecec430bfcb341bc4d3a350189863afac",
+      "core/tests/behavior.rs": "a02a74ac6ddc3684534dad9d162626be8b20e7b6cc5194ee6b028a9aeb591a63",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b",
-    "elf_sha256": "0d4b4d187828c99a4b36d18fbcb8d8db7431be3a49a3fb37652065fbbaf81a83",
+    "nro_sha256": "dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0",
+    "elf_sha256": "5ba69dfaed44664eb94e2b0ae852764c9cfbe1eeae5d999c123eac29f0e0acbe",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -181,7 +181,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 21,
+    "count": 22,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
@@ -199,7 +199,8 @@
       "cache sizing main+0xa49b28: (objects << 4 | 8) + sequences * 12, the r17-measured pair (3 objects, 16 sequences): 248-byte allocation, 56-byte area = 7 records, and 72 = 9 for the grown 4-object row",
       "main+0xa47d2c's node count (+1) against the row's object count, on the unmodified and the inserted tree",
       "the plan's fixed ratios through mask_box at the node's rect width: 0/2500/5000/10000 repeat every four 20 s steps, the boxes are 14/39/64/115 px (rights 124/149/174/225), the empty step stops left of the hilt glyph, and the authored 88 px feed is refuted because its 100% box ends at 190, inside the blade",
-      "the r36 steps 124/144/164/204 px at the rect width, with the 100% box covering the measured 200 px tip and staying under 210"
+      "the r36 steps 124/144/164/204 px at the rect width, with the 100% box covering the measured 200 px tip and staying under 210",
+      "the r38 endpoints: span_box puts the box's right edge at the given start at 0% and at the given end at 100%, linear between, reproducing core's measured track at the defaults 14/94 px, never below width 1 and never past the rect"
     ],
     "sampling_budget": {
       "max_samples": 320,
@@ -214,7 +215,7 @@
     },
     "words_per_sample": 116,
     "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
-    "nro_sha256": "3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b"
+    "nro_sha256": "dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0"
   },
   "runs": [
     {
@@ -779,7 +780,8 @@
     "that the gauge row rebuilds after an area change with the free-list poison gone: r29's teardown was clean (fill state, no tombstones) and the post-drop window (45 s) found no controller; the earlier long windows ran while the double-free was live, so they do not settle it.",
     "a visible difference from vanilla: r31's probe data proves the clip's right edge moves with the ratio (339 -> 322 screen px at 90.6% -> 82%), but it lands on vanilla's fill edge and cuts only empty background. r32's glow removal is the first delta meant to be seen: the user has never reported any visual difference from vanilla, and acceptance is unconfirmed.",
     "r35's 124/149/174/225 px steps have no runtime evidence. The endpoints come from the tester's two 100% photographs (226 whole, 190 cut) and the hilt's left edge from the two 0% photographs (~125 px), so each number carries the measurement noise of a downscaled screenshot, roughly a few px. The forced line prints bar_w= and feed= so a run confirms the mapping from the log.",
-    "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here."
+    "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here.",
+    "r38's two pixel sliders have no runtime evidence: the endpoint math is host-tested in core, and the panel path (overlay thread writes two atomics the enter handler reads) has never run, as with r37's percent slider."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",

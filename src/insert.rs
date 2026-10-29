@@ -29,7 +29,7 @@ use crate::{
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, mask_box, prototype_ratio, Gauge, NODE_AUTHORED_WIDTH, NODE_CHILD,
+    basis_points, mask_box, prototype_ratio, span_box, Gauge, NODE_AUTHORED_WIDTH, NODE_CHILD,
     NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -95,6 +95,42 @@ pub fn slider_percent() -> f32 {
     }
 }
 
+/// The r38 test control: the box's right edge at 0% and at 100%, in pixels from the bar rect's
+/// left. Defaults are core's measured track at the gauge's 128 px rect (14 px in, ending 94 px
+/// in, i.e. 124..204 px on screen), so an untouched panel reproduces r37 exactly. The panel's
+/// two sliders write them on the overlay thread, the enter handler reads them on the game
+/// thread: two atomics, no lock, no game pointer crossing. Session-only, like the percent.
+pub const CUT_START_DEFAULT: f32 = 124.0;
+pub const CUT_END_DEFAULT: f32 = 204.0;
+static CUT_START: AtomicU32 = AtomicU32::new(0);
+static CUT_END: AtomicU32 = AtomicU32::new(0);
+
+/// The endpoints as the sliders show them: absolute screen pixels on the bar's rect. 0 means
+/// untouched, in which case core's measured track drives the box.
+fn read_cut(stored: u32, default: f32) -> f32 {
+    if stored == 0 {
+        default
+    } else {
+        f32::from_bits(stored)
+    }
+}
+
+pub fn cut_start_px() -> f32 {
+    read_cut(CUT_START.load(Ordering::Relaxed), CUT_START_DEFAULT)
+}
+
+pub fn cut_end_px() -> f32 {
+    read_cut(CUT_END.load(Ordering::Relaxed), CUT_END_DEFAULT)
+}
+
+pub fn set_cut_start_px(px: f32) {
+    CUT_START.store(px.max(111.0).to_bits(), Ordering::Relaxed);
+}
+
+pub fn set_cut_end_px(px: f32) {
+    CUT_END.store(px.max(113.0).to_bits(), Ordering::Relaxed);
+}
+
 pub fn set_slider_percent(percent: f32) {
     SLIDER_BP.store((percent.clamp(0.0, 100.0) * 100.0) as u32, Ordering::Relaxed);
 }
@@ -102,8 +138,9 @@ pub fn set_slider_percent(percent: f32) {
 /// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
 /// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the width
-/// the box was built from, and whether the slider (1) or the cycle (0) drove it.
-pub const FORCED_WORDS: usize = 20;
+/// the box was built from, whether the slider (1) or the cycle (0) drove it, and the two
+/// endpoints in screen px (0 when untouched, i.e. core's measured track).
+pub const FORCED_WORDS: usize = 22;
 static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
 static FORCED_READY: AtomicBool = AtomicBool::new(false);
 /// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
@@ -413,7 +450,20 @@ pub fn enter(mask: u32) {
     let authored = memory::word(bar + NODE_AUTHORED_WIDTH)
         .map(|word| f32::from_bits(word) as i32)
         .unwrap_or(0);
-    let box_words = mask_box(rect, ratio, rect[2] - rect[0]);
+    // With both endpoints set the box runs between them, linear in the ratio; untouched, it
+    // follows core's measured track.
+    let stored_start = CUT_START.load(Ordering::Relaxed);
+    let stored_end = CUT_END.load(Ordering::Relaxed);
+    let box_words = if stored_start == 0 || stored_end == 0 {
+        mask_box(rect, ratio, rect[2] - rect[0])
+    } else {
+        span_box(
+            rect,
+            ratio,
+            f32::from_bits(stored_start) as i32 - rect[0],
+            f32::from_bits(stored_end) as i32 - rect[0],
+        )
+    };
     // One line per change of the driving ratio, rate-limited so dragging the slider cannot
     // flood the log: a change inside the last 30 updates is not printed.
     if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed)
@@ -438,6 +488,8 @@ pub fn enter(mask: u32) {
         FORCED[17].store(authored as u32, Ordering::Relaxed);
         FORCED[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
         FORCED[19].store(from_slider as u32, Ordering::Relaxed);
+        FORCED[20].store(stored_start, Ordering::Relaxed);
+        FORCED[21].store(stored_end, Ordering::Relaxed);
         FORCED_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these

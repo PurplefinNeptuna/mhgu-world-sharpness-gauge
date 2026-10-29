@@ -222,6 +222,21 @@ pub fn boundary(sword: [i32; 4], ratio_bp: u32, bar_width: i32) -> i32 {
     sword[0] + left + (track as i64 * ratio_bp as i64 / 10_000) as i32
 }
 
+/// The box from two measured endpoints, in pixels from the bar rect's left: the box's right
+/// edge is `start` at ratio 0 and `end` at ratio 10000, linear between them. Width is never
+/// below 1 and never past the rect's right, so the degenerate zero-size scissor is never asked
+/// for. This is the tester's r38 test control: the two endpoints the previous runs had to be
+/// measured for (124..204 px, i.e. 14 and 94 from the rect's left) are set from the overlay.
+pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4] {
+    let width = (start + (end - start) * ratio_bp as i32 / 10_000).max(1);
+    [
+        rect[0],
+        rect[1] + CLIP_TOP,
+        width.min(rect[2] - rect[0]),
+        CLIP_HEIGHT,
+    ]
+}
+
 /// The kept rectangle for one sprite under a shared column: a sprite starting
 /// past the column keeps a zero-width rect, which is the empty side, and a sprite
 /// ending before it keeps its full width.

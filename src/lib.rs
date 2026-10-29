@@ -205,7 +205,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " forced ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed} src={src}"
+            " forced ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed} src={src} cut={cs} {ce}"
         ),
         ratio = forced[0],
         bl = forced[1] as i32, bt = forced[2] as i32, bw = forced[3] as i32, bh = forced[4] as i32,
@@ -213,7 +213,9 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         el = forced[9] as i32, et = forced[10] as i32, er = forced[11] as i32, eb = forced[12] as i32,
         tu = forced[13] as i32, tv = forced[14] as i32, tw = forced[15] as i32, th = forced[16] as i32,
         bw2 = forced[17] as i32, feed = forced[18] as i32,
-        src = if forced[19] == 1 { "slider" } else { "cycle" });
+        src = if forced[19] == 1 { "slider" } else { "cycle" },
+        // 0 0 means the endpoints are untouched and core's measured track drives the box.
+        cs = forced[20] as i32, ce = forced[21] as i32);
     }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;
@@ -424,7 +426,29 @@ fn panel() {
     ) {
         insert::set_slider_percent(percent);
     }
+    // The two endpoints the previous runs had to be measured for, now settable live: the box's
+    // right edge at 0% and at 100%, in screen px on the bar's rect (110..238).
+    let mut start = insert::cut_start_px();
+    if forge::imgui::slider_float(
+        c"Cut start px##modern-sharpness-gauge",
+        &mut start,
+        111.0,
+        237.0,
+        forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
+    ) {
+        insert::set_cut_start_px(start);
+    }
+    let mut end = insert::cut_end_px();
+    if forge::imgui::slider_float(
+        c"Cut end px##modern-sharpness-gauge",
+        &mut end,
+        113.0,
+        238.0,
+        forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
+    ) {
+        insert::set_cut_end_px(end);
+    }
     forge::imgui::text(
-        "Drag to set how much of the blade shows. Untouched, the clip cycles 0, 25, 50 and 100% every 20 s.",
+        "Drag Gauge shown % to set how much of the blade shows, and the two px sliders to set where 0% and 100% land on the bar (its rect is 110..238). Untouched, the clip cycles 0, 25, 50 and 100% every 20 s on the measured 124..204 px track.",
     );
 }

@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r35 ran on Eden 2026-10-29 with the installed bytes matching (log work/modern-sharpness-gauge/runs/r35-eden-2026-10-29.txt): the 0% step draws no blue at all and 100% shows the whole blade, and the tester's read of the middle steps is measurement, not opinion. Fitting the four screenshots on that run's own logged cuts (149 and 174) gives 1.4 image px per GUI px and puts the drawn gauge ink at 124..200 px: the 100% box (225) photographed blue up to 200 with 25 px of box past the blade, so the visible blade was 0, 19, 44 and 70 px of a 70 px blade, i.e. steps of 0, 27, 63 and 100%. r36 shortens the track to the measured gauge: BAR_INK_TRACK 70 -> 55 columns, 80 px at the 128 px rect, steps 124, 144, 164 and 204 px, ending past the measured tip with margin. r37 adds the tester's requested test control: a session-only 0-100 slider in the Plugin UI row (no INI, no save data, resets on restart) that sets the clip directly, with the 20 s cycle as the default until it is touched, and src= in the forced line naming which one drove the box. Gates, insertion order, links, the mask's writes and the glow are unchanged from the build the tester ran.",
+  "reason": "r37 added the tester's 0-100 slider and r36's measured track. r38 adds the two endpoints the previous runs had to be measured for: Cut start px (where 0% lands, default 124) and Cut end px (where 100% lands, default 204), in screen px on the bar's 110..238 rect, with the cut moving linearly between them. core owns the math (span_box), so a host fixture pins the endpoints, the defaults reproduce r37's boxes exactly (14/34/54/94 px = 124/144/164/204 px), and an untouched panel leaves core's measured track in charge. The forced line prints both endpoints (`cut=`, `0 0` for untouched). Session-only like the percent: no INI, no save data. Gates, insertion order, links, the mask's writes and the glow are unchanged from the build the tester ran.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r37",
+  "version": "r38",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r37-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r37/delivery",
+  "archive": "modern-sharpness-gauge-r38-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r38/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: with the slider at 0 nothing of the gauge is drawn, at 25 a quarter of the blade, at 50 half, at 100 the whole blade with the tip uncut, each change visible as you drag; untouched, the bar cycles through those four every 20 seconds. The gauge is present from the quest start and survives area and quest changes, as in the r33-r35 runs. In the log: one forced-ratio line per change with the box, the bar's three rectangles, bar_w=88, feed=128 and src=slider|cycle. Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN. Pass, on screen: the three controls change the gauge as you drag them; 0% shows nothing, 100% shows the whole blade with the tip uncut; moving Cut start px and Cut end px moves the whole four-step range with them, and 25% and 50% land a quarter and a half of the way between the two numbers. Untouched, the bar cycles the four steps on the 124..204 px track. In the log: one forced line per change with the box, bar_w=88, feed=128, src=cycle|slider and cut=<start> <end> (0 0 while untouched). Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -108,8 +108,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r37/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "3361d321f08340aaf02bd82938c112d02e491bd58fb8099921f6073bf1f17c9b"
+      "source": "build/modern-sharpness-gauge/candidates/r38/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "dd0d9a6bd7b556adbbd686a96b8d2c36cc7b9a0f6fe6419d55490db402650df0"
     }
   }
 }
