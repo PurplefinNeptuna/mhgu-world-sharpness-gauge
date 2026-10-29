@@ -1,15 +1,15 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r40 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). The tester ran r39 and the panel did what it was built to do: 14 forced
-lines, every one `src=slider`, and the box's right edge landing on the published endpoints (124/204,
-then 126/201, then 129/201), with the middle ratios in a straight line between them. Their accepted
-pair is 129 px as the start and 201 px as the end, so r40 ships it as the defaults: `Cut start px`
-opens at 129.0, `Cut end px` at 201.0, and **Reset** returns to them. Nothing else moves. The endpoints
-stay absolute screen px on the bar's 110..238 rect, core's `span_box` keeps the linear math, the
-untouched 20 s cycle keeps core's measured 124..204 px track, and the control stays session-only: no
-INI, no save data. 22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
-`3d5623a7a99b844b8dd22edb69e375a262529c46d1ad6041c8a21e7ca476dce5`. Gameplay NOT RUN.
+Current state: Phase 2 candidate r41 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). The tester accepted 129 px as the start and 201 px as the end, so r41
+makes that the build's own geometry: the box is built from those endpoints in every state, the
+untouched 20 s cycle included, and core's measured 124..204 track no longer drives the gauge
+(`mask_box` stays in core as the authored-88 refutation record). The four fixed steps land at 129,
+147, 165 and 201 px, 18 px per quarter. The endpoints stay absolute screen px on the bar's 110..238
+rect, `span_box` keeps the linear math, Apply publishes Gauge shown % with the endpoints, Reset
+returns to 129.0/201.0 and the cycle, and the control stays session-only: no INI, no save data. 22
+host fixtures pass; verify PASSED with the same 21 signature windows. NRO
+`2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579`. Gameplay NOT RUN.
 r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1232,6 +1232,28 @@ publishes them, and Reset returns to them. The endpoint fixture now pins that pa
 `build/modern-sharpness-gauge/candidates/r40/delivery/modern-sharpness-gauge-r40-candidate.zip`
 sha256 `69834c41be65da238db751a284b1c16763031933e690ed91cb27c851ca9b8eff`. Gameplay NOT RUN: the
 defaults themselves have not been seen on screen, only the same numbers applied by hand in r39.
+
+## r40 and r41, built 2026-10-29: the accepted track becomes the build's own
+
+r40: two constants. `CUT_START_DEFAULT` 124.0 → 129.0 and `CUT_END_DEFAULT` 204.0 → 201.0, the pair
+the tester dialled in and accepted on r39. The endpoint fixture moves to that pair (rights
+129/147/165/183/201 at 0/25/50/75/100%, 18 px per quarter) and keeps the shift-by-20 and bounds
+checks. NRO `3d5623a7a99b844b8dd22edb69e375a262529c46d1ad6041c8a21e7ca476dce5`.
+
+"why you build this? just continue the development phase" — so r41 does the phase's actual work
+instead of shipping defaults nobody has to touch. `enter` had two box paths: `mask_box` with core's
+measured track while the panel was untouched, and `span_box` with the panel's endpoints after Apply.
+The accepted geometry is 129..201, so the untouched path was the one cutting the older 124..204.
+r41 deletes that branch: the box is built from `CUT_START`/`CUT_END` in every state, so the 20 s
+cycle cuts 129, 147, 165 and 201 px, and `mask_box` leaves the runtime path (it stays in core, where
+the fixtures use it to record that the authored 88 px feed is refuted). `APPLIED` now gates only the
+ratio source: Apply publishes `Gauge shown %`, Reset hands the ratio back to the cycle.
+
+22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
+`2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579`, ZIP
+`build/modern-sharpness-gauge/candidates/r41/delivery/modern-sharpness-gauge-r41-candidate.zip`
+sha256 `e996f73556d88a41aada2f6ae6d3cac2f55849348b6afcc00fc609b6d93034b3`. Gameplay NOT RUN: what the
+cycle lands on is measured from the r39 log's applied pair, not seen on screen in r41.
 
 ## Rules to keep
 

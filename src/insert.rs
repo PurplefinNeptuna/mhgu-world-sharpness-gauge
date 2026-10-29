@@ -29,7 +29,7 @@ use crate::{
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, mask_box, prototype_ratio, span_box, Gauge, NODE_AUTHORED_WIDTH, NODE_CHILD,
+    basis_points, prototype_ratio, span_box, Gauge, NODE_AUTHORED_WIDTH, NODE_CHILD,
     NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -85,19 +85,20 @@ pub fn tick_clock() {
 /// no save data, so the slider resets when the game restarts.
 static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
 
-/// The r38/r39 test control: the box's right edge at 0% and at 100%, in absolute screen pixels
-/// on the bar's rect (its 110..238 span). Defaults are the endpoints the tester dialled in and
-/// accepted on r39 (129 and 201 px), confirmed by that run's log: at 0% the box's right edge is
-/// 129 and at 100% it is 201. Stored as float bits in atomics: written on the overlay thread by
-/// the panel, read in the mask's enter handler on the game thread. No lock, no game pointer
-/// crossing, nothing persisted.
+/// The tester's accepted cut geometry: the box's right edge at 0% and at 100%, in absolute screen
+/// pixels on the bar's rect (its 110..238 span). The pair is what the tester dialled in and
+/// accepted on r39 (129 and 201 px), confirmed by that run's log: with cut 129/201 the box's right
+/// edge is 129 at 0% and 201 at 100%. The 20 s cycle cuts between these two, so a run sees the
+/// accepted track before anyone touches the panel. Stored as float bits in atomics: written on the
+/// overlay thread by the panel, read in the mask's enter handler on the game thread. No lock, no
+/// game pointer crossing, nothing persisted.
 pub const CUT_START_DEFAULT: f32 = 129.0;
 pub const CUT_END_DEFAULT: f32 = 201.0;
 pub const PERCENT_DEFAULT: f32 = 100.0;
 static CUT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
 static CUT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
-/// 0 until Apply has been pressed, which is when the panel's endpoints and percent drive the box
-/// instead of core's measured track and the 20 s cycle.
+/// 0 until Apply has been pressed, which is when the panel's Gauge shown % drives the ratio
+/// instead of the 20 s cycle. The endpoints apply either way.
 static APPLIED: AtomicU32 = AtomicU32::new(0);
 
 /// The sliders' draft values. A drag edits the draft; `apply` copies it into the live set the
@@ -479,23 +480,21 @@ pub fn enter(mask: u32) {
     // r34 fed the bar's authored 88 px (the field at bar+0xb4, printed as bar_w=): its 100% box
     // ends at 190 and the tester's screenshot shows the blade cut near the tip, so the sprite is
     // not drawn 88 px wide. r33 fed the rect's 128 px: its 100% box ends at 226 and shows the
-    // whole blade. The rect width is the draw scale, so it is what mask_box gets. The authored
-    // read stays here as the logged proof of the difference.
+    // whole blade. The rect width is the draw scale, and it is the box's limit here. The authored
+    // read stays as the logged proof of the difference.
     let authored = memory::word(bar + NODE_AUTHORED_WIDTH)
         .map(|word| f32::from_bits(word) as i32)
         .unwrap_or(0);
-    // With both endpoints set the box runs between them, linear in the ratio; untouched, it
-    // follows core's measured track.
-    let box_words = if APPLIED.load(Ordering::Relaxed) == 0 {
-        mask_box(rect, ratio, rect[2] - rect[0])
-    } else {
-        span_box(
-            rect,
-            ratio,
-            f32::from_bits(CUT_START.load(Ordering::Relaxed)) as i32 - rect[0],
-            f32::from_bits(CUT_END.load(Ordering::Relaxed)) as i32 - rect[0],
-        )
-    };
+    // The box always runs between the panel's endpoints, linear in the ratio. Untouched those are
+    // the tester's accepted 129..201 px, so the untouched 20 s cycle cuts the accepted track;
+    // core's measured 124..204 track (mask_box) stays in core as the refutation record for the
+    // authored-88 feed and is no longer what the gauge draws.
+    let box_words = span_box(
+        rect,
+        ratio,
+        f32::from_bits(CUT_START.load(Ordering::Relaxed)) as i32 - rect[0],
+        f32::from_bits(CUT_END.load(Ordering::Relaxed)) as i32 - rect[0],
+    );
     // One line per change of the driving ratio, rate-limited so dragging the slider cannot
     // flood the log: a change inside the last 30 updates is not printed.
     if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed)
