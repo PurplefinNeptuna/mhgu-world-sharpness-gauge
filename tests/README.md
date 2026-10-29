@@ -17,7 +17,7 @@ decisions live in the `no_std` `core` crate.
 | `other_animations_cost_nothing_and_produce_no_sample` | a non-gauge controller and a null row stop at the identity check |
 | `a_gauge_without_a_player_reports_the_tree_only` | HUD present, player absent: tree is recorded, ratio is unsupported |
 | `a_broken_tree_stops_at_its_bounds` | a chain past the visit limit is truncated, and a dangling link is never followed |
-| `the_forced_ratios_step_the_box_from_the_bar_authored_width` | the plan's fixed ratios 0 / 2500 / 5000 / 10000 repeat every four 20 s steps, their boxes are 28 / 41 / 54 / 80 px at the bar's authored 88 px, the empty step keeps the hilt and no blade column, and the 128 px rect feed leaves blade ink inside the empty box |
+| `the_forced_ratios_step_the_box_from_the_rect_width` | the plan's fixed ratios 0 / 2500 / 5000 / 10000 repeat every four 20 s steps, their boxes at the node's 128 px rect are 14 / 39 / 64 / 115 px (rights 124 / 149 / 174 / 225), the empty step stops left of the hilt glyph, and the authored 88 px feed is refuted because its 100% box ends at 190 px, inside the blade |
 
 The host run covers `core` only, which is where the reads, math and identity
 rules live. Hook installation, the flag audit, imports, exports, signature

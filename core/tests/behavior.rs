@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     boundary, kept, prototype_ratio,
-    BAR_INK_LEFT, BAR_INK_TRACK, BAR_HILT_COLUMNS, CLIP_HEIGHT, CLIP_TOP, mask_box,
+    BAR_INK_LEFT, CLIP_HEIGHT, CLIP_TOP, mask_box,
     CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_DRAWABLE, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED,
     FIELD_VISIBLE, Gauge, Sample,
@@ -377,24 +377,26 @@ fn a_broken_tree_stops_at_its_bounds() {
 
 #[test]
 fn the_prototype_fill_shares_one_boundary_column() {
-    // The rects the r3 run measured on the Long Sword gauge. The bar sprite's ink runs from
-    // column 128 to 189 (110 + 18, 62 columns), and within it the hilt square is 10 columns
-    // (128..137) and the blade is the remaining 52 (138..189), measured from the atlas frames.
+    // The rects the r3 run measured on the Long Sword gauge. The bar's drawn ink is measured on
+    // the rect the node reports: it starts 14 px from the rect's left (124 px, left of the hilt
+    // glyph) and runs 101 px to 225, the r33 100% box that photographed the whole blade with no
+    // cut. In sprite columns that is 10 in and 70 long at the rect's 128 px.
     let sword = [110, 38, 238, 166];
     let effect = [116, 32, 244, 160];
-    let ink = (sword[0] + BAR_INK_LEFT, sword[0] + BAR_INK_LEFT + BAR_HILT_COLUMNS + BAR_INK_TRACK);
-    assert_eq!(ink, (128, 190));
-    for (ratio, column) in [(0u32, 138), (2_500, 151), (5_000, 164), (10_000, 190)] {
+    for (ratio, column) in [(0u32, 120), (2_500, 137), (5_000, 155), (10_000, 190)] {
         assert_eq!(boundary(sword, ratio, 88), column);
         assert_eq!(kept(sword, column), [110, 38, column, 166]);
         assert_eq!(kept(effect, column), [116, 32, column.max(116), 160]);
     }
-    // Ratio 0 keeps a non-zero clip: the mask spans the 18-column inset plus the hilt's 10
-    // columns, so the degenerate zero-size scissor never has to be trusted and the hilt stays
-    // inside. Ratio 1 covers the last ink column. The clip rows start at the effect glyph's
-    // top and cover the bar's rows.
-    assert_eq!(boundary(sword, 0, 88) - sword[0], BAR_INK_LEFT + BAR_HILT_COLUMNS);
-    assert!(boundary(sword, 10_000, 88) > ink.1 - 1);
+    for (ratio, column) in [(0u32, 124), (2_500, 149), (5_000, 174), (10_000, 225)] {
+        assert_eq!(boundary(sword, ratio, 128), column);
+    }
+    // Ratio 0 keeps a non-zero clip (14 px at the rect's width), so the degenerate zero-size
+    // scissor never has to be trusted, and it stops left of the hilt glyph the two 0%
+    // screenshots show. Ratio 1 covers the whole blade. The clip rows start at the effect
+    // glyph's top and cover the bar's rows.
+    assert_eq!(boundary(sword, 0, 128) - sword[0], BAR_INK_LEFT * 128 / SPRITE_WIDTH);
+    assert_eq!(boundary(sword, 10_000, 128), 225);
     assert_eq!((CLIP_TOP, CLIP_HEIGHT), (-6, 32));
     assert_eq!(kept([200, 0, 100, 10], 260), [200, 0, 200, 10]);
     assert_eq!(
@@ -409,24 +411,26 @@ fn the_mask_box_covers_the_bar_and_the_effect() {
     // Top is 32 and the height 32: the bar's ink rows (+6..+17) and the effect glyph's
     // offset rows (-6..+25) both fall inside. Width is never zero.
     for (ratio, box_) in [
-        (0u32, [110, 32, 28, 32]),
-        (2_500, [110, 32, 41, 32]),
-        (5_000, [110, 32, 54, 32]),
+        (0u32, [110, 32, 10, 32]),
+        (2_500, [110, 32, 27, 32]),
+        (5_000, [110, 32, 45, 32]),
         (10_000, [110, 32, 80, 32]),
     ] {
         assert_eq!(mask_box(sword, ratio, 88), box_);
         assert!(box_[2] > 0 && box_[3] > 0);
     }
     assert_eq!(mask_box(sword, 10_000, 88)[2], boundary(sword, 10_000, 88) - sword[0]);
-    assert_eq!(mask_box(sword, 0, 88)[2], BAR_INK_LEFT + BAR_HILT_COLUMNS);
+    assert_eq!(mask_box(sword, 0, 88)[2], BAR_INK_LEFT);
+    assert_eq!(mask_box(sword, 0, 128)[2], 14);
+    assert_eq!(mask_box(sword, 10_000, 128)[2], 115);
 }
 #[test]
 fn the_fill_track_scales_with_the_live_bar_width() {
     // A 176-wide bar is the same art at double scale: the inset and the track double.
     let sword = [110, 38, 238, 166];
-    assert_eq!(boundary(sword, 10_000, 176), 110 + 56 + 104);
-    assert_eq!(boundary(sword, 0, 176), 110 + 56);
-    assert_eq!(boundary(sword, 5_000, 176), 110 + 56 + 52);
+    assert_eq!(boundary(sword, 10_000, 176), 110 + 20 + 140);
+    assert_eq!(boundary(sword, 0, 176), 110 + 20);
+    assert_eq!(boundary(sword, 5_000, 176), 110 + 20 + 70);
     assert_eq!(mask_box(sword, 10_000, 176)[2], 160);
 }
 
@@ -587,30 +591,22 @@ fn a_mask_left_open_never_stops_clipping() {
 }
 
 #[test]
-fn the_forced_ratios_step_the_box_from_the_bar_authored_width() {
-    // r34 feeds mask_box the bar's authored width. The r33 run measured it: the facts line
-    // prints bar_w=88 with the transform x scale 1.0 (`mat=0x3f800000` in every clip line),
-    // so the sprite draws 88 px wide from the rect's left and its ink columns 18..79 land at
-    // 128..189. r33 fed the rect's 128 px, which scales the columns by 128/88.
+fn the_forced_ratios_step_the_box_from_the_rect_width() {
+    // The width fed to mask_box is the node's rect width, measured from the tester's 100%
+    // screenshots: r33's box (right 226, the 128 px rect's scale) shows the whole blade, and
+    // r34's (right 190, the authored 88 px scale) cuts the blade near the tip.
     let bar = [110, 38, 238, 166];
-    let authored = 88;
     let rect_width = bar[2] - bar[0];
     let ratios: Vec<u32> = (0..160u32).step_by(20).map(prototype_ratio).collect();
     assert_eq!(ratios[..4].to_vec(), vec![0, 2_500, 5_000, 10_000]);
     assert_eq!(ratios[4..8].to_vec(), ratios[0..4].to_vec());
-    let blade_left = bar[0] + (BAR_INK_LEFT + BAR_HILT_COLUMNS) * authored / SPRITE_WIDTH;
-    let last = bar[0] + (BAR_INK_LEFT + BAR_HILT_COLUMNS + BAR_INK_TRACK) * authored / SPRITE_WIDTH;
-    assert_eq!((blade_left, last), (138, 190));
-    let widths: Vec<i32> = ratios[..4].iter().map(|r| mask_box(bar, *r, authored)[2]).collect();
-    assert_eq!(widths, vec![28, 41, 54, 80]);
-    // The blade columns each step leaves: 0, 13, 26 and all 52, a linear step on the art.
-    let blade: Vec<i32> = widths.iter().map(|w| (bar[0] + w - blade_left).max(0)).collect();
-    assert_eq!(blade, vec![0, 13, 26, 52]);
-    // The empty step keeps no blade column, and the full step covers the last one.
-    assert_eq!(blade[0], 0);
-    assert!(bar[0] + widths[3] >= last - 1);
-    // The hilt stays inside the empty step's box, so 0% leaves no blade column.
-    assert!(bar[0] + widths[0] > bar[0] + BAR_INK_LEFT * authored / SPRITE_WIDTH);
-    // r33's rect-width feed is the refuted input: its empty box covers 12 blade columns.
-    assert!(mask_box(bar, 0, rect_width)[2] + bar[0] > blade_left);
+    let widths: Vec<i32> = ratios[..4].iter().map(|r| mask_box(bar, *r, rect_width)[2]).collect();
+    assert_eq!(widths, vec![14, 39, 64, 115]);
+    // The kept widths 14, 39, 64 and 115 px, i.e. the box's right edge at 124, 149, 174 and
+    // 225 px: the empty step stops left of the hilt glyph, and 100% covers the blade.
+    assert_eq!(widths.iter().map(|w| bar[0] + w).collect::<Vec<_>>(), vec![124, 149, 174, 225]);
+    assert!(widths[0] > 0 && widths[0] < 18, "the empty step must stop left of the hilt glyph");
+    assert!(bar[0] + widths[3] >= 225);
+    // The authored 88 px feed r34 used is refuted: its 100% box ends at 190, inside the blade.
+    assert!(mask_box(bar, 10_000, 88)[2] + bar[0] < 225);
 }

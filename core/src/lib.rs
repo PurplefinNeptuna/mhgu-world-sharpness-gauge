@@ -191,33 +191,31 @@ pub fn prototype_ratio(seconds: u32) -> u32 {
 /// leaves all of the ink out, ratio 1 covers it. `CLIP_TOP`/`CLIP_HEIGHT` cover the
 /// effect glyph, whose authored offset is (6,-6) with height 32. Measured 2026-10-22
 /// from `HD_hud00_BM_NOMIP.tex` (sha256 bd5d1a3fcc77454ef8a7ed715dda1a76a72e5e0ee6413d4ddc6f550c7b89e857).
-/// The authored sprite width the ink measurements are expressed against.
+/// The authored sprite width the ink measurements are expressed against. The r33 run proved the
+/// sprite fills the node's layout rect: its 100% box (right 226) shows the whole blade, and r34
+/// fed the authored 88 px, whose 100% box (right 190) cuts the blade near the tip. So a sprite
+/// column measures rect_width / SPRITE_WIDTH px, and the runtime feeds the rect width.
 pub const SPRITE_WIDTH: i32 = 88;
-/// The bar's ink runs columns 18..=79 of 88, measured 2026-10-22 from
-/// `HD_hud00_BM_NOMIP.tex` (sha256 bd5d1a3fcc77454ef8a7ed715dda1a76a72e5e0ee6413d4ddc6f550c7b89e857)
-/// and measured again on 2026-10-29 from the decoded 512x512 atlas frame at rows 280/304/328.
-/// Within that run the first 10 columns are the hilt square (18..=27: the left edge, the hook
-/// and the gaps at 20-21 and 26-27), and the blade's sawtooth runs 28..=79. The hilt is the
-/// gauge's anchor, so the clip box always keeps it: the track the ratio moves along is the
-/// blade's 52 columns, which starts 28 in from the rect's left. Ratio 0 ends the box at 28,
-/// which is past the hilt's last column and clips every blade column.
-pub const BAR_INK_LEFT: i32 = 18;
-pub const BAR_HILT_COLUMNS: i32 = 10;
-pub const BAR_INK_TRACK: i32 = 52;
+/// Where the drawn bar starts and stops, in sprite columns, measured from the two runs the
+/// tester photographed. The r33 0% box (right 136) and the r34 0% box (right 138) look the same
+/// on screen and both show the hilt glyph, whose left edge measures 125 px, i.e. 15 px from the
+/// rect's left and 10 sprite columns. The r33 100% box (right 226) shows the whole blade with no
+/// cut, so the track ends 115 px from the rect's left: 101 px long, 70 columns.
+pub const BAR_INK_LEFT: i32 = 10;
+pub const BAR_INK_TRACK: i32 = 70;
 pub const CLIP_TOP: i32 = -6;
 pub const CLIP_HEIGHT: i32 = 32;
 
-/// The shared screen column the fill stops at. The hilt is the left edge: the squared
-/// hilt notch is the first ink column, measured above. The kept part grows from the left
-/// and the tip side is clipped. The column is measured on the sword sprite's own rect;
-/// the effect glyph is clipped at that same column, not at its own proportion, because
-/// its rect carries its local offset. The rect's left is the draw origin: the r33 run
-/// measured the bar's authored 88x24 pair with a transform x scale of 1.0, so the sprite
-/// draws 88 px from the rect's left and its columns are pixels 1:1 (see `boundary`'s
-/// `bar_width`, which the runtime feeds that authored width).
+/// The shared screen column the fill stops at. The hilt is the left edge. The kept part grows
+/// from the left and the tip side is clipped. The column is measured on the bar's own rect, the
+/// rectangle the node reports at +0xE0, because the runs show the sprite drawn across that rect:
+/// at the rect's 128 px the track is 14 px in and 101 px long, which lands the steps at 124, 149,
+/// 174 and 225 px, matching the r33 run's 158, 181 and 226 within a pixel, and moving only the
+/// empty step (136 -> 124) to stop left of the hilt. The effect glyph is clipped at the same column, because its rect
+/// carries its `+6,-6` local offset.
 pub fn boundary(sword: [i32; 4], ratio_bp: u32, bar_width: i32) -> i32 {
     let width = bar_width.max(1);
-    let left = ((BAR_INK_LEFT + BAR_HILT_COLUMNS) as i64 * width as i64 / SPRITE_WIDTH as i64) as i32;
+    let left = (BAR_INK_LEFT as i64 * width as i64 / SPRITE_WIDTH as i64) as i32;
     let track = (BAR_INK_TRACK as i64 * width as i64 / SPRITE_WIDTH as i64) as i32;
     sword[0] + left + (track as i64 * ratio_bp as i64 / 10_000) as i32
 }
@@ -234,12 +232,11 @@ pub fn kept(rect: [i32; 4], column: i32) -> [i32; 4] {
     ]
 }
 
-/// The scissor mask box for one ratio, measured in the bar sprite's own rect: its left
-/// is the rect's left, its top is `CLIP_TOP` above the rect's top so the effect glyph's
-/// offset rows are inside, its height is `CLIP_HEIGHT`, and its width runs from the rect's
-/// left to the shared boundary. Width is never zero: at ratio 0 it is the 18-column inset
-/// plus the hilt's 10 columns, so the box keeps the hilt and clips every blade column, and
-/// the degenerate mask size is never asked for.
+/// The scissor mask box for one ratio, measured in the bar's rect: its left is the rect's
+/// left, its top is `CLIP_TOP` above the rect's top so the effect glyph's offset rows are
+/// inside, its height is `CLIP_HEIGHT`, and its width runs from the rect's left to the shared
+/// boundary. Width is never zero (14 px at ratio 0), so the degenerate mask size is never
+/// asked for.
 pub fn mask_box(rect: [i32; 4], ratio_bp: u32, bar_width: i32) -> [i32; 4] {
     let column = boundary(rect, ratio_bp, bar_width);
     [rect[0], rect[1] + CLIP_TOP, column - rect[0], CLIP_HEIGHT]

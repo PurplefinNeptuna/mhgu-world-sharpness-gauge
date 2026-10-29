@@ -1,23 +1,15 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 2 candidate r34 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). r33 ran on Eden 2026-10-29 with the installed bytes matching (log
-`work/modern-sharpness-gauge/runs/r33-eden-2026-10-29.txt`): all four forced steps show on
-screen, the gauge survives sharpness changes, area changes and quest changes, and the cut lands
-where the log says the box is. The one complaint, "no empty gauge", is the width fed to
-`mask_box`. The bar's authored pair is 88x24 with a transform x scale of 1.0 (the facts line's
-`bar_w=88`, `mat=0x3f800000` in every clip line), so the sprite draws 88 px from the rect's left
-and its ink columns are pixels 1:1, while r33 fed the 128 px layout rect: the inset read 26
-instead of 18 and the track 90 instead of 62, so ratio 0 ended the box at 136 and kept 8 px of
-blade. The four steps showed 8, 30, 53 and 62 px of a 62 px blade, and the blade's ink measured
-125..202 px in the last screenshot, against the authored 128..189 the atlas gives.
-r34 feeds `mask_box` the bar's authored width read at `bar+0xb4` (the field gui.rs's stage 32
-gate accepts, printed as `bar_w`), and re-measures the same atlas frames: inside the ink columns
-18..79 the first 10 are the hilt square (18..27: the left edge, the hook, and the gaps at 20-21
-and 26-27) and the blade is the remaining 52 (28..79). The track is now the blade from column
-28, so the steps are 0, 13, 26 and 52 blade columns: ratio 0 keeps the hilt and clips every
-blade column, ratio 1 covers the last one. 21 host fixtures pass; NRO
-`d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75`. Gameplay NOT RUN.
+Current state: Phase 2 candidate r35 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
+installed by this workspace). r33 and r34 both ran on Eden 2026-10-29 with the installed bytes
+matching, and the tester's photographs settle the box's width. r33 fed `mask_box` the node's 128 px
+rect: its 100% box (right 226) shows the whole blade with no cut. r34 fed the bar's authored 88 px
+(the read is logged, `bar_w=88`): its 100% box (right 190) cuts the blade near the tip, and its 0%
+box (138) looks the same as r33's 0% box (136) - the hilt glyph, whose left edge measures ~125 px,
+is inside both. So the node's rect is the draw scale, and the empty step has to stop left of the
+hilt. r35 feeds the rect width and measures the track from those two photographs: 14 px in and 101
+px long, so the steps are 124, 149, 174 and 225 px. 21 host fixtures pass; NRO
+`21413972b0f2ce8c6db01e8de5cdc5b9cab1d062e5e830237e7f89c2acaaf482`. Gameplay NOT RUN.
 r25 stops a mask from clippingr25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1073,6 +1065,43 @@ the insertion order, the links, the mask's own writes and the glow stay as r33 r
 `the_forced_ratios_step_the_box_from_the_bar_authored_width` pins the four steps and refutes the
 128 px feed). Verify PASSED with the same 21 signature windows. NRO
 `d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75`. Gameplay NOT RUN.
+
+## r34 run 2026-10-29 (Eden): the authored-88 feed cuts the tip
+
+Log `work/modern-sharpness-gauge/runs/r34-eden-2026-10-29.txt` (sha256
+`7fff76baf2e1481968dd5eb4185bc00ce2c2f14991d6c0ad1178f279ba60ad4f`), installed NRO
+`d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75`, matching the r34 payload.
+521 plugin lines, 31 forced-ratio lines, 1 insertion, no links-lost, no insertion failure. The
+forced lines read `bar_w=88`, so the authored pair does read 88 inside the mask's enter call, and
+the boxes were 28, 41, 54 and 80 px (rights 138, 151, 164, 190).
+
+The tester: "those fills are definitely wrong, and worse than r33; the 0% of r34 looks like no
+change from r33 at all, and r34's 100% has a weird cut at the end, unlike r33's 100%". Measuring
+the four screenshots with the logged box rights as the ruler puts the cuts at 138, 151, 164 and
+190, i.e. exactly on the boxes, which is why the 100% step cuts the blade near the tip. Two
+refutations:
+1. The authored 88 px is not the drawn width. r33's 100% box (right 226) shows the whole blade;
+   r34's (190) does not. The node's rect width (128) is the draw scale, as r33 had it.
+2. r34's hilt column split does not fix the empty step. The hilt glyph's left edge measures
+   ~125 px, so a box ending at 136 (r33) and one at 138 (r34) both keep it, and the two 0%
+   screenshots look the same. The empty box has to end left of 125.
+
+The atlas column split from the r33 reading (hilt 18..27, blade 28..79) is kept as a measurement
+of the art, not as the clip's geometry: the clip's numbers now come from the two photographs.
+
+## r35, built 2026-10-29: the box from the rect width, the empty step left of the hilt
+
+`enter` feeds `mask_box` the rect width again, and core's track is measured from the photographs:
+`BAR_INK_LEFT` 10 and `BAR_INK_TRACK` 70 columns, i.e. at the 128 px rect 14 px in and 101 px
+long. Steps: 124, 149, 174 and 225 px. At 124 the box covers 110..124, left of the hilt glyph, so
+the 0% step draws nothing of the bar, the glow or the edge; 225 matches the r33 box (226) that
+photographed the whole blade. The forced line prints both widths, `bar_w=` (the authored read) and
+`feed=` (what the box used), so the next run shows the mapping without a screenshot.
+
+21 host fixtures pass (the geometry fixtures now assert both feeds: the rect width at 124/149/174/
+225, and that the authored 88 feed's 100% box ends at 190, inside the blade). Verify PASSED with
+the same 21 signature windows. NRO `21413972b0f2ce8c6db01e8de5cdc5b9cab1d062e5e830237e7f89c2acaaf482`.
+Gameplay NOT RUN.
 
 ## Rules to keep
 
