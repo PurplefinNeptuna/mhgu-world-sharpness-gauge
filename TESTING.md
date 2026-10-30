@@ -1,29 +1,23 @@
 # Testing notes: Modern Sharpness Gauge
 
-For the tester. The README is the user guide; this page is what to run, what to report,
-and what the log lines mean.
+For the tester. The README is the user guide; this page is what to run, what to
+report, and what the log lines mean.
 
-## What to check
+## What to check on r44
 
-Start a quest with a melee weapon that has sharpness. Watch the gauge at full, low and empty
-sharpness, and sharpen the blade part way:
+r44 is the consolidation after r42's gauge was accepted. Everything that reaches
+the screen is the same code as r43, and the box maths gives the same numbers on the
+bar's measured 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at
+0 / 25 / 50 / 75 / 100%. Three runs cover what is new.
 
-1. Full sharpness: the whole blade shows, box past the tip.
-2. A few hits, then a low level: the cut sits between the hilt and the tip, in a straight line.
-3. Empty sharpness: only the hilt glyph shows, nothing blue past it.
-4. Sharpening back to full: the cut moves back toward the tip.
-
-Compare each step with what r43 drew at the same sharpness: the endpoints are the same pair the
-tester accepted, 128 px at 0% and 200 px at 100% on the bar's own 110..238 rect, so the cut
-should land in the same place. The pair is stored as offsets on that rect now, scaled by the
-rect's live width, which is what a different bar width would need.
-
-Then, on the same build:
-
-- a ranged weapon (no sharpness gauge) in a quest, and the hub: the bar draws as the game draws
-  it, no box over it;
-- a quest that crosses an area's loading screen, and one that ends on the results screen;
-- a non-English game, and the HD Project mod both off and on.
+1. One melee quest: full sharpness, a few hits down to a low level, empty, then
+   sharpen back. The cut should land where r43 landed at the same sharpness. Take
+   screenshots at full, low and empty.
+2. One run with the MHGU HD Project mod on. That is the case where the bar's rect
+   is not 110..238, so it is the place where the offsets scaled by the rect's width
+   can disagree with r43's absolute pixels. Say where the cut sits at full and at
+   empty.
+3. One quest that crosses an area's loading screen and ends on the results screen.
 
 Tell me if any of these happen:
 
@@ -34,9 +28,20 @@ Tell me if any of these happen:
 - the glow next to the bar, or the glyph at the bar's edge, is missing;
 - the game stops responding, at the quest end in particular.
 
-Note which weapon you started each quest with (MHGU changes weapons at the box between quests,
-not during one) and whether the quest ended with the results screen. Take screenshots at full,
-low and empty sharpness.
+Say which weapon the quest started with (MHGU changes weapons at the box between
+quests, not during one) and whether it ended on the results screen.
+
+Two log-wording changes, for when you read the file: the startup line reads
+`loaded (clips the sharpness gauge to the player's sharpness)`, and a row check
+after a gauge row's teardown reports stage 34 where it used to report 21.
+
+## Accepted on r42's bytes, not re-run for r44
+
+Nothing in these code paths changed, and they were reported working: a ranged
+weapon with no sharpness gauge and the hub (the bar draws as the game draws it), a
+non-English game, other HUD gauges (health, stamina, timer, party members), and
+quest exit/re-entry with HUD recreation. They stay on the list for the next
+behaviour change, not for this one.
 
 ## Which log to send
 

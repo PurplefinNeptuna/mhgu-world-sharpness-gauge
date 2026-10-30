@@ -1478,6 +1478,27 @@ NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`, ZIP
 `build/modern-sharpness-gauge/candidates/r44/delivery/modern-sharpness-gauge-r44-candidate.zip`
 sha256 `19af9431338202171c70b5991d455871e32d6df8b725d93d03270cfddc2f0d00`.
 
+Where r44's runtime differs from r43, and where it cannot. The hook set, the
+signatures, the gates, the map and cache growth, the link order, the mask's writes,
+the glow, the log sites and `svc.S` are the same code. On the accepted bar rect
+(110..238, 128 px) `cut_box` produces r43's box at every ratio: widths 18 / 36 / 54
+/ 72 / 90 px and rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%,
+pinned by `the_accepted_cut_lands_on_the_measured_bar_at_every_ratio`. Three
+differences exist, none of them visible on a 128 px bar:
+
+- a bar laid out at a rect width other than 128 px. r43 kept the endpoints at
+  absolute screen pixels, so a bar drawn narrower cut the same pixels and so a
+  larger share of a wider bar; r44 scales the offsets, so it cuts the same fraction.
+  This is what the HD Project run tests.
+- the stage-34 gate. r43 asked `maximum != 0` against the snapshot's 10-bit-truncated
+  word, so a negative maximum read as 1023 and passed; r44 asks `maximum > 0` on the
+  word as read and rejects it. No sharpness weapon reports a negative maximum, so this
+  is a stricter gate on nonsense state, not a change in play.
+- the gauge-present flag is now cleared at a row's teardown. A row check between
+  teardowns reports stage 34 where r43 reported 21, and discovery restarts with it.
+
+Discovery also reads less: 11 copied words where it copied 134.
+
 Gameplay NOT RUN on r44's bytes. The accepted behaviour is on r42's, and the
 cut's arithmetic is proven on the host: same endpoints, same boxes on the
 measured bar, and the scaling that only shows up on a bar laid out at a
