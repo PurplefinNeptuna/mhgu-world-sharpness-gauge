@@ -6,7 +6,8 @@ inside the same cut. Nothing else on the HUD changes.
 
 This build cuts the bar at your own sharpness: full sharpness shows the whole blade, and every
 hit takes the cut a little further from the tip toward the hilt, in a straight line. Empty
-sharpness leaves only the hilt. The colours and the glow stay the game's own.
+sharpness leaves only the hilt. The colours and the glow stay the game's own. The mod has no
+settings and no overlay panel: it cuts at the sharpness the game reports, and nothing else.
 
 The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
 the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
@@ -49,23 +50,6 @@ Tell me if any of these happen:
 Note which weapon you started each quest with - MHGU changes weapons at the box between quests,
 not during one - and whether the quest ended with the results screen.
 
-### Settings
-
-Open **Plugin UI > Modern Sharpness Gauge** in Forge's overlay.
-
-| Setting | Default | Effect |
-| --- | --- | --- |
-| Gauge shown % | 100 | A test control: pin the cut at a fixed amount - 0 draws nothing, 25 a quarter, 50 half, 100 the whole blade - so one level can be screenshotted on demand. Press Apply and the gauge follows that number; press Reset and it follows your sharpness again. |
-| Cut start px | 128.0 | Where 0% lands, in screen pixels along the bar (its rect is 110..238), in 0.1 px steps. The box's right edge stops here at 0%. |
-| Cut end px | 200.0 | Where 100% lands, in the same pixels, in 0.1 px steps. The cut moves linearly between the two numbers, so 25% and 50% land a quarter and a half of the way between them. |
-| Apply | button | Publishes the three settings together: the gauge changes on the next frame. The sliders alone change nothing on the gauge. |
-| Reset | button | Returns the sliders to their defaults (128.0 and 200.0) and hands the gauge back to your sharpness. |
-
-All of it is session-only: nothing is written to a file, and it resets when the game restarts.
-The sliders are a draft: drag them freely, then press Apply to put them on the gauge, and press
-Reset to hand the gauge back to your sharpness on the accepted 128..200 px track. The
-line under the buttons says which is live.
-
 ### Which log to send
 
 Send the whole log file from the emulator you played on, and the Forge log if you
@@ -78,13 +62,12 @@ have one:
 Say which emulator you used and describe the hunt in the order you played it. The
 lines that matter start with `MSG r43`.
 
-`forced ratio_bp` lines are printed when the cut moves:
-`0` to `10000` basis points of your sharpness. The line carries the box the mod
-wrote (`box=`), the bar's own rectangle (`bar=`), the rectangle the game draws
-inside (`eff=`), the part of the sword picture the bar uses (`tex=`), the bar's
-own authored width (`bar_w=`, 88), the width the box was built from (`feed=`, 128) and what
-drove the value (`src=`, `cycle` for the 20 s steps, `slider` for your drag). Match your
-screenshot's step to the line with the same number.
+`fill ratio_bp` lines are printed when the cut moves: `0` to `10000` basis points
+of your sharpness. The line carries the box the mod wrote (`box=`), the bar's own
+rectangle (`bar=`), the rectangle the game draws inside (`eff=`), the part of the
+sword picture the bar uses (`tex=`), the bar's authored width (`bar_w=`, 88) and
+the width the box is built from (`feed=`, 128). Match your screenshot to the line
+with the ratio you had at that moment.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published. `mask insertion failed at stage` plus a number from 40 to 49 means it
@@ -98,17 +81,8 @@ Report the number exactly as printed.
 `inserted mask's links lost (N times)` means the game took a gauge row away at
 an area's loading screen: the mod turns the old mask off and looks for the new
 area's gauge. The line carries the tree links as the game left them and a count of
-gauge draws it still sees; a `dropped gauge row now:` line repeats those links when
-they change. Report how many areas you crossed and whether the bar behaved the same
-in each.
-
-`clip mask rect` lines appear every couple of seconds while the mask is in, with
-the rectangle that is in the object at that moment, the measurement setting, and the
-bar's rectangle it is meant to cover. The first four numbers are left, top, right,
-bottom: if the left and right are equal (for example `110 32 110 64`) the clip has
-no width, which is what a missing gauge looks like in the log. `anchors=` should
-read with its low digits as `0` (`0xf0`), and `mat=` should start with
-`0x3f800000`, the scale 1.0.
+gauge draws it still sees. Report how many areas you crossed and whether the bar
+behaved the same in each.
 
 `gauge row facts:` is one line per gauge HUD: the controller, its draw cache, the
 animation row and both of its count pairs, the HUD instance, the instance's object
@@ -123,9 +97,12 @@ the glow beside the bar, 29 the edge beside the glow, 30 a chain that does not
 close back on its parent, 31 the bar's class, 32 the bar's authored width, 33 a
 missing class record, 34 no sharpness gauge to read.
 
-`sample N/320` lines carry the sharpness points, the tier, the maximum, the weapon
-id and the walked nodes, and `tree N` lines print each node's child, sibling and
-parent pointer.
+`gauge controller observed` marks the first gauge HUD of the session, and
+`no sharpness gauge controller seen in N walker calls` marks a stretch where the
+game draws no gauge HUD at all - the hub, a finished quest, a weapon without
+sharpness. `gauge row root destroyed (N times)` is the game's own teardown of the
+gauge row; it has been seen zero times, which is why the mod relies on its own
+link check.
 
 ## Update and removal
 

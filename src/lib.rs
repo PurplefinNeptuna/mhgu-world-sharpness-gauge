@@ -1,6 +1,6 @@
 //! Modern sharpness gauge: the game's sharpness bar, clipped to the local player's own sharpness
-//! ratio, read in the mask's enter hook. The box is built from the tester's accepted 129..201 px
-//! endpoints on the bar's rect.
+//! ratio, read in the mask's enter hook. The box is built from the tester's accepted 128..200 px
+//! endpoints on the bar's rect. There are no settings and therefore no Plugin UI panel.
 //!
 //! Four hooks: the draw walker (main+0xa494a0) observes the gauge controller, the player's
 //! sharpness fields and the node tree; the instance draw entry (main+0xa39300) records the row
@@ -14,7 +14,6 @@ extern crate alloc;
 use alloc::string::String;
 use core::fmt::Write as _;
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use sharpness_gauge_core::{FIELDS, HEAD_WORDS, MAX_NODES, NODE_WORDS, FIELD_VISITED, ratio_of_words};
 mod gui;
 mod hooks;
 mod insert;
@@ -22,38 +21,14 @@ mod memory;
 mod sampling;
 mod signatures;
 
-/// Samples drained per frame. Each sample prints one summary line plus one
-/// line per walked node, so the drain rate is bounded well below the budget.
-const DRAIN_PER_FRAME: usize = 1;
 /// Walker calls without a gauge controller that count as "the HUD is absent".
 const ABSENT_AFTER_CALLS: u32 = 6_000;
 static REPORTED_FIRST: AtomicBool = AtomicBool::new(false);
 static REPORTED_ABSENT: AtomicBool = AtomicBool::new(false);
-static REPORTED_FULL: AtomicBool = AtomicBool::new(false);
 static LAST_TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 static LAST_MISSES: AtomicU32 = AtomicU32::new(0);
-static LAST_PROBE: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
-/// A 120-update divider (about two seconds of frames) for the one clip probe line.
-const CLIP_LOG_EVERY: u32 = 120;
-static CLIP_LOG: Counter = Counter::new(CLIP_LOG_EVERY);
-
-struct Counter {
-    value: AtomicU32,
-    every: u32,
-}
-impl Counter {
-    const fn new(every: u32) -> Self {
-        Self {
-            value: AtomicU32::new(0),
-            every,
-        }
-    }
-    /// True once every `every` calls, so a hot path logs at a fixed low cadence.
-    fn tick(&self) -> bool {
-        let next = self.value.fetch_add(1, Ordering::Relaxed) + 1;
-        next % self.every == 0
-    }
-}
+/// The last reported row-check stage, so the retry cadence prints a change, not a stream.
+static LAST_STAGE: AtomicU32 = AtomicU32::new(0);
 
 // forge-rs exposes only the six-byte version prefix. The matching native loader
 // also owns name[64] at offset 6 and hides empty names in its Loaded Plugins
@@ -108,93 +83,11 @@ pub extern "C" fn forge_onInit() {
     }
 }
 
-/// Pointers print in hexadecimal, screen coordinates and the signed gauge
-/// words in decimal, counts in decimal, so a log line is readable without
-/// losing any bits.
-fn append_field(line: &mut String, name: &str, word: u32) {
-    if matches!(
-        name,
-        "ctrl" | "row" | "owner" | "cache" | "cache_flags" | "root" | "player"
-            | "context" | "input_flags"
-    ) {
-        let _ = write!(line, " {name}={word:#x}");
-    } else if matches!(
-        name,
-        "current" | "maximum" | "clip_l" | "clip_t" | "clip_r" | "clip_b"
-    ) {
-        let _ = write!(line, " {name}={value}", value = word as i32);
-    } else {
-        let _ = write!(line, " {name}={word}");
-    }
-}
-
-/// One sample: identity, chain, gauge words, the live clip and the walk counts.
-/// The node blocks print separately, one line each, in `node_line`.
-fn sample_line(number: u32, words: &[u32; sampling::WORDS]) -> String {
-    let mut line = String::with_capacity(512);
-    let _ = write!(
-        line,
-        concat!("MSG ", env!("MSG_VERSION"), " sample {number}/{MAX}: "),
-        number = number,
-        MAX = sampling::MAX_SAMPLES
-    );
-    for index in 0..HEAD_WORDS {
-        append_field(&mut line, FIELDS[index], words[index]);
-    }
-    match ratio_of_words(words) {
-        Some(points) => {
-            let _ = write!(line, " ratio_bp={points}");
-        }
-        None => {
-            // Unsupported state: no player, no gauge fields, or a maximum that
-            // is not verified positive. Nothing is drawn from it.
-            let _ = write!(line, " ratio=unsupported");
-        }
-    }
-    line
-}
-
-/// One node: address, the whole flag word (bit 0 visible, 0x0200_0000 drawable,
-/// which is also the leaf-exit bit the walker tests for a childless node,
-/// 0x0001_0000 cleared on exit, 0x0000_4000 prepaint skip), the object kind, then
-/// the own rectangle and the rectangle prepaint leaves after the clip intersection.
-fn node_line(number: u32, index: usize, words: &[u32; sampling::WORDS]) -> String {
-    let base = HEAD_WORDS + index * NODE_WORDS;
-    let mut line = String::with_capacity(160);
-    let _ = write!(
-        line,
-        concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
-            " tree {number} n{index}: addr={a:#x} flags={f:#x} kind={k}",
-            " own={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th}",
-            " child={ch:#x} sibling={sb:#x} parent={pa:#x}"
-        ),
-        number = number,
-        index = index,
-        a = words[base],
-        f = words[base + 1],
-        k = words[base + 2],
-        l = words[base + 3] as i32,
-        t = words[base + 4] as i32,
-        r = words[base + 5] as i32,
-        b = words[base + 6] as i32,
-        el = words[base + 7] as i32,
-        et = words[base + 8] as i32,
-        er = words[base + 9] as i32,
-        eb = words[base + 10] as i32,
-        tu = words[base + 11] as i32,
-        tv = words[base + 12] as i32,
-        tw = words[base + 13] as i32,
-        th = words[base + 14] as i32,
-        ch = words[base + 15],
-        sb = words[base + 16],
-        pa = words[base + 17]
-    );
-    line
-}
-
-/// Logging runs here, outside the hook, formatted from the copied words.
+/// Logging runs here, outside the hook. What is printed is the run's evidence: one line per gauge
+/// row read (with the insertion's own outcome), one line per mask teardown, one line each time the
+/// fill's ratio steps, and one line when the gauge HUD is absent. The Phase 2 dump lines - the
+/// per-sample identity lines, the per-node tree lines, the clip readback and the dropped-row probe -
+/// are gone: their questions are answered and recorded in DEVELOPMENT.md.
 #[unsafe(no_mangle)]
 pub extern "C" fn forge_onUpdate(delta: f32) {
     let _ = delta;
@@ -204,16 +97,14 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " forced ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed} src={src} cut={cs} {ce}"
+            " fill ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed}"
         ),
         ratio = forced[0],
         bl = forced[1] as i32, bt = forced[2] as i32, bw = forced[3] as i32, bh = forced[4] as i32,
         l = forced[5] as i32, t = forced[6] as i32, r = forced[7] as i32, b = forced[8] as i32,
         el = forced[9] as i32, et = forced[10] as i32, er = forced[11] as i32, eb = forced[12] as i32,
         tu = forced[13] as i32, tv = forced[14] as i32, tw = forced[15] as i32, th = forced[16] as i32,
-        bw2 = forced[17] as i32, feed = forced[18] as i32,
-        src = if forced[19] == 1 { "slider" } else { "live" },
-        cs = forced[20] as i32, ce = forced[21] as i32);
+        bw2 = forced[17] as i32, feed = forced[18] as i32);
     }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;
@@ -261,7 +152,9 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         }
     }
     let stage = gui::take_failure();
-    if stage != 0 {
+    // The row check retries at a slow cadence while the gauge HUD is absent, so the stage is
+    // printed when it changes, not on every retry.
+    if stage != 0 && stage != LAST_STAGE.swap(stage, Ordering::Relaxed) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
@@ -272,48 +165,14 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         controller = hooks::capture().1,
         gauge = sampling::gauge_controller());
     }
-    for _ in 0..DRAIN_PER_FRAME {
-        let Some((number, words)) = sampling::take() else {
-            break;
-        };
-        if !REPORTED_FIRST.swap(true, Ordering::Relaxed) {
-            log::error!(concat!(
-                "MSG ",
-                env!("MSG_VERSION"),
-                " gauge controller observed; sampling the native gauge"
-            ));
-        }
-        log::error!("{}", sample_line(number, &words));
-        let walked = words[FIELD_VISITED];
-        let limit = if walked > MAX_NODES as u32 {
-            MAX_NODES
-        } else {
-            walked as usize
-        };
-        for index in 0..limit {
-            log::error!("{}", node_line(number, index, &words));
-        }
-    }
-    // The rectangle the layout pass left in the mask between frames, next to the bar's rect.
-    let probe = insert::probe();
-    let scissor = hooks::scissor();
-    if probe[10] | probe[11] | probe[12] | probe[13] != 0 && CLIP_LOG.tick() {
-        // The rect, then the quad builder's inputs (transform rows, position floats, authored
-        // pair, anchors) and the bar's same fields: the readback that names which input is zero.
+    let (calls, _taken, matched) = sampling::stats();
+    if matched && !REPORTED_FIRST.swap(true, Ordering::Relaxed) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " clip mask rect={a} {b} {c} {d} flags={flags:#x} anchors={anchors:#x} mat={m0:#x},{m1:#x},{m2:#x},{m3:#x},{m4:#x},{m5:#x} pos={p0:#x},{p1:#x} size={w},{h} bar mat={bm:#x} pos={bp:#x} size={bw} anchors={ba:#x} scr={s0} {s1} {s2} {s3} tgt={tf:#x}"
-        ),
-        a = probe[10] as i32, b = probe[11] as i32, c = probe[12] as i32, d = probe[13] as i32,
-        flags = probe[9], anchors = probe[8],
-        m0 = probe[0], m1 = probe[1], m2 = probe[2], m3 = probe[3], m4 = probe[14], m5 = probe[15],
-        p0 = probe[4], p1 = probe[5], w = probe[6] as i32, h = probe[7] as i32,
-        bm = probe[16], bp = probe[17], bw = probe[18] as i32, ba = probe[19],
-        s0 = scissor[0] as i32, s1 = scissor[1] as i32, s2 = scissor[2] as i32,
-        s3 = scissor[3] as i32, tf = scissor[4]);
+            " gauge controller observed; the fill follows the local player"
+        ));
     }
-    let (calls, taken, matched) = sampling::stats();
     // Each fire means the game freed the gauge row; it has fired zero times in six sessions,
     // so the mask's own liveness check is the teardown this build relies on.
     let tears = hooks::teardowns();
@@ -339,31 +198,6 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         bp = lost[3], bs = lost[4], rc = lost[5], fires = hooks::instance_fires());
         REPORTED_ABSENT.store(false, Ordering::Release);
     }
-    // Observe the dropped row from the plugin thread: freed, rewired, or alive per its own
-    // spec. Logged on change only, so a whole area transition costs one line.
-    let probe = insert::probe_kept();
-    let changed = probe
-        .iter()
-        .zip(LAST_PROBE.iter())
-        .any(|(value, slot)| *value != slot.load(Ordering::Relaxed));
-    if probe[0] != 0 && changed {
-        for (slot, value) in LAST_PROBE.iter().zip(probe) {
-            slot.store(value, Ordering::Relaxed);
-        }
-        log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
-            " dropped gauge row now: marker={m:#x} mask.parent={mp:#x} mask.child={mc:#x} bar.parent={bp:#x} bar.sibling={bs:#x} root.child={rc:#x}"
-        ),
-        m = probe[0], mp = probe[1], mc = probe[2], bp = probe[3], bs = probe[4], rc = probe[5]);
-    }
-    if matched && taken == sampling::MAX_SAMPLES && !REPORTED_FULL.swap(true, Ordering::Relaxed) {
-        log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
-            " sample budget complete; the hook no longer reads game memory"
-        ));
-    }
     // The walker runs for every animation controller, so a large call count
     // without a gauge match means the gauge HUD is absent in this state.
     if !matched && calls > ABSENT_AFTER_CALLS && !REPORTED_ABSENT.swap(true, Ordering::Relaxed) {
@@ -376,113 +210,4 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
             calls = calls
         );
     }
-}
-
-/// Forge supplies the live ImGui context and its matching allocator pair. They
-/// stay loader-owned. This mod has no settings, so the panel below is empty.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn forge_onImGuiInit(
-    ctx: *mut core::ffi::c_void,
-    alloc: *mut core::ffi::c_void,
-    free: *mut core::ffi::c_void,
-) {
-    if ctx.is_null() || alloc.is_null() || free.is_null() {
-        return;
-    }
-    unsafe {
-        forge::imgui::set_current_context(&mut *ctx.cast());
-        forge::imgui::set_allocator_functions(
-            core::mem::transmute(alloc),
-            core::mem::transmute(free),
-        );
-    }
-}
-
-/// The row below is the test control: a 0-100 slider that pins how much of the gauge is shown, so
-/// a level can be set and photographed on demand instead of waiting for the fill to move, plus the
-/// cut's two endpoints. It is session-only (this mod ships no INI and writes no save data), the
-/// row starts closed, and the TreePop is paired through Drop so an early return cannot leave it
-/// open. Untouched, the gauge follows the player's own sharpness.
-#[forge::imgui_render]
-fn panel() {
-    if !forge::imgui::tree_node(c"Modern Sharpness Gauge##modern-sharpness-gauge") {
-        return;
-    }
-    struct Tree;
-    impl Drop for Tree {
-        fn drop(&mut self) {
-            forge::imgui::tree_pop();
-        }
-    }
-    let _tree = Tree;
-    let mut percent = insert::draft_percent();
-    if forge::imgui::slider_float(
-        c"Gauge shown %##modern-sharpness-gauge",
-        &mut percent,
-        0.0,
-        100.0,
-        forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
-    ) {
-        insert::set_draft_percent(percent);
-    }
-    // The two endpoints the previous runs had to be measured for, settable live: the box's right
-    // edge at 0% and at 100%, in screen px on the bar's rect (110..238).
-    // The two endpoints in 0.1 px steps. forge::imgui::slider_float hardcodes ImGui's default
-    // format, so the raw binding is used here to show one decimal; set_draft_cut_* snaps the
-    // stored value to the same 0.1 grid, so what the row shows is what gets applied.
-    let mut start = insert::draft_cut_start();
-    let mut end = insert::draft_cut_end();
-    // SAFETY: both labels and formats are static NUL-terminated C strings, the value pointers
-    // point at the locals' f32 storage, and the slider writes only through them for this frame.
-    unsafe {
-        if forge::sys::imgui::igSliderFloat(
-            c"Cut start px##modern-sharpness-gauge".as_ptr(),
-            &mut start,
-            111.0,
-            237.0,
-            c"%.1f px".as_ptr(),
-            forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
-        ) {
-            insert::set_draft_cut_start(start);
-        }
-        if forge::sys::imgui::igSliderFloat(
-            c"Cut end px##modern-sharpness-gauge".as_ptr(),
-            &mut end,
-            113.0,
-            238.0,
-            c"%.1f px".as_ptr(),
-            forge::sys::imgui::ImGuiSliderFlags::AlwaysClamp,
-        ) {
-            insert::set_draft_cut_end(end);
-        }
-    }
-    // The sliders edit a draft; Apply publishes all three together, so tuning the endpoints
-    // before the gauge changes is the point. Reset hands the gauge back to the player's sharpness.
-    if forge::imgui::button(c"Apply##modern-sharpness-gauge", forge::sys::imgui::ImVec2::new(0.0, 0.0)) {
-        insert::apply();
-    }
-    forge::imgui::same_line(0.0, 0.0);
-    if forge::imgui::button(c"Reset##modern-sharpness-gauge", forge::sys::imgui::ImVec2::new(0.0, 0.0)) {
-        insert::reset();
-    }
-    let (applied, live_percent, live_start, live_end) = insert::live_state();
-    let mut line = String::with_capacity(96);
-    if applied {
-        let _ = write!(
-            line,
-            "Applied: {:.1}% cut {:.1}..{:.1} px",
-            live_percent,
-            live_start,
-            live_end
-        );
-    } else {
-        let _ = write!(
-            line,
-            "Live: the gauge follows your sharpness. Draft {:.1}% {:.1}..{:.1} px",
-            percent,
-            start,
-            end
-        );
-    }
-    forge::imgui::text(&line);
 }

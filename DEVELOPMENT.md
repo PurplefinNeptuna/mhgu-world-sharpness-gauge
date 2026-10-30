@@ -1,12 +1,14 @@
-Current state: Phase 4 candidate r43 (`DISTRIBUTION.json`, DEVELOPMENT). The tester's r42 run covered
-three quests - Long Sword, Dual Blades, then a bowgun - with the HD Project mod off and a non-English
-game, and reported all three right: 148 forced lines, 145 of them `src=live`, none off the accepted
-track. Their measurement moves the cut 1 px tighter at each end, so r43 ships the accepted endpoints as
-128.0 px at 0% and 200.0 px at 100%, and the quarter steps land at 128, 146, 164 and 200 px. The live
-sharpness fill, the bar rect as the box's limit, the mask insertion and links, the glow, the panel's
-Gauge shown % with Apply and Reset and the session-only rule are unchanged from the bytes the tester
-ran. 22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
-`58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6`. r43 gameplay NOT RUN.
+Current state: Phase 4 closed on r43 (`DISTRIBUTION.json`, DEVELOPMENT). The tester's instruction was to
+close the phase by pruning the spam log lines and removing the Plugin UI controls, amended on r43. The
+panel is gone - no settings, so no panel - and with it the sample ring and its 320-sample budget, the
+bucketing constants, the render-target scissor capture in the mask hook, and the clip and kept-row
+probes: the sampler is discovery only now. What still prints is one line per gauge row read with the
+insertion outcome, one per mask teardown, one each time the fill's ratio steps, one when the gauge HUD is
+absent, and the row-check stage only when it changes. The cut is unchanged: the player's own sharpness on
+the accepted 128..200 px track. verify.py's export list moved with the panel (no ImGui callbacks at all),
+which is recorded beside the gate. 22 host fixtures pass; verify PASSED with the same 21 signature
+windows. NRO `c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2`. The closing build has
+not been run.
 
 Current state: Phase 4 acceptance in progress on r42 (`DISTRIBUTION.json`, DEVELOPMENT). Three of the
 plan's Phase 4 scenarios are accepted by the tester on r42's bytes (2026-10-30): the cut tracks
@@ -1338,6 +1340,35 @@ are the bytes they ran.
 22 host fixtures pass (the endpoint fixture now pins 128/146/164/182/200 px at 0/25/50/75/100%); verify
 PASSED with the same 21 signature windows. NRO `58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6`,
 ZIP sha256 `7bed54b2ba7c5a9172ac31b284e891efd2879de56047a4c1f858c4404013bc99`. r43 gameplay NOT RUN.
+
+## r43 closing, 2026-10-30: the panel out, the spam out
+
+"Close phase 4 by pruning spam logs and remove the forge imgui options to set sharpness, start, end,
+apply and reset, amend them as r43."
+
+Removed: `forge_onImGuiInit` and the panel row (Gauge shown %, Cut start px, Cut end px, Apply, Reset),
+`SLIDER_BP`, `APPLIED`, the draft atomics and their setters, `live_state`, and the endpoint atomics -
+`CUT_START_DEFAULT` 128.0 and `CUT_END_DEFAULT` 200.0 are plain constants now. `enter` takes its ratio
+from the player's sharpness alone.
+
+Removed log sites and the code that only fed them: the sample drain loop with `sample_line` and
+`node_line` (42 and 162 lines in the last run), the clip readback block (680 lines) with `insert::probe`
+and the render-target scissor capture in the mask hook (5 word reads per frame for a line printed twice
+a second), the dropped-row probe block (1538 lines) with `probe_kept`/`kept`/`KEEP`, and the
+320-sample ring, its budget line and the bucketing constants. The row-check stage now prints on change,
+not per retry. Kept: the gauge-row facts and insertion outcome, the mask teardown lines, the fill
+ratio line (19 words, endpoints and source dropped because they are constants now), and the HUD-absent
+line.
+
+One gate moved, and it is mine to move: verify.py asserted the export set including
+`forge_onImGuiInit`/`forge_onImGuiRender`. With no panel those callbacks do not exist, so the gate now
+requires `forge_onLoad`, `forge_onInit`, `forge_onUpdate`, `init`, `fini` and nothing else - the same
+strict equality, a smaller set. Nothing about the hook window, the signatures, the payload inventory or
+the flag audit changed.
+
+22 host fixtures pass; verify PASSED. NRO `c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2`,
+ZIP sha256 `fda46586ab95dbb06485b0d562ebdb95666d6ed12fe52aa7b909bb6bd434e81a`. The closing build has not
+been run: the accepted behaviour is on r42's bytes and the 128/200 endpoints are the tester's measurement.
 
 ## Rules to keep
 

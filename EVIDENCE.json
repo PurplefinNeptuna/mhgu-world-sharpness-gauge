@@ -75,7 +75,7 @@
   "build": {
     "version": "r43",
     "status": "BUILT",
-    "nro_sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6",
+    "nro_sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -86,11 +86,11 @@
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "185616466f5cc49dc662ff1d890f313b896c0641161a4364a700a3366ead0392",
-      "src/insert.rs": "d34439ac1f74610564af91291f438fb37198f0fb2c0592ff7b787896743b519c",
-      "src/lib.rs": "1d074079c45375ea6759c45f482f7721ceb727cf9661b6f74686a79da1f324e8",
+      "src/hooks.rs": "dad9210880c0f9b4080571078ddb47d9f41fba19abdbfe21ac0aa37e281a535e",
+      "src/insert.rs": "4cd73075e51a2483c386aeae26c557ef6c94aaaba802e4724f5e76fd85efe004",
+      "src/lib.rs": "fd71b78fc0cf674ff21ba52c32539761326811edc1056b7a8d1b4d4548f0f3dc",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
-      "src/sampling.rs": "530935a9c8c5ad19c1d2bf0ad91d4c4ce17125f2e98a40473a5931697edf71cd",
+      "src/sampling.rs": "918d50f0a32fbbb80d1c4fea3895e575f7244c4656731bbce20c5be85318ec89",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
       "core/src/lib.rs": "9aca4ccb41847caea550718ec23bcef4d422064037f19eda33259e87792a2ad9",
@@ -102,12 +102,10 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6",
-    "elf_sha256": "a8fafb03c62e52c5ab60b4eed3b2b2aadca50dfed152ef3bbc279e9a43c1506f",
+    "nro_sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2",
+    "elf_sha256": "cfd99fe0790a87533a9c1dac968492b20a142a5793d466faac45ad7ced35b5dd",
     "exports": [
       "fini",
-      "forge_onImGuiInit",
-      "forge_onImGuiRender",
       "forge_onInit",
       "forge_onLoad",
       "forge_onUpdate",
@@ -124,14 +122,6 @@
       "forge_patch_disable",
       "forge_patch_enable",
       "free",
-      "igButton",
-      "igSameLine",
-      "igSetAllocatorFunctions",
-      "igSetCurrentContext",
-      "igSliderFloat",
-      "igTextUnformatted",
-      "igTreeNode_Str",
-      "igTreePop",
       "malloc",
       "realloc"
     ],
@@ -217,7 +207,7 @@
     },
     "words_per_sample": 116,
     "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
-    "nro_sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6"
+    "nro_sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2"
   },
   "runs": [
     {
@@ -862,7 +852,8 @@
     "r35's 124/149/174/225 px steps have no runtime evidence. The endpoints come from the tester's two 100% photographs (226 whole, 190 cut) and the hilt's left edge from the two 0% photographs (~125 px), so each number carries the measurement noise of a downscaled screenshot, roughly a few px. The forced line prints bar_w= and feed= so a run confirms the mapping from the log.",
     "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here.",
     "r39's draft/Apply/Reset flow ran on Eden and published the endpoints, so the panel path is proven; what is not is r40's shipped defaults 129.0/201.0, which are the r39 log's applied pair, and the panel readout line's text.",
-    "r43's defaults 128.0/200.0 have no runtime evidence of their own: 128 at 0% is proven in the r42 log (the tester dragged it there), 200 at 100% is the tester's report, and 101 lines of that run end at 201."
+    "r43's defaults 128.0/200.0 have no runtime evidence of their own: 128 at 0% is proven in the r42 log (the tester dragged it there), 200 at 100% is the tester's report, and 101 lines of that run end at 201.",
+    "The r43 closing build (no panel, pruned logs) has no runtime evidence: the accepted behaviour runs on r42's bytes, and the pruned build changed only the panel, the log sites and the code that fed them."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",

@@ -35,7 +35,8 @@ def verify():
        or receipt.get('source_sha256')!=source_hashes() or receipt.get('drawing_changed') is not DRAWING_CHANGED:
         raise ValueError('Build receipt differs from the staged NRO, current sources, or claims a drawing change')
     exports={n.decode() for n,e,*_ in nro.symbols if n and e[5] and e[3]>>4==1}
-    if exports!={'forge_onLoad','forge_onInit','forge_onUpdate','forge_onImGuiInit','forge_onImGuiRender','init','fini'}:
+    # No settings, so no Plugin UI: the build exports no ImGui callbacks at all.
+    if exports!={'forge_onLoad','forge_onInit','forge_onUpdate','init','fini'}:
         raise ValueError('Unexpected plugin exports: '+str(exports))
     imports={n.decode() for n,e,*_ in nro.symbols if n and not e[5] and e[3]>>4==1}
     available=set().union(*(nso_exports(input_path(n)) for n in ['main','sdk','forge']))
@@ -62,9 +63,9 @@ def verify():
     disasm=subprocess.check_output([Path(CONFIG['devkitarm'])/'bin/arm-none-eabi-objdump','-d',elf],text=True)
     writes=[line for line in disasm.splitlines() if '\tmsr\t' in line]
     if writes: raise ValueError('Processor status writes are forbidden (NZCVQ/GE rule): '+str(writes))
-    # r37: the tester asked for an in-session 0-100 slider as the test control, so the tree row
-    # and the slider imports are now expected. Persistent settings stay out: no config creation,
-    # no save-data mount, no colour editor.
+    # The Phase 4 closing removed the Plugin UI panel (no settings, so no panel), so no ImGui
+    # widget import is expected at all. Persistent settings stay out: no config creation, no
+    # save-data mount, no colour editor.
     if imports&{'forge_config_create','igColorEdit3','forge_fs_mountSaveData'}:
         raise ValueError('Unrequested settings/overlay dependency')
     if 'forge_onImGuiFreeRender' in exports: raise ValueError('No free rendering is used by this mod')

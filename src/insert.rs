@@ -40,7 +40,6 @@ pub const MARKER: u32 = 0x4d534731;
 const MASK_ID: u32 = 0x50;
 const MASK_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
 const MASK_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
-const MASK_POS: u32 = 0x80; // PosX/PosY floats, a DTI property the layout resolves per animation
 const MASK_X_SCALE: u32 = 0x10; // the transform's x row: the builder multiplies the width by it
 /// The class's DTI `Enable` setter (main+0xa4ba20, from the DTI record), the native way to
 /// stop a scissor mask clipping.
@@ -48,7 +47,6 @@ const ENABLE_SETTER: u32 = 0xa4ba20;
 const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
-const MASK_RECT: u32 = 0xb0; // left, top, right, bottom, four integers
 /// bit 1 set asks the game's enter handler to rebuild the rectangle from the node's quad, and
 /// bit 0 applies it. The rebuild is the game's own arithmetic, and its inputs are the fields
 /// written above it.
@@ -74,104 +72,20 @@ pub fn tick_clock() {
     UPDATES.fetch_add(1, Ordering::Relaxed);
 }
 
-/// The test control: the overlay slider's value in basis points, `u32::MAX` until the panel is
-/// published, which is when it overrides the player's own sharpness. Written on the overlay thread
-/// by `set_slider_percent`, read in the mask's enter handler on the game thread: one atomic, no
-/// lock, and no game pointer crosses the two. Session-only by design: this mod ships no INI and
-/// no save data, so the slider resets when the game restarts.
-static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
-
 /// The tester's accepted cut geometry: the box's right edge at 0% and at 100%, in absolute screen
-/// pixels on the bar's rect (its 110..238 span). The pair is what the tester dialled in and
-/// accepted on the r42 run (128 and 200 px), confirmed by its log: with cut 128/201 the box's right
-/// edge is 128 at 0%. Every fill level cuts between these two, so a run sees
-/// the accepted track before anyone touches the panel. Stored as float bits in atomics: written on the
-/// overlay thread by the panel, read in the mask's enter handler on the game thread. No lock, no
-/// game pointer crossing, nothing persisted.
+/// pixels on the bar's rect (its 110..238 span). The pair is what the tester dialled in and accepted
+/// on the r42 run: 128 px at 0%, and 200 px at 100%. Every fill level cuts between these two,
+/// linearly. Plain constants - this mod has no settings, no INI and no save data.
 pub const CUT_START_DEFAULT: f32 = 128.0;
 pub const CUT_END_DEFAULT: f32 = 200.0;
-pub const PERCENT_DEFAULT: f32 = 100.0;
-static CUT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
-static CUT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
-/// 0 until Apply has been pressed, which is when the panel's Gauge shown % drives the ratio
-/// instead of the player's sharpness. The endpoints apply either way.
-static APPLIED: AtomicU32 = AtomicU32::new(0);
-
-/// The sliders' draft values. A drag edits the draft; `apply` copies it into the live set the
-/// enter handler reads, and `reset` returns both sets to the defaults, which puts core's measured
-/// player's own sharpness back in charge.
-static DRAFT_PERCENT: AtomicU32 = AtomicU32::new(f32::to_bits(PERCENT_DEFAULT));
-static DRAFT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
-static DRAFT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
-
-pub fn draft_percent() -> f32 {
-    f32::from_bits(DRAFT_PERCENT.load(Ordering::Relaxed))
-}
-
-pub fn draft_cut_start() -> f32 {
-    f32::from_bits(DRAFT_START.load(Ordering::Relaxed))
-}
-
-pub fn draft_cut_end() -> f32 {
-    f32::from_bits(DRAFT_END.load(Ordering::Relaxed))
-}
-
-pub fn set_draft_percent(value: f32) {
-    DRAFT_PERCENT.store(value.clamp(0.0, 100.0).to_bits(), Ordering::Relaxed);
-}
-
-pub fn set_draft_cut_start(value: f32) {
-    // 0.1 px steps: the slider shows one decimal and the stored value snaps to it. Integer
-    // centi-pixels because this crate is no_std and has no f32::round.
-    DRAFT_START.store((((value * 10.0) + 0.5) as i32 as f32 / 10.0).to_bits(), Ordering::Relaxed);
-}
-
-pub fn set_draft_cut_end(value: f32) {
-    // 0.1 px steps, integer centi-pixels, as in set_draft_cut_start.
-    DRAFT_END.store((((value * 10.0) + 0.5) as i32 as f32 / 10.0).to_bits(), Ordering::Relaxed);
-}
-
-/// Publish the draft: all three values become live together on the next frame. Publishing them
-/// as one set is the point - r38 read the two endpoints as a pair, so dragging one of them while
-/// the other was untouched changed nothing.
-pub fn apply() {
-    let percent = draft_percent();
-    SLIDER_BP.store((percent * 100.0) as u32, Ordering::Relaxed);
-    CUT_START.store(draft_cut_start().max(111.0).to_bits(), Ordering::Relaxed);
-    CUT_END.store(draft_cut_end().max(113.0).to_bits(), Ordering::Relaxed);
-    APPLIED.store(1, Ordering::Relaxed);
-}
-
-/// Drop the draft and hand the gauge back to the player's own sharpness.
-pub fn reset() {
-    DRAFT_PERCENT.store(f32::to_bits(PERCENT_DEFAULT), Ordering::Relaxed);
-    DRAFT_START.store(f32::to_bits(CUT_START_DEFAULT), Ordering::Relaxed);
-    DRAFT_END.store(f32::to_bits(CUT_END_DEFAULT), Ordering::Relaxed);
-    SLIDER_BP.store(u32::MAX, Ordering::Relaxed);
-    CUT_START.store(f32::to_bits(CUT_START_DEFAULT), Ordering::Relaxed);
-    CUT_END.store(f32::to_bits(CUT_END_DEFAULT), Ordering::Relaxed);
-    APPLIED.store(0, Ordering::Relaxed);
-}
-
-/// What is live: (applied, percent, start px, end px). Percent reads -1 while the player's own
-/// sharpness drives it.
-pub fn live_state() -> (bool, f32, f32, f32) {
-    let percent = SLIDER_BP.load(Ordering::Relaxed);
-    (
-        APPLIED.load(Ordering::Relaxed) == 1,
-        if percent == u32::MAX { -1.0 } else { percent as f32 / 100.0 },
-        f32::from_bits(CUT_START.load(Ordering::Relaxed)),
-        f32::from_bits(CUT_END.load(Ordering::Relaxed)),
-    )
-}
 
 
 /// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
 /// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the width
-/// the box was built from, whether the slider (1) or the player's sharpness (0) drove it, and the two
-/// endpoints in screen px the box was built between.
-pub const FORCED_WORDS: usize = 22;
+/// the box was built from. The ratio is always the player's own sharpness and the endpoints are
+/// the accepted constants, so neither is repeated on the line.
+pub const FORCED_WORDS: usize = 19;
 static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
 static FORCED_READY: AtomicBool = AtomicBool::new(false);
 /// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
@@ -203,7 +117,6 @@ fn rect_at(node: u32, offset: u32) -> [i32; 4] {
 // The r25 run: the gauge row is never rebuilt after an area change. Which link broke at the
 // drop, and what the kept addresses read as afterwards, are the facts no log line carries.
 static LINK_LOST: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
-static KEEP: [AtomicU32; 3] = const { [const { AtomicU32::new(0) }; 3] };
 const SNAPSHOT: [(usize, u32); 6] = [
     (0, MASK_ID),       // the mask's own marker word
     (0, NODE_PARENT),   // mask.parent
@@ -215,9 +128,6 @@ const SNAPSHOT: [(usize, u32); 6] = [
 
 /// Read the link state at the drop, and keep the addresses to re-read it later. Read-only.
 fn snapshot(mask: u32, bar: u32, root: u32) {
-    KEEP[0].store(mask, Ordering::Relaxed);
-    KEEP[1].store(bar, Ordering::Relaxed);
-    KEEP[2].store(root, Ordering::Relaxed);
     let bases = [mask, bar, root];
     for (index, (which, offset)) in SNAPSHOT.iter().enumerate() {
         let value = memory::word(bases[*which].wrapping_add(*offset)).unwrap_or(0);
@@ -230,27 +140,6 @@ pub fn link_lost() -> [u32; 6] {
     let mut out = [0u32; 6];
     for (index, slot) in LINK_LOST.iter().enumerate() {
         out[index] = slot.load(Ordering::Relaxed);
-    }
-    out
-}
-
-/// The kept dropped-row addresses: mask, bar, root. Zero before the first drop.
-pub fn kept() -> (u32, u32, u32) {
-    (
-        KEEP[0].load(Ordering::Relaxed),
-        KEEP[1].load(Ordering::Relaxed),
-        KEEP[2].load(Ordering::Relaxed),
-    )
-}
-
-/// Re-read the kept addresses with the snapshot's fields, from the plugin thread. All zero
-/// before the first drop, so callers gate on `kept().0 != 0`.
-pub fn probe_kept() -> [u32; 6] {
-    let (mask, bar, root) = kept();
-    let bases = [mask, bar, root];
-    let mut out = [0u32; 6];
-    for (index, (which, offset)) in SNAPSHOT.iter().enumerate() {
-        out[index] = memory::word(bases[*which].wrapping_add(*offset)).unwrap_or(0);
     }
     out
 }
@@ -446,18 +335,14 @@ pub fn enter(mask: u32) {
     // call through the same checked mapping the sampler uses. No valid gauge - no player yet, a
     // zero maximum, points above the maximum - is unsupported state, so the clip is turned off
     // here and the native gauge is left as the game draws it.
-    let live = sampling::live_gauge().and_then(|gauge| basis_points(gauge));
-    let slider = SLIDER_BP.load(Ordering::Relaxed);
-    let updates = UPDATES.load(Ordering::Relaxed);
-    let ratio = match (slider, live) {
-        (bp, _) if bp != u32::MAX => (bp, true),
-        (_, Some(bp)) => (bp, false),
-        (_, None) => {
+    let ratio = match sampling::live_gauge().and_then(|gauge| basis_points(gauge)) {
+        Some(bp) => bp,
+        None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             return;
         }
     };
-    let (ratio, from_slider) = ratio;
+    let updates = UPDATES.load(Ordering::Relaxed);
     let rect = rect_at(bar, NODE_RECT);
     // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
     // enter: the clip line's own bar probe read 0xFFFF64EE there, and mask_box saw width 0
@@ -477,15 +362,14 @@ pub fn enter(mask: u32) {
     let authored = memory::word(bar + NODE_AUTHORED_WIDTH)
         .map(|word| f32::from_bits(word) as i32)
         .unwrap_or(0);
-    // The box always runs between the panel's endpoints, linear in the ratio. Untouched those are
-    // the tester's accepted 129..201 px, so every fill level cuts the accepted track; core's
-    // measured 124..204 track (mask_box) stays in core as the refutation record for the authored-88
-    // feed and is no longer what the gauge draws.
+    // The box runs between the tester's accepted endpoints, linear in the ratio: 128 px at 0% and
+    // 200 px at 100% on the bar's 110..238 rect. Core's measured 124..204 track (mask_box) stays in
+    // core as the refutation record for the authored-88 feed and is not what the gauge draws.
     let box_words = span_box(
         rect,
         ratio,
-        f32::from_bits(CUT_START.load(Ordering::Relaxed)) as i32 - rect[0],
-        f32::from_bits(CUT_END.load(Ordering::Relaxed)) as i32 - rect[0],
+        CUT_START_DEFAULT as i32 - rect[0],
+        CUT_END_DEFAULT as i32 - rect[0],
     );
     // One line per change of the driving ratio, rate-limited so dragging the slider cannot
     // flood the log: a change inside the last 30 updates is not printed.
@@ -510,9 +394,6 @@ pub fn enter(mask: u32) {
         }
         FORCED[17].store(authored as u32, Ordering::Relaxed);
         FORCED[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
-        FORCED[19].store(from_slider as u32, Ordering::Relaxed);
-        FORCED[20].store(CUT_START.load(Ordering::Relaxed), Ordering::Relaxed);
-        FORCED[21].store(CUT_END.load(Ordering::Relaxed), Ordering::Relaxed);
         FORCED_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
@@ -642,37 +523,6 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         entries: nodes + 2,
         records: cache.1,
     })
-}
-
-/// The quad builder's inputs as the game holds them between frames, plus the bar's same fields
-/// for comparison (the bar draws correctly, so its values are the working ones): the transform's
-/// first two rows at +0x10, the position floats at +0x80, the authored pair at +0xa8, the anchor
-/// word, the flags, and the built rectangle. Zeros mean nothing is inserted.
-pub fn probe() -> [u32; 20] {
-    let mask = MASK.load(Ordering::Relaxed);
-    let bar = BAR.load(Ordering::Relaxed);
-    let mut out = [0u32; 20];
-    if mask == 0 {
-        return out;
-    }
-    let mut at = |fields: &[(usize, u32, u32)], base: u32| {
-        for (index, offset, _) in fields {
-            out[*index] = memory::word(base.wrapping_add(*offset)).unwrap_or(0);
-        }
-    };
-    const MASK_FIELDS: [(usize, u32, u32); 16] = [
-        (0, 0x10, 0), (1, 0x14, 0), (2, 0x18, 0), (3, 0x1c, 0),
-        (4, MASK_POS, 0), (5, MASK_POS + 4, 0), (6, MASK_SIZE, 0), (7, MASK_SIZE + 4, 0),
-        (8, MASK_ANCHORS, 0), (9, MASK_FLAGS, 0),
-        (10, MASK_RECT, 0), (11, MASK_RECT + 4, 0), (12, MASK_RECT + 8, 0), (13, MASK_RECT + 12, 0),
-        (14, 0x20, 0), (15, 0x24, 0),
-    ];
-    const BAR_FIELDS: [(usize, u32, u32); 4] = [(16, 0x10, 0), (17, MASK_POS, 0), (18, MASK_SIZE, 0), (19, MASK_ANCHORS, 0)];
-    at(&MASK_FIELDS, mask);
-    if bar != 0 {
-        at(&BAR_FIELDS, bar);
-    }
-    out
 }
 
 struct Read;

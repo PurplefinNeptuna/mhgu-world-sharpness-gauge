@@ -2,7 +2,7 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "Phase 4 continues. The tester ran r42 over three quests - Long Sword, Dual Blades, then a bowgun - with the HD Project mod off and a non-English game, and reported all three right, so weapon variety, a weapon with no sharpness gauge, the structural gauge lookup and the base game are in. Their measurement moves the accepted cut 1 px tighter at each end: 0% at 128 px and 100% at 200 px, so r43 ships CUT_START_DEFAULT 128.0 and CUT_END_DEFAULT 200.0 and the four quarter steps land at 128, 146, 164 and 200 px. Nothing else moves: the live sharpness fill, the accepted 110..238 px bar rect as the box's limit, the mask insertion and its links, the glow, the panel's Gauge shown % with Apply and Reset, and the session-only rule (no INI, no save data) are unchanged from the bytes the tester ran.",
+  "reason": "Phase 4 closes on the tester's instruction: the sharpness, start-px, end-px, Apply and Reset controls are removed from the Plugin UI - no settings, so no panel - and the spam log lines go with them. The build now prints one line per gauge row read (with the insertion outcome), one per mask teardown, one each time the fill's ratio steps, one when the gauge HUD is absent, and the row-check stage only when it changes. The per-sample identity lines, the per-node tree lines, the clip readback and the dropped-row probe are deleted, along with the code that existed only to feed them: the sample ring and its 320-sample budget, the bucketing constants, the render-target scissor capture in the mask hook, and the clip/kept probe readbacks. The sampler is now discovery only. The cut is unchanged: the live player's sharpness on the accepted 128..200 px track, gates, insertion order, links, the mask's writes and the glow as the tester ran them. Amend on r43, the version the tester named as the base. verify.py's export list moved with the panel: the build now exports no ImGui callbacks at all.",
   "publication": {
     "published": false,
     "url": null,
@@ -13,7 +13,7 @@
   "archive": "modern-sharpness-gauge-r43-candidate.zip",
   "candidate": "build/modern-sharpness-gauge/candidates/r43/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN. Pass, on screen: the cut follows your sharpness on the accepted 128..200 px track - full sharpness shows the whole blade with the box 1 px past the tip, empty leaves only the hilt, hits move the cut toward the hilt in a straight line and sharpening moves it back; the glow and the tier colour stay native, and the other HUD gauges are untouched. Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN on the closing build. The behaviour was accepted on r42's bytes (three quests, the bowgun, non-English, HD off, other HUD gauges untouched) and the 128/200 endpoints on r43's pre-closing bytes; the pruned build has not been run. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -112,7 +112,7 @@
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
       "source": "build/modern-sharpness-gauge/candidates/r43/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6"
+      "sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2"
     }
   }
 }
