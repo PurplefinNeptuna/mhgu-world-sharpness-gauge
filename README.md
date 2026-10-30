@@ -6,8 +6,10 @@ inside the same cut. Nothing else on the HUD changes.
 
 This build cuts the bar at your own sharpness: full sharpness shows the whole blade, every hit
 takes the cut a little further from the tip toward the hilt, in a straight line, and empty
-sharpness leaves only the hilt. The colours, the pulse and the glow stay the game's own. There is
-nothing to set up: the cut follows the sharpness the game reports.
+sharpness leaves the hilt with the rest of the blade drawn dim and steady in the space behind the
+cut. The colours, the pulse and the glow stay the game's own on the part you can see; the dimmed
+part has no glow and does not pulse. There is nothing to set up: the cut follows the sharpness the
+game reports.
 
 The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
 the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
@@ -21,14 +23,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r44.zip`.
+2. Extract `modern-sharpness-gauge-r45-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r44`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r45`
 should be listed.
 
 ## Usage

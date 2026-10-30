@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "status": "READY_TO_DISTRIBUTE",
-  "reason": "r44 is the consolidation after the tester accepted r42's gauge: the test scaffolding, the measured ink-track geometry, the fixed-ratio cycle, the tier-packed gauge snapshot and the 134-word sample dump are gone, the accepted cut is stored as offsets on the rect it was measured on (18 and 90 px of its own 128 px) scaled by its live width, names and log text say what the code does, and README.md is the user guide with the tester steps in TESTING.md. r44 ran once on Eden 2026-10-30 with the HD Project on and the tester accepted it on its own bytes; approved for local distribution on 2026-10-30.",
+  "status": "DEVELOPMENT",
+  "reason": "Plan Phase 5: the dimmed empty blade. A second cGUIObjTexture, allocated through its own DTI's MT allocator and constructed at its vftable slot 0x00, given the bar's transform, kind, owner, resource, texture id and atlas rectangle, coloured flat dark at all four corners, linked as the scissor mask's sibling on the row root's chain so it draws after the mask's subtree and outside the scissor. Its rect and atlas u are written each frame at the mask's enter handler: the rect runs from the cut's right edge to the bar rect's right edge, the atlas u is the same fraction of the authored 88 columns, so the copy keeps the blade's scale. It has no animation entry, so no keyframe writes it: constant, non-pulsing, and Txt_sharp's own keyframes untouched. The row's object array grows to 6 words and the draw block to 5 objects, 88 bytes = 11 records, exactly what the walker emits. Stages 50..52 mean no copy, which leaves the accepted r44 appearance. The MT color word's byte order is unproven, so the dark constant is byte-symmetric grey with the alpha byte written high and labelled as an inference; the facts line now prints the bar's four corner colours so a run pins the packing. r44's accepted behaviour and its 128 px-at-0%/200 px-at-100% endpoints are unchanged. 22 host fixtures pass; verify PASSED with the same 21 signature windows.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r44",
+  "version": "r45",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r44.zip",
-  "runtime_test": "RUN ONCE on Eden 2026-10-30. Installed NRO c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f = the packaged payload. The tester's report is that it ran successfully with the MHGU HD Project mod on, covering the melee checks at full, low and empty sharpness with a sharpen back and a quest that crossed an area's loading screen, and that the cut sits where r43 put it. The log (224 of our lines) shows 209 fill lines with ratios from 10000 down to 0, every one on bar rect 110 38 238 166 with feed=128 and the box at widths 18 / 54 / 90 px at 0 / 5000 / 10000 bp, three insertions with a 5-entry map and a 9-record cache, three links-lost teardowns each followed by a new insertion, one stage-21 check before any gauge HUD existed, no insertion failure, no stage 34, and no guest exception (Eden logged 33 of its own maxwell_3d asserts).",
+  "archive": "modern-sharpness-gauge-r45-candidate.zip",
+  "runtime_test": "NOT RUN. The accepted cut is r44's, which ran once on Eden 2026-10-30 with the installed NRO matching its packaged payload; the dim blade added here has not been seen on screen.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -72,8 +72,10 @@
     "r40 has not been run. Its two defaults are the endpoints the r39 log shows applied (right edge 129 px at 0% and 201 px at 100%), read from the tester's run, not from an r40 run.",
     "r42 has not been run. Its fill comes from the player fields Phase 1 verified and the r41 run's accepted geometry; the per-frame fill has not been seen on screen.",
     "r43 has not been run. 128 px at 0% is proven by the r42 log (the tester dragged the start there); 200 px at 100% is the tester's measurement, and that run's box ended at 201.",
-    "r44 ran once on Eden 2026-10-30 (HD Project on, melee quest, an area change and a quest end). Its box arithmetic is offsets scaled by the bar rect's live width, and every logged line in that run carried the measured 110..238 rect, so the scaled form has only been seen where it reproduces r43's boxes.",
-    "The thread that runs the draw walker at main+0xa494a0 is unproven, and the run did not change that: no bl site, stored word or DTI property in main names that entry."
+    "The thread that runs the draw walker at main+0xa494a0 is unproven, and the run did not change that: no bl site, stored word or DTI property in main names that entry.",
+    "r45 has not been run. The dim blade's rect, atlas u, colour and links are proven on the host and in the decompiles; the copy has not been seen on screen.",
+    "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference. The facts line now prints the bar's four corner colours, so a run pins it next to the colour on screen.",
+    "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 is a new candidate and carries no distribution approval."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -94,8 +96,8 @@
     "manual": [
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r44: pinned toolchain build; 20 host fixtures passed; verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json and DEVELOPMENT.md.",
-    "manual_summary": "r44 ran once on Eden 2026-10-30 with the installed NRO matching the packaged payload: 224 of our lines, 209 fill lines with ratios 10000 down to 0, every one on bar rect 110 38 238 166 with feed=128 and box widths 18 / 54 / 90 px at 0 / 5000 / 10000 bp, three insertions with a 5-entry map and a 9-record cache, three links-lost teardowns each followed by a new insertion, no insertion failure and no guest exception. The tester reported it ran successfully with the HD Project mod on and the cut where r43 put it. Prior accepted evidence (r41 geometry, r42 fill) is in EVIDENCE.json and backups/accepted/."
+    "static_summary": "r45: pinned toolchain build; 22 host fixtures passed (the two new ones pin the dim blade's rect/atlas and the 5-node tree's records, array length and cache area); verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
+    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, box widths 18 / 54 / 90 px at 0 / 5000 / 10000 bp, three insertions with a 5-entry map and 9-record cache, three links-lost teardowns each followed by a new insertion, no insertion failure and no guest exception; the tester reported it ran successfully with the HD Project mod on and the cut where r43 put it, which closed the HD Project question. r45's dim blade is NOT RUN. See EVIDENCE.json and backups/accepted/."
   },
   "dependencies": [
     {
@@ -110,12 +112,10 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r44/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f"
+      "source": "build/modern-sharpness-gauge/candidates/r45/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3"
     }
   },
-  "approval": {
-    "date": "2026-10-30",
-    "basis": "User: ready to distribute. Ships the r44 candidate bytes unchanged (NRO c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f, candidate ZIP 19af9431338202171c70b5991d455871e32d6df8b725d93d03270cfddc2f0d00), preserved in backups/accepted/modern-sharpness-gauge/r44-distribution-approved/. That version ran once on Eden 2026-10-30 with the installed NRO matching the packaged payload; the tester reported it ran successfully and that the cut sits where r43 put it at full, low and empty sharpness, with the MHGU HD Project mod on, across an area change and a quest end. It does not prove native Switch hardware, Ryujinx, a bar rect other than 110..238, or the thread the draw walker runs on."
-  }
+  "candidate": "build/modern-sharpness-gauge/candidates/r45/delivery",
+  "candidate_builder": "scripts/build.py"
 }

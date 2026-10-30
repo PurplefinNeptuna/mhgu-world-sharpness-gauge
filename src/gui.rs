@@ -50,12 +50,12 @@ pub fn take_failure() -> u32 {
 /// the authored sizes are printed as the integers the game's floats hold. `tree_nodes`
 /// is main+0xa47d2c's count for this controller: main+0xa38ffc adds one to it and
 /// main+0x5456e4 uses that sum as the length of the instance's object array at +0xd8.
-pub const FACTS_WORDS: usize = 29;
+pub const FACTS_WORDS: usize = 35;
 pub const FACT_NAMES: [&str; FACTS_WORDS] = [
     "ctrl", "tree_root", "cache", "ctrl_flags", "row", "instance", "cache_alloc", "anim", "counts",
     "counts8", "first_object", "row14", "obj_list", "inst_ctrl", "bar_id", "bar_w", "bar_h", "glow_id",
-    "glow_w", "glow_h", "edge_id", "edge_w", "edge_h", "bar_flags", "obj0", "obj1", "obj2",
-    "obj3", "tree_nodes",
+    "glow_w", "glow_h", "edge_id", "edge_w", "edge_h", "bar_flags", "bar_c_lt", "bar_c_rt", "bar_c_lb",
+    "bar_c_rb", "obj0", "obj1", "obj2", "obj3", "obj4", "obj5", "tree_nodes",
 ];
 pub const FACT_HEX: [&str; 12] = [
     "ctrl", "tree_root", "cache", "row", "instance", "cache_alloc", "row14", "obj_list", "obj0",
@@ -251,7 +251,7 @@ fn facts(row: &Row, instance: u32) -> [u32; FACTS_WORDS] {
     let row_word = word(root + 0x9c);
     let bar = row.bar;
     let list = word(instance + 0xd8);
-    let objects = readable_words(list, 4);
+    let objects = readable_words(list);
     let nodes = sharpness_gauge_core::count_nodes(&Read, root).0;
     let authored = |object: u32| -> (u32, u32, u32) {
         (
@@ -288,20 +288,28 @@ fn facts(row: &Row, instance: u32) -> [u32; FACTS_WORDS] {
         edge_w,
         edge_h,
         word(bar + sharpness_gauge_core::NODE_FLAGS),
+        // The bar's four corner colours: the animation writes them, so the run shows the colour
+        // word's packing next to the colour on screen, which is what the dim blade copies.
+        word(bar + 0xa4),
+        word(bar + 0xa8),
+        word(bar + 0xac),
+        word(bar + 0xb0),
         objects[0],
         objects[1],
         objects[2],
         objects[3],
+        objects[4],
+        objects[5],
         nodes,
     ]
 }
 
-fn readable_words(list: u32, count: usize) -> [u32; 4] {
-    let mut out = [0u32; 4];
-    if list == 0 || !memory::readable(list, 16) {
+fn readable_words(list: u32) -> [u32; 6] {
+    let mut out = [0u32; 6];
+    if list == 0 || !memory::readable(list, 24) {
         return out;
     }
-    for (index, slot) in out.iter_mut().enumerate().take(count) {
+    for (index, slot) in out.iter_mut().enumerate() {
         *slot = word(list + 4 * index as u32);
     }
     out

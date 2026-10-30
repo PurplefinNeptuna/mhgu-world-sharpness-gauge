@@ -1,6 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, draw_plan, is_sharp_animation, local_player,
+    basis_points, count_nodes, cache_layout, cut_box, dim_shape, draw_plan, is_sharp_animation, local_player,
     read_gauge, sample_controller, scan_walk, span_box,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
@@ -596,4 +596,77 @@ fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
     assert_eq!(shifted, vec![38, 74, 110]);
     assert!(span_box(rect, 0, 1, 238)[2] >= 1);
     assert_eq!(span_box(rect, 10_000, 1, 400)[2], 128, "never past the rect");
+}
+
+#[test]
+fn the_dim_blade_covers_the_cut_part_at_the_right_scale() {
+    // Phase 5: the copy of the blade starts where the kept part ends, runs to the bar rect's
+    // right edge, and its atlas `u` is the same fraction of the authored 88 columns, so the
+    // sprite is not squeezed into the empty part.
+    let bar = [110, 38, 238, 166];
+    let atlas = [0, 280, 88, 304];
+    for (ratio, left, column) in [
+        (0u32, 128, 12),
+        (2_500, 146, 24),
+        (5_000, 164, 37),
+        (10_000, 200, 61),
+    ] {
+        let (rect, atlas_out) = dim_shape(bar, ratio, atlas);
+        assert_eq!((rect[0], rect[1], rect[2], rect[3]), (left, 38, 238, 166));
+        assert_eq!((atlas_out[0], atlas_out[1], atlas_out[2], atlas_out[3]), (column, 280, 88, 304));
+    }
+    // The scaling keeps working on other rect widths: a 64 px bar cuts at 9 px, so the copy
+    // starts 9 px in and its atlas u is the same 12/128 fraction of the columns.
+    let half = [110, 38, 174, 166];
+    let (rect, atlas_out) = dim_shape(half, 0, atlas);
+    assert_eq!((rect[0], rect[2], atlas_out[0]), (119, 174, 12));
+    // At 100% the copy is the strip past the tip, where the sprite has no ink, and at 0% it is
+    // the whole blade: the widths are 38 px and 110 px on the measured bar.
+    assert_eq!(dim_shape(bar, 10_000, atlas).0[2] - dim_shape(bar, 10_000, atlas).0[0], 38);
+    assert_eq!(dim_shape(bar, 0, atlas).0[2] - dim_shape(bar, 0, atlas).0[0], 110);
+}
+
+#[test]
+fn a_second_node_fits_the_grown_tree_exactly() {
+    // The dim blade is the mask's sibling on the root's chain, so the row carries five nodes:
+    // the count main+0x5456e4 indexes with, the object array's length, and the walker's records.
+    let mut fake = gauge_fixture();
+    let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
+    let (mask, dim) = (0x7500u32, 0x7600u32);
+    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(mask + NODE_CHILD, sharp);
+    fake.put(mask + NODE_SIBLING, dim);
+    fake.put(mask + NODE_PARENT, root);
+    fake.put(dim + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(dim + NODE_CHILD, 0);
+    fake.put(dim + NODE_SIBLING, 0);
+    fake.put(dim + NODE_PARENT, root);
+    for node in [sharp, efx, edge] {
+        fake.put(node + NODE_PARENT, mask);
+    }
+    fake.put(root + NODE_CHILD, mask);
+    fake.put(root + NODE_SIBLING, 0);
+    // Five tree nodes, so main+0x5456e4 walks six entries and the map has to be six words.
+    assert_eq!(count_nodes(&fake, root), (5, false));
+    assert_eq!(5 + 1, 6, "the array length the pass indexes with");
+    // Records, from the walker port: mask enter, bar enter/exit, glow enter/exit, edge
+    // enter/exit, mask exit, dim enter/exit, terminator = 11, and the block sized for 5 objects
+    // is (5 << 4) | 8 = 88 bytes = 11 records, so they fit exactly.
+    let plan = draw_plan(&fake, root);
+    assert_eq!(
+        plan.kinds[..plan.count as usize],
+        [0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 2]
+    );
+    assert_eq!(plan.count, 11);
+    assert!(!plan.overflow && (plan.count as usize) <= ENTRIES);
+    assert_eq!(cache_layout(5, 16).2, 88);
+    assert_eq!(88 / 8, 11);
+    assert_eq!(plan.count * 8, cache_layout(5, 16).2);
+    // With the edge glyph hidden, as the looping tiers keep it, the plan is 9 records: 16 bytes
+    // of the grown area go spare.
+    fake.put(edge + NODE_FLAGS, NODE_DRAWABLE);
+    let looping = draw_plan(&fake, root);
+    assert_eq!(looping.count, 9);
+    assert_eq!(looping.count * 8, 72);
+    assert!(looping.count * 8 <= cache_layout(5, 16).2);
 }

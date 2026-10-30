@@ -125,16 +125,28 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         ), line = line);
         // One insertion per gauge row; 40..49 are the insertion's own codes.
         match reading.outcome {
-            Ok(done) => log::error!(concat!(
-                "MSG ",
-                env!("MSG_VERSION"),
-                " scissor mask inserted: mask={mask:#x} map={map:#x} entries={entries} cache={cache:#x} records={records}"
-            ),
-            mask = done.mask,
-            map = done.map,
-            entries = done.entries,
-            cache = done.cache,
-            records = done.records),
+            Ok(done) => {
+                log::error!(concat!(
+                    "MSG ",
+                    env!("MSG_VERSION"),
+                    " scissor mask inserted: mask={mask:#x} map={map:#x} entries={entries} cache={cache:#x} records={records} dim={dim:#x}"
+                ),
+                mask = done.mask,
+                map = done.map,
+                entries = done.entries,
+                cache = done.cache,
+                records = done.records,
+                dim = done.dim);
+                // The dim blade is additive: its failure leaves the accepted cut as it is, so it
+                // is reported on its own line, once per row.
+                if done.dim_stage != 0 {
+                    log::error!(concat!(
+                        "MSG ",
+                        env!("MSG_VERSION"),
+                        " dim blade not added at stage {stage}"
+                    ), stage = done.dim_stage);
+                }
+            }
             Err(49) => log::error!(concat!(
                 "MSG ",
                 env!("MSG_VERSION"),

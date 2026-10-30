@@ -90,7 +90,10 @@ def package():
     import mod_distribution as distribution
     (dest/'README.html').write_bytes(distribution.readme_html(guide))
     (dest/'GAMEBANANA_README.html').write_bytes(distribution.gamebanana_readme_html(guide,spec['gamebanana']))
-    notices='\n\n'.join((MOD/n).read_text() for n in spec['notices'])
+    # spec['notices'] is workspace-root-relative (what scripts/mod_distribution.py checks); this
+    # builder reads them from the mod folder, so it resolves both forms.
+    notices='\n\n'.join(((MOD/n) if (MOD/n).is_file() else (ROOT/n)).read_text()
+                        for n in spec['notices'])
     (dest/'NOTICES.txt').write_text(notices);(dest/'NOTICES.html').write_text('<pre>'+escape(notices)+'</pre>\n')
     evidence={n:json.loads((BUILD_ROOT/(n+'.json')).read_text()) for n in ['build','verify','tests']}
     (dest/'VALIDATION.json').write_text(json.dumps(evidence,indent=2)+'\n')

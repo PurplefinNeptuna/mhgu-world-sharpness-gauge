@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r44",
+  "version": "r45",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
-  "status": "READY_TO_DISTRIBUTE",
+  "status": "DEVELOPMENT",
   "provenance": {
     "plan": "work/modern-sharpness-gauge/PLAN.md (Phase 1)",
     "phase0_research": "work/modern-sharpness-gauge/PHASE0_RESEARCH.md",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r44",
+    "version": "r45",
     "status": "BUILT",
-    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
+    "nro_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -85,16 +85,16 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "713c156037c64eb0d08540df95a73da6deb5f0b9d531c4529e6e3399e6c1204c",
+      "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "719a2644a43b46bdfb70e3a1f3e149b287ba3d97ee22a1ddf9327e119a50adf9",
-      "src/lib.rs": "34438114248708691678b02f74d0457450ba648b87b5ec2f82af1428de2eb6cd",
+      "src/insert.rs": "a3af29a3e89d18ca12c45da879a1cf405f61fc5e11fe74d09c3a52e138fe4af7",
+      "src/lib.rs": "9fa085a75f7a936596c8b3a0d82b4793684d532110ffec4a667f77b5782a686c",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
-      "src/signatures.rs": "9c225772c8d22b394c18bce255bc95a78a82378dba7d2705f606319c6697e10b",
+      "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "7c7434b3e534551937a501acf5527834040c39a815cad7bff6a782dc4c35970d",
-      "core/tests/behavior.rs": "8819afe771a2888caa3710d72db3be34a96770b88dfa13210291a6dabb1f3b86",
+      "core/src/lib.rs": "a3f6d741ca3c9b0f3dbd3804a7dd0efdcd6cadec00f9249d9ccc3388cb00acf8",
+      "core/tests/behavior.rs": "e8de0cf043115c619f27a5f90e8e97ddcf2efa856a83097f22e06cd4a11032c5",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
-    "elf_sha256": "b1c335ec238377d0f0f37fec8a8ff878ea0f76c691e62637b155de08769f506a",
+    "nro_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3",
+    "elf_sha256": "a21ca135e9c09576e10678b158348a7d77f09bf6922935777bd7d116b82c64d8",
     "exports": [
       "fini",
       "forge_onInit",
@@ -173,7 +173,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 20,
+    "count": 22,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
@@ -193,11 +193,13 @@
       "main+0xa47d2c's node count (+1) against the row's object count, on the unmodified and the inserted tree",
       "the accepted cut on the bar's 110..238 rect: rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%, widths 18 / 36 / 54 / 90 px, the box rows covering the bar and the effect glyph's offset, width never below 1 and never past the rect",
       "the same endpoints as offsets on the measured rect: 64, 128 and 256 px rects cut at the same fraction of their width; a narrow rect scales down",
-      "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right"
+      "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right",
+      "the dim blade (Phase 5): its rect from the cut's right edge to the bar rect's right edge and its atlas u as the same fraction of the authored 88 columns, at 0 / 25 / 50 / 100% on the measured bar and on a 64 px rect",
+      "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in"
     ],
     "words_per_sample": 11,
-    "note": "r44: 20 fixtures pass against 22 at r43. head_field_indexes_point_at_their_names, the_prototype_fill_shares_one_boundary_column, the_mask_box_covers_the_bar_and_the_effect, the_fill_track_scales_with_the_live_bar_width and the_forced_ratios_step_the_box_from_the_rect_width tested the removed ink track, the fixed-ratio cycle and the old sample head block; the_box_endpoints_are_linear_and_never_leave_the_rect keeps span_box, which cut_box drives. The cut fixtures pin r43's boxes exactly on the bar's 110..238 rect.",
-    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f"
+    "note": "r45: 22 fixtures, the two new ones pinning the Phase 5 copy's geometry and the grown tree's record count, array length and cache area. The added node is proven on the host only; the copy has not been seen on screen.",
+    "nro_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3"
   },
   "runs": [
     {
@@ -865,7 +867,10 @@
     "The r43 closing build (no panel, pruned logs) has no runtime evidence: the accepted behaviour runs on r42's bytes, and the pruned build changed only the panel, the log sites and the code that fed them.",
     "r44 changes the box's arithmetic to offsets scaled by the bar rect's live width. Equal output is proven on the host at the 64, 128 and 256 px rects; a bar the game lays out at another width has not been seen on screen.",
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
-    "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too."
+    "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too.",
+    "r45's dim blade has no runtime evidence: its rectangle, atlas u, colour writes, links and the grown map/cache sizes are host-proven and read from the decompiles, but the copy has never been drawn on screen.",
+    "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference (byte-symmetric grey, alpha written high). The facts line now prints the bar's four corner colours so a run pins the packing against the colour on screen.",
+    "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",
@@ -901,8 +906,10 @@
     "shipped_bytes_unchanged": true,
     "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
     "candidate_zip_sha256": "19af9431338202171c70b5991d455871e32d6df8b725d93d03270cfddc2f0d00",
-    "archive": "build/modern-sharpness-gauge/releases/r44/modern-sharpness-gauge-r44.zip",
+    "archive": "modern-sharpness-gauge-r44.zip",
+    "archive_sha256": "ee23ed17c52d84bbcc4ffdee3fac73d80099132bef84ede238162795705b0022",
     "backup": "backups/accepted/modern-sharpness-gauge/r44-distribution-approved/",
+    "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   }
 }

@@ -193,6 +193,26 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
     ]
 }
 
+/// The blade sprite is authored 88 columns wide and drawn across the bar rect's live width, so
+/// one column is rect width / 88 screen px.
+pub const SPRITE_COLUMNS: i32 = 88;
+
+/// The dim blade of the plan's Phase 5: the sprite's columns from the cut's right edge to the
+/// authored right edge, drawn where they would be uncut. Returns the screen rect and the atlas
+/// `u` for that copy. The rect starts where the kept part ends and ends at the bar rect's right
+/// edge; the atlas `u` is the same fraction of the authored 88 columns, so the copy shows the
+/// blade's remaining columns at the right scale instead of squeezing the whole sprite into the
+/// empty part. At 100% it is the strip past the tip, where the sprite has no ink.
+pub fn dim_shape(rect: [i32; 4], ratio_bp: u32, atlas: [i32; 4]) -> ([i32; 4], [i32; 4]) {
+    let width = (rect[2] - rect[0]).max(1);
+    let box_ = cut_box(rect, ratio_bp);
+    let left = (rect[0] + box_[2]).min(rect[2]);
+    (
+        [left, rect[1], rect[2], rect[3]],
+        [box_[2] * SPRITE_COLUMNS / width, atlas[1], atlas[2], atlas[3]],
+    )
+}
+
 /// The node count of main+0xa47d2c: every node in the child and sibling chains below
 /// `controller+0x68`, visibility ignored (that function tests neither bit). main+0xa38ffc
 /// returns it plus one, and main+0x5456e4 uses that sum as the length of the instance's

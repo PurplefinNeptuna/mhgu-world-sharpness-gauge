@@ -3,12 +3,25 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r44
+## What to check on r45
 
-r44 is the consolidation after r42's gauge was accepted. Everything that reaches
-the screen is the same code as r43, and the box maths gives the same numbers on the
-bar's measured 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at
-0 / 25 / 50 / 75 / 100%. Three runs cover what is new.
+r45 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
+copy of the sprite in a flat dark colour, with no glow and no pulse. The accepted cut itself is
+unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
+rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
+
+1. The part past the cut shows a dim, steady blade, the same shape, from the cut's edge to the
+   tip, not a squeezed copy and not a rectangle.
+2. It does not glow and does not pulse, and its colour does not breathe with the tier animation.
+3. On the kept part nothing changed: the native colour, the pulse, the glow and the edge glyph
+   are the same as r44.
+4. Full sharpness: no dim part past the tip. Empty sharpness: the whole blade dim, hilt normal.
+5. Sharpening across a tier boundary: the dim part stays put, the kept part takes the new colour.
+6. The log carries the copy: the insertion line ends with `dim=0x...`. If it says
+   `dim blade not added at stage 50/51/52`, the copy is absent and the gauge looks exactly like
+   r44. Report the number.
+7. Mid-quest weapon change and an area change: the copy goes with the row and comes back on the
+   new row.
 
 1. One melee quest: full sharpness, a few hits down to a low level, empty, then
    sharpen back. The cut should land where r43 landed at the same sharpness. Take
@@ -35,13 +48,15 @@ Two log-wording changes, for when you read the file: the startup line reads
 `loaded (clips the sharpness gauge to the player's sharpness)`, and a row check
 after a gauge row's teardown reports stage 34 where it used to report 21.
 
-## Accepted on r42's bytes, not re-run for r44
+## Accepted earlier, not the point of this run
 
-Nothing in these code paths changed, and they were reported working: a ranged
-weapon with no sharpness gauge and the hub (the bar draws as the game draws it), a
-non-English game, other HUD gauges (health, stamina, timer, party members), and
-quest exit/re-entry with HUD recreation. They stay on the list for the next
-behaviour change, not for this one.
+The r44 run covered the melee steps at full, low and empty sharpness, the HD
+Project mod on, an area change and a quest end, and reported the cut where r43
+put it. A ranged weapon with no sharpness gauge, the hub, a non-English game and
+the other HUD gauges are accepted on r42's bytes and unchanged in code, so they
+are not the point of this run. The Phase 5 geometry is new, so the strip past the
+tip at full sharpness (the 38 px where the sprite has no ink) and the copy's
+scale at the mid ratios are the things to look at.
 
 ## Which log to send
 
@@ -53,7 +68,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r44`.
+lines that matter start with `MSG r45`.
 
 ## The log lines
 

@@ -25,7 +25,7 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT, NODE_PARENT,
+    basis_points, cut_box, dim_shape, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT, NODE_PARENT,
     NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -50,6 +50,28 @@ const REBUILD_AND_APPLY: u32 = 3;
 /// The halfwords main+0xa49b28 sizes from: objects at row+8, sequences at row+8+2. The facts
 /// line's `counts` is the pair at row+4, which the sizer does not read.
 const ROW_SIZING: u32 = 0x08;
+
+// The dim blade (plan Phase 5): a second copy of the blade sprite, outside the mask, in a flat
+// dark colour. Its class is `cGUIObjTexture`, size 304, constructor at its vftable slot 0x00;
+// the field offsets are from the DTI record and the setter decompiles, all recorded in
+// work/modern-sharpness-gauge/PHASE5_RESEARCH.md.
+pub const DIM_MARKER: u32 = 0x4d534732;
+/// Flat dark grey for all four corner colours. The MT `color` word's byte order is not proven in
+/// this workspace, so the grey is byte-symmetric and the alpha byte's position is an inference:
+/// a run that shows the copy too transparent, or dark in the wrong channels, is this constant,
+/// not the mechanism.
+const DIM_COLOUR: u32 = 0x73404040;
+const TEXTURE_SIZE: u32 = 304;
+const TEXTURE_CTOR: u32 = 0x866a4;
+const TEXTURE_SETTER: u32 = 0xa4faf0;
+const TEX_MID: u32 = 0x50;
+const TEX_STATE: u32 = 0x30; // the kind byte (+0x33) and the word at +0x34 prepaint reads
+const TEX_FLAGS: u32 = 0x54; // bit 0 visible, 0x0200_0000 drawable, +0x56 bit 6 prepaint skip
+const TEX_OWNER: u32 = 0x74;
+const TEX_AUTHORED: u32 = 0xb4;
+const TEX_COLOURS: u32 = 0xa4; // four corner words: LT, RT, LB, RB
+const TEX_TEXTURE_ID: u32 = 0x100;
+static DIM: AtomicU32 = AtomicU32::new(0);
 
 /// Times the enter hook found the mask's links gone: the count the log prints, and the only
 /// teardown signal this build can prove (the root destructor hook has fired zero times).
@@ -141,6 +163,11 @@ pub struct Outcome {
     pub cache: u32,
     pub entries: u32,
     pub records: u32,
+    /// The dim blade's node, 0 when it was not built.
+    pub dim: u32,
+    /// The stage its build stopped at, 0 when it was built: 50 the allocation, 51 the
+    /// constructor and class test, 52 the fields. A failed build leaves the accepted cut alone.
+    pub dim_stage: u32,
 }
 
 /// The row is going away: the game owns the mask, the map and the cache. Called from the root
@@ -149,6 +176,7 @@ pub fn on_teardown() {
     ROOT.store(0, Ordering::Release);
     MASK.store(0, Ordering::Release);
     BAR.store(0, Ordering::Release);
+    DIM.store(0, Ordering::Release);
 }
 
 /// The captured row root, for the root destructor hook's gate. The destructor's argument is the
@@ -204,13 +232,14 @@ impl Allocator {
 /// Grow the row's object array by one entry and publish both aliases. `entries` is the length
 /// main+0x5456e4 indexes with, so the block and the new entry have to be in place before the
 /// tree gains a node: a fifth node against a four-word array is read past its end.
-fn grow_map(instance: u32, root: u32, entries: u32, node: u32) -> Result<u32, u32> {
+fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: u32) -> Result<u32, u32> {
     let old = memory::word(instance + 0xd8).ok_or(43u32)?;
     if old == 0 || memory::word(root + 0xa0).ok_or(43u32)? != old {
         return Err(43);
     }
     let allocator = Allocator::find("cGUIInstance").ok_or(42u32)?;
-    let bytes = (entries + 1) * 4;
+    let appended = if extra == 0 { 1 } else { 2 };
+    let bytes = (entries + appended) * 4;
     let fresh = match allocator.alloc(bytes) {
         Some(pointer) if pointer & 15 == 0 => pointer,
         Some(pointer) => {
@@ -221,6 +250,7 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32) -> Result<u32, u3
     };
     if !memory::copy_words(old, fresh, entries as usize)
         || !memory::write_word(fresh + entries * 4, node)
+        || (extra != 0 && !memory::write_word(fresh + entries * 4 + 4, extra))
     {
         allocator.release(fresh);
         return Err(43);
@@ -269,6 +299,79 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
         let _ = memory::call2(release, root, old_alloc);
     }
     Ok((fresh, area / 8))
+}
+
+/// Build the dim blade: a `cGUIObjTexture` allocated through its own DTI's MT allocator and
+/// constructed by the class's slot-0x00 constructor, then given the bar's render fields so it
+/// draws the same sprite in the flat dark colour. Nothing is linked and no list head is copied:
+/// the node has no animation entry, so no keyframe writes to it, which is what keeps it constant
+/// and non-pulsing and leaves `Txt_sharp`'s own keyframes untouched. Stages 50..52.
+fn build_dim(bar: u32) -> Result<u32, u32> {
+    let dti = MtDti::find("cGUIObjTexture").ok_or(50u32)?;
+    let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
+    let node = match allocator.alloc(TEXTURE_SIZE) {
+        Some(pointer) if pointer & 15 == 0 => pointer,
+        Some(pointer) => {
+            allocator.release(pointer);
+            return Err(50);
+        }
+        None => return Err(50),
+    };
+    let built = memory::call1(base() + TEXTURE_CTOR, node).is_some_and(|got| got == node);
+    if !built
+        || !is_type(node, dti as *const _ as u32)
+        || !memory::writable(node, TEXTURE_SIZE as usize)
+    {
+        allocator.release(node);
+        return Err(51);
+    }
+    // The render fields, read live from the bar: the transform rows, the kind and the word
+    // prepaint reads, the visible and drawable bits, owner and resource, the authored pair, the
+    // texture id and object, and the atlas rectangle.
+    let copied = (0..8usize).all(|index| {
+        memory::word(bar + 0x10 + index as u32 * 4)
+            .is_some_and(|word| memory::write_word(node + 0x10 + index as u32 * 4, word))
+    }) && memory::copy_words(bar + TEX_STATE, node + TEX_STATE, 2)
+        && memory::word(bar + TEX_FLAGS).is_some_and(|flags| {
+            memory::write_word(node + TEX_FLAGS, flags & 0x0200_0001)
+        })
+        && memory::copy_words(bar + TEX_OWNER, node + TEX_OWNER, 2)
+        && memory::copy_words(bar + TEX_AUTHORED, node + TEX_AUTHORED, 2)
+        && memory::copy_words(bar + TEX_TEXTURE_ID, node + TEX_TEXTURE_ID, 2)
+        && memory::copy_words(bar + NODE_TEXTURE_RECT, node + NODE_TEXTURE_RECT, 4);
+    let texture = memory::word(bar + TEX_TEXTURE_ID)
+        .and_then(|id| memory::call2(base() + TEXTURE_SETTER, node, id))
+        .is_some();
+    let marked = memory::write_word(node + TEX_MID, DIM_MARKER)
+        && (0..4usize).all(|corner| memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR));
+    if !copied || !texture || !marked {
+        if let Some(destructor) = memory::method(node, 0x04) {
+            let _ = memory::call1(destructor, node);
+        }
+        allocator.release(node);
+        return Err(52);
+    }
+    Ok(node)
+}
+
+/// Write the dim blade's rectangle and atlas for this frame's cut. It starts where the kept part
+/// ends and runs to the bar rect's right edge, with the atlas `u` at the same fraction of the
+/// authored 88 columns, so the copy keeps the blade's scale. With no valid gauge the width is
+/// zero and nothing is drawn, which is the accepted shipped appearance.
+fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32) {
+    let atlas = rect_at(dim, NODE_TEXTURE_RECT);
+    let (box_rect, box_atlas) = if ratio_bp == u32::MAX {
+        ([rect[0], rect[1], rect[0], rect[3]], atlas)
+    } else {
+        dim_shape(rect, ratio_bp, atlas)
+    };
+    for edge in 0..4usize {
+        let _ = memory::write_word(dim + NODE_RECT + edge as u32 * 4, box_rect[edge] as u32);
+        let _ = memory::write_word(
+            dim + NODE_TEXTURE_RECT + edge as u32 * 4,
+            box_atlas[edge] as u32,
+        );
+    }
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
@@ -322,10 +425,15 @@ pub fn enter(mask: u32) {
     // the same checked mapping discovery uses. No valid gauge - no player yet, a zero maximum,
     // points above the maximum - is unsupported state, so the clip is turned off here and the
     // native gauge is left as the game draws it.
+    let dim = DIM.load(Ordering::Relaxed);
     let ratio = match sampling::live_gauge().and_then(|gauge| basis_points(gauge)) {
         Some(bp) => bp,
         None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
+            // No gauge to cut by: the copy is hidden to width 0, the accepted appearance.
+            if dim != 0 {
+                write_dim(dim, rect_at(bar, NODE_RECT), u32::MAX);
+            }
             return;
         }
     };
@@ -400,6 +508,9 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
+    if dim != 0 {
+        write_dim(dim, rect, ratio);
+    }
 }
 
 /// Insert the mask under the row root, over the bar, glow and edge, after the row's map and
@@ -447,7 +558,13 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         }
         return Err(41);
     }
-    let map = match grow_map(instance, root, nodes + 1, mask) {
+    // The dim blade is built before any of the tree exists, so its failure costs the accepted
+    // cut nothing: the mask insertion below is the accepted path exactly.
+    let (dim, dim_stage) = match build_dim(row.bar) {
+        Ok(node) => (node, 0u32),
+        Err(stage) => (0u32, stage),
+    };
+    let map = match grow_map(instance, root, nodes + 1, mask, dim) {
         Ok(map) => map,
         Err(stage) => {
             if let Some(destructor) = owned {
@@ -456,7 +573,11 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
             return Err(stage);
         }
     };
-    let cache = match grow_cache(root, objects + 1, sequences) {
+    // The records the walker emits over the tree this builds: 9 with the mask alone, 11 once the
+    // dim blade joins the root's chain (edge glyph visible; 9 with it hidden, as the looping
+    // tiers keep it). The grown area is (5 << 4) | 8 = 88 bytes = 11 records, so the 11 fit
+    // exactly; without the dim blade the row grows to 4 objects, area 72 = 9 records.
+    let cache = match grow_cache(root, objects + 1 + (dim != 0) as u32, sequences) {
         Ok(done) => done,
         Err(stage) => {
             // The map is published and the tree untouched, so main+0x5456e4 never reaches the
@@ -478,7 +599,10 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         && memory::call2(link_sibling, row.effect, row.edge).is_some()
         // One inbound chain per node, the invariant every native teardown walk relies on:
         // the bar chain moved under the mask, so the root's sibling chain has to end.
-        && memory::write_word(root + NODE_SIBLING, 0);
+        && memory::write_word(root + NODE_SIBLING, 0)
+        // The dim blade sits on the root's chain as the mask's sibling, so it is drawn after the
+        // mask's subtree and outside the scissor.
+        && (dim == 0 || memory::call2(link_sibling, mask, dim).is_some());
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);
@@ -489,12 +613,15 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     BAR.store(row.bar, Ordering::Release);
     ROOT.store(root, Ordering::Release);
     MASK.store(mask, Ordering::Release);
+    DIM.store(dim, Ordering::Release);
     Ok(Outcome {
         mask,
         map,
         cache: cache.0,
-        entries: nodes + 2,
+        entries: nodes + 2 + (dim != 0) as u32,
         records: cache.1,
+        dim,
+        dim_stage,
     })
 }
 

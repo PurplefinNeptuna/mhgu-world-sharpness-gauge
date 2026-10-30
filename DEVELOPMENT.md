@@ -1,20 +1,23 @@
-Current state: r44 is READY_TO_DISTRIBUTE (`DISTRIBUTION.json`), promoted on 2026-10-30 and shipped unchanged. It is forge-modding P7, the consolidation after the tester accepted r42's gauge and closed Phase 4 on r43. Nothing on screen is meant to change. What the accepted build no
-longer needs is gone: core's measured ink track (`mask_box`, `boundary`, `kept`, `BAR_INK_LEFT`,
-`BAR_INK_TRACK`, `SPRITE_WIDTH`), the prototype ratio table and its 20 s clock, the float
-`fill_ratio`, the sampler's tier-packed gauge snapshot, and the sample dump from 134 words to 11 -
-the row's identity tuple, the local player and its sharpness trio, which is all discovery reads.
-The accepted cut is stored as offsets on the rect it was measured on: 18 px at 0% and 90 px at 100%
-of that rect's own 128 px, scaled by its live width, so the box's right edge is 128, 146, 164, 182
-and 200 px on the bar's 110..238 rect - the pair the tester dialled in. The names say what the code
-does now: `cut_box`, the cut line, no `forced`, no `slider`, no `prototype`, no `diagnostic`.
-README.md is the user guide and the tester steps, log-line guide and stage codes are in
-`TESTING.md`. 20 host fixtures pass, from 22: five tested only the removed track, cycle and
-head block, and three new ones pin the copied sample's slots and the cut's scaling. verify PASSED with the same 21 signature windows, the same five exports and the
-same one-file payload. `src/*.rs` is 1894 lines and `core/src/lib.rs` 547, against 1927 and 745 (the audited
-`src/svc.S` is 38 lines and unchanged).
-r44 ran once on Eden 2026-10-30 and the tester accepted it on its own bytes: the cut sits where r43 put
-it at full, low and empty sharpness, with the MHGU HD Project mod on, across an area change and a quest
-end (the run is recorded under r44 below). NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`.
+Current state: r45 DEVELOPMENT candidate, the plan's Phase 5 (the dimmed empty blade). r44 is
+READY_TO_DISTRIBUTE and accepted on its own bytes, so this adds one thing and changes nothing on
+the accepted path: a second copy of the blade sprite, allocated as a `cGUIObjTexture` through its
+own DTI's MT allocator, constructed by the class's slot-0x00 constructor, given the bar's
+transform, kind, owner, resource, texture id and atlas rectangle, coloured flat dark at all four
+corners, and linked as the scissor mask's sibling on the row root's chain so it is drawn after the
+mask's subtree and outside the scissor. Its rect and atlas `u` are written every frame at the
+mask's enter handler, from `dim_shape` in core: the rect starts where the kept part ends and ends
+at the bar rect's right edge, and `u` is the same fraction of the authored 88 columns, so the copy
+keeps the blade's scale instead of squeezing the sprite into the empty part. It has no animation
+entry, so no keyframe writes to it: that is what makes it constant and non-pulsing, and it is why
+`Txt_sharp`'s own keyframes are untouched. The insertion grows the row's object array to 6 words
+and the draw block to 5 objects ((5 << 4) | 8 = 88 bytes = 11 records, exactly the 11 the walker
+emits with the edge glyph visible, 9 in the looping tiers). Its build is additive: stages 50..52
+mean no copy, and the gauge then looks exactly as the accepted r44. 22 host fixtures pass; verify
+PASSED with the same 21 signature windows. Gameplay NOT RUN. The MT `color` word's byte order is
+unproven, so the flat dark constant is byte-symmetric grey with the alpha byte written high and
+labelled as an inference; the facts line now prints the bar's four corner colours so a run pins
+the packing next to the colour on screen. The research is
+`work/modern-sharpness-gauge/PHASE5_RESEARCH.md`.
 
 ## Superseded current-state paragraphs
 
@@ -1569,6 +1572,50 @@ archive is `modern-sharpness-gauge-r44.zip` (sha256
 `build/modern-sharpness-gauge/releases/r44/`. The approval quotes the Eden run above and says
 plainly what it does not cover: native Switch hardware, Ryujinx, a bar rect other than 110..238,
 and the draw walker's thread. Nothing was rebuilt for promotion.
+
+## r45, built 2026-10-30: Phase 5, the dimmed empty blade
+
+The plan's Phase 5 asks for a dimmed, non-pulsing copy of the blade beyond the fill
+boundary, same sprite, constant dark colour, no glow, and no disturbance of the
+native `VertexColor` keyframes on `Txt_sharp`. The mechanism, all recorded with
+sources in `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`:
+
+- `cGUIObjTexture` (DTI index: size 304, parent `cGUIObjPolygon`, vftable
+  main+0x178fcc8) is allocated through its own MT allocator (`MtDti::getAllocator`
+  main+0x7aa47c, `memAlloc` slot 0x1c) and constructed at the vftable's slot 0x00,
+  main+0x866a4, so its vptr, lists and defaults are the game's own.
+- The render fields are copied from the bar live: the transform rows at +0x10, the
+  kind word at +0x30 and its pair at +0x34, the visible and drawable bits at +0x54,
+  owner +0x74 and resource +0x78, the authored pair at +0xb4, the texture id and
+  object at +0x100/+0x104 (via the DTI setter main+0xa4faf0), and the atlas
+  rectangle at +0x10c..+0x118. The four corner colours at +0xa4..+0xb0 are written
+  flat; the texture setters show colour is per corner (main+0xa4dd10 writes
+  word +0xa4, main+0xa4de20 writes +0xa4 and +0xa8).
+- No animation entry means no keyframe ever writes the node, which is the plan's
+  requirement met by construction, and it is also the reason its rectangle has to be
+  written by us: the same layout fact that made the mask's box a per-frame write.
+- Placement: `root.child = mask`, `mask.sibling = dim`, the native sibling linker
+  main+0xa4844c writing the sibling link and the parent, so the copy is drawn after
+  the mask's subtree, outside the scissor, with one inbound chain like every other
+  node in this tree.
+- Geometry: `dim_shape` in core. Screen rect from the cut's right edge to the bar
+  rect's right edge, atlas `u` = (box width) * 88 / rect width. On the measured bar:
+  0% gives rect 128..238 with atlas u 12, 50% gives 164..238 with u 37, 100% gives
+  200..238 with u 61, the strip past the tip where the sprite has no ink.
+- Storage: the row's object array grows to 6 words (main+0x5456e4 indexes 6 for the
+  5 nodes plus the controller) and the draw block is sized for 5 objects: 88 bytes,
+  11 records, exactly the walker's 11 with the edge glyph visible and 9 in the
+  looping tiers. `a_second_node_fits_the_grown_tree_exactly` pins the count, the
+  array length, the record sequence and those sizes.
+- Failure is additive: stages 50 (allocation), 51 (constructor and class test), 52
+  (fields). A failure leaves the mask insertion exactly as the accepted r44 shipped
+  it, hides the copy, and prints `dim blade not added at stage N` once per row.
+- Not proven: the MT `color` word's byte order (the dark constant is byte-symmetric
+  grey with alpha written high, labelled as an inference; the facts line now prints
+  the bar's four corner words so a run pins the packing against the colour on
+  screen), and whether the copy reads correctly under the glow's edge. The plan's
+  fallback for a copy that looks wrong is recorded in the plan: keep the empty side
+  clear, as r44 does, and report it.
 
 ## Rules to keep
 

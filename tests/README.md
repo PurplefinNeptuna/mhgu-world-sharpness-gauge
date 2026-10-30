@@ -26,6 +26,8 @@ decisions live in the `no_std` `core` crate.
 | `a_mask_left_open_never_stops_clipping` | the r13 shape: a mask with the glow and edge outside its subtree emits no exit record, so a scissor started there never ends |
 | `the_accepted_cut_lands_on_the_measured_bar_at_every_ratio` | the accepted cut on the bar's 110..238 rect: box rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%, widths 18 / 36 / 54 / 90 px, the box rows covering the bar and the effect glyph's offset, and a width never below 1 or past the rect |
 | `the_cut_scales_with_the_bar_rect_the_row_reports` | the same endpoints as offsets on the measured rect: 64 px, 128 px and 256 px rects cut at the same fraction of their width, and a narrow rect scales down |
+| `the_dim_blade_covers_the_cut_part_at_the_right_scale` | the Phase 5 copy of the blade: its rect starts where the kept part ends and ends at the bar rect's right edge, and its atlas `u` is the same fraction of the authored 88 columns, pinned at 0 / 25 / 50 / 100% on the 110..238 bar and at the 64 px rect |
+| `a_second_node_fits_the_grown_tree_exactly` | the mask's sibling chain with the dim blade: 5 tree nodes, the 6-entry array main+0x5456e4 indexes, and the walker's 11 records (9 with the edge glyph hidden) against the `(5 << 4) \| 8` = 88-byte area the insertion grows to |
 | `the_box_endpoints_are_linear_and_never_leave_the_rect` | `span_box`, the maths `cut_box` drives: the right edge at the given start at 0% and at the given end at 100%, linear between, never below width 1 and never past the rect's right |
 
 The host run covers `core` only, which is where the reads, math and identity
