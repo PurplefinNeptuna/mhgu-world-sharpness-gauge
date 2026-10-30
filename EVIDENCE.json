@@ -813,9 +813,10 @@
         "every line sits on the accepted 129..201 px track: |box_right - (129 + 72*ratio/10000)| <= 1 px on all 83 lines, so the live fill is linear on the accepted geometry",
         "28 sample lines read the player chain live (current 350 of maximum 350, tier 4, hunter 0, cmd_tbl_id 1000) with the gauge identity tuple intact",
         "lifecycle: 1 insertion, 78 dropped-gauge-row lines and 1 inserted-mask links-lost line, so the mask teardown path fired repeatedly across area and scene changes with no second insertion",
-        "2 lines report no sharpness gauge controller while the HUD is absent, and the clip turned itself off there"
+        "2 lines report no sharpness gauge controller while the HUD is absent, and the clip turned itself off there",
+        "user report, later the same day: health, stamina, timer and party member gauges are untouched by the clip"
       ],
-      "conclusion": "The per-frame fill, the geometry and the mask lifecycle are accepted on r42's bytes. The remaining Phase 4 items are listed in DEVELOPMENT.md and PLAN.md."
+      "conclusion": "The per-frame fill, the geometry, the mask lifecycle and the rest of the HUD are accepted on r42's bytes. Open Phase 4 items: a ranged weapon with no sharpness gauge, a later quest with a different melee weapon, a non-English language, and the HD Project and viewport variants."
     }
   ],
   "not_proven": [
@@ -841,7 +842,7 @@
     "r35's 124/149/174/225 px steps have no runtime evidence. The endpoints come from the tester's two 100% photographs (226 whole, 190 cut) and the hilt's left edge from the two 0% photographs (~125 px), so each number carries the measurement noise of a downscaled screenshot, roughly a few px. The forced line prints bar_w= and feed= so a run confirms the mapping from the log.",
     "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here.",
     "r39's draft/Apply/Reset flow ran on Eden and published the endpoints, so the panel path is proven; what is not is r40's shipped defaults 129.0/201.0, which are the r39 log's applied pair, and the panel readout line's text.",
-    "r42 is accepted for the hunt, the glow and the lifecycle. Not proven: a ranged weapon with no sharpness gauge, a later quest with a different melee weapon, a non-English language, the other HUD gauges, HD Project and viewport variants."
+    "r42 is accepted for the hunt, the glow, the lifecycle and the other HUD gauges. Not proven: a ranged weapon with no sharpness gauge, a later quest with a different melee weapon, a non-English language, and the HD Project and viewport variants."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",

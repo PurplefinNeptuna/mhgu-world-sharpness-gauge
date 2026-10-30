@@ -4,11 +4,12 @@ Current state: Phase 4 acceptance in progress on r42 (`DISTRIBUTION.json`, DEVEL
 plan's Phase 4 scenarios are accepted by the tester on r42's bytes (2026-10-30): the cut tracks
 depletion hit by hit and moves back on sharpening across a tier boundary with the native colour and
 pulse intact; the glow and the edge glyph clip at the same edge as the blade with nothing glowing on
-the empty side; HUD hiding/showing, quest exit/re-entry and HUD recreation are clean. That run's log
-carries 83 forced lines, all `src=live`, ratios 10000 down to 7628 bp, every box on the accepted
-129..201 px track within 1 px, and 78 gauge-row teardown lines against 1 insertion. Left: a ranged
-weapon with no sharpness gauge, a later quest with a different melee weapon (the box, never mid-quest),
-a non-English language, the other HUD gauges, and the HD Project and viewport claims. NRO
+the empty side; HUD hiding/showing, quest exit/re-entry and HUD recreation are clean, and health, stamina, timer and
+party member gauges are untouched. That run's log carries 83 forced lines, all `src=live`, ratios 10000
+down to 7628 bp, every box on the accepted 129..201 px track within 1 px, and 78 gauge-row teardown
+lines against 1 insertion. Left: a ranged weapon with no sharpness gauge, a later quest with a different
+melee weapon (the box, never mid-quest), a non-English language, and the HD Project and viewport
+claims. NRO
 `40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`.
 r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
@@ -1291,7 +1292,8 @@ The tester ran r42 on Eden. Installed NRO `40a45d6c75d09f8d3248af2353fb3c3f70ee6
 
 "Those three tested well, and working": the hunt (depletion hit by hit, back on sharpening, across a
 tier boundary with native colour and pulse), the glow and edge glyph clipped at the same edge with
-nothing glowing on the empty side, and HUD hiding/showing plus quest exit/re-entry and HUD recreation.
+nothing glowing on the empty side, HUD hiding/showing plus quest exit/re-entry and HUD recreation, and
+health, stamina, timer and party member gauges untouched.
 
 The log says the same thing in numbers. All 83 forced lines are `src=live`, so no slider was touched:
 ratios run 10000 down to 7628 bp and box rights from 201 to 183 px, and every one sits within 1 px of
