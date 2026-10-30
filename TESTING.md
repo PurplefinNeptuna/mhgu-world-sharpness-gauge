@@ -34,8 +34,8 @@ Tell me if any of these happen:
 - the glow next to the bar, or the glyph at the bar's edge, is missing;
 - the game stops responding, at the quest end in particular.
 
-Note which weapon you started each quest with - MHGU changes weapons at the box between quests,
-not during one - and whether the quest ended with the results screen. Take screenshots at full,
+Note which weapon you started each quest with (MHGU changes weapons at the box between quests,
+not during one) and whether the quest ended with the results screen. Take screenshots at full,
 low and empty sharpness.
 
 ## Which log to send
@@ -89,7 +89,7 @@ missing class record, 34 no sharpness gauge to read.
 
 `gauge controller observed` marks the first gauge HUD of the session, and
 `no sharpness gauge controller seen in N walker calls` marks a stretch where the
-game draws no gauge HUD at all - the hub, a finished quest, a weapon without
+game draws no gauge HUD at all: the hub, a finished quest, a weapon without
 sharpness. `gauge row root destroyed (N times)` is the game's own teardown of the
 gauge row; it has been seen zero times, which is why the mod relies on its own
 link check.
