@@ -1,17 +1,15 @@
 # Developing modern-sharpness-gauge
 
-Current state: Phase 3 candidate r42 (`DISTRIBUTION.json`, DEVELOPMENT, **not run**; nothing
-installed by this workspace). Phase 2 is closed: the tester ran r41 and said "its right, looks
-right", and that run's four cycle crops fit the box rights 129/147/165/201 px within 1.4 GUI px, with
-0% showing only the hilt glyph. So the geometry is settled and r42 stops driving it from the test
-cycle: `enter` reads the local player's sharpness through the sampler's verified chain and cuts at
-`current/max` on the accepted 129..201 px track. No readable player, or no positive maximum, is
-unsupported state: the clip is turned off there and the native gauge draws as the game draws it. The
-captured player pointer is dropped with the controller, which is the stale capture the plan's Phase 2
-blocker named. The panel keeps its shape: Gauge shown % pins a level for screenshots, Apply publishes
-it, Reset hands the gauge back to your sharpness. 22 host fixtures pass; verify PASSED with the same
-21 signature windows. NRO `40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`.
-Gameplay NOT RUN.
+Current state: Phase 4 acceptance in progress on r42 (`DISTRIBUTION.json`, DEVELOPMENT). Three of the
+plan's Phase 4 scenarios are accepted by the tester on r42's bytes (2026-10-30): the cut tracks
+depletion hit by hit and moves back on sharpening across a tier boundary with the native colour and
+pulse intact; the glow and the edge glyph clip at the same edge as the blade with nothing glowing on
+the empty side; HUD hiding/showing, quest exit/re-entry and HUD recreation are clean. That run's log
+carries 83 forced lines, all `src=live`, ratios 10000 down to 7628 bp, every box on the accepted
+129..201 px track within 1 px, and 78 gauge-row teardown lines against 1 insertion. Left: a ranged
+weapon with no sharpness gauge, a later quest with a different melee weapon (the box, never mid-quest),
+a non-English language, the other HUD gauges, and the HD Project and viewport claims. NRO
+`40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`.
 r25 stops a mask from clipping once its row's links are gone, the failure the r24 run showed at an
 area transition; r24's run is the first where the mod's mask did not hide the gauge, so the
 geometry is right and this is the lifecycle's turn. r24 writes the
@@ -1284,6 +1282,27 @@ limit the log line.
 22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
 `40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`. Gameplay NOT RUN: the per-frame fill
 has not been seen on screen, only the fields, the clamping and the endpoints, each proven on its own.
+
+## r42 run, 2026-10-30: the live fill, the glow and the lifecycle are accepted
+
+The tester ran r42 on Eden. Installed NRO `40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a`
+= the packaged payload. Log copy `work/modern-sharpness-gauge/runs/r42-eden-2026-10-30.txt` (sha256
+`bd47e19b34ec2e4d6f2a8ce5ce8231ebff30ec328c6e09a1d65728354a1377ba`), 708 lines of ours.
+
+"Those three tested well, and working": the hunt (depletion hit by hit, back on sharpening, across a
+tier boundary with native colour and pulse), the glow and edge glyph clipped at the same edge with
+nothing glowing on the empty side, and HUD hiding/showing plus quest exit/re-entry and HUD recreation.
+
+The log says the same thing in numbers. All 83 forced lines are `src=live`, so no slider was touched:
+ratios run 10000 down to 7628 bp and box rights from 201 to 183 px, and every one sits within 1 px of
+`129 + 72 * ratio / 10000`, i.e. the live fill is linear on the accepted track. 28 sample lines read
+the player chain (350/350, tier 4, hunter 0, cmd_tbl_id 1000) with the gauge identity tuple intact.
+Lifecycle: 1 insertion, 78 dropped-gauge-row lines and 1 inserted-mask-links-lost line across the
+scene changes, with no second insertion, and 2 lines report the HUD absent with the clip off.
+
+That closes the fill, the geometry and the mask lifecycle on r42's bytes. The remaining Phase 4 items
+are listed in `work/modern-sharpness-gauge/PLAN.md`. No version bump: the accepted bytes are the
+bytes in `DISTRIBUTION.json`.
 
 ## Rules to keep
 
