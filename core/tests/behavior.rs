@@ -616,18 +616,19 @@ fn the_forced_ratios_step_the_box_from_the_rect_width() {
 #[test]
 fn the_cut_endpoints_land_the_box_where_the_slider_puts_it() {
     // r38: the tester sets the box's right edge at 0% and at 100% in screen px on the bar's
-    // rect (110..238). The accepted pair is 129..201 px, the endpoints the r39 log shows applied
-    // (right edge 129 at 0% and 201 at 100%), and it is what the shipped defaults carry.
+    // rect (110..238). The accepted pair is 128..200 px, the endpoints the tester set from the r42
+    // run (right edge 128 at 0%, 201 at 100% with the end slider at 201, and the report asks for
+    // 200 at 100%), and it is what the shipped defaults carry.
     let rect = [110, 38, 238, 166];
-    let (start, end) = (19, 91); // 129 and 201 px on screen, from the rect's left
+    let (start, end) = (18, 90); // 128 and 200 px on screen, from the rect's left
     let widths: Vec<i32> = [0u32, 2_500, 5_000, 7_500, 10_000]
         .iter()
         .map(|r| span_box(rect, *r, start, end)[2])
         .collect();
-    assert_eq!(widths, vec![19, 37, 55, 73, 91]);
+    assert_eq!(widths, vec![18, 36, 54, 72, 90]);
     assert_eq!(
         widths.iter().map(|w| rect[0] + w).collect::<Vec<_>>(),
-        vec![129, 147, 165, 183, 201]
+        vec![128, 146, 164, 182, 200]
     );
     // Linear in the endpoints: every 25% moves the right edge a quarter of the 72 px track.
     let steps: Vec<i32> = widths.windows(2).map(|w| w[1] - w[0]).collect();
@@ -638,7 +639,7 @@ fn the_cut_endpoints_land_the_box_where_the_slider_puts_it() {
         .iter()
         .map(|r| span_box(rect, *r, start + 20, end + 20)[2])
         .collect();
-    assert_eq!(shifted, vec![39, 75, 111]);
+    assert_eq!(shifted, vec![38, 74, 110]);
     assert!(span_box(rect, 0, 1, 238)[2] >= 1);
     assert_eq!(span_box(rect, 10_000, 1, 400)[2], 128, "never past the rect");
 }

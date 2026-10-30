@@ -20,14 +20,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r42-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r43-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r42`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r43`
 should be listed.
 
 ## Usage
@@ -56,14 +56,14 @@ Open **Plugin UI > Modern Sharpness Gauge** in Forge's overlay.
 | Setting | Default | Effect |
 | --- | --- | --- |
 | Gauge shown % | 100 | A test control: pin the cut at a fixed amount - 0 draws nothing, 25 a quarter, 50 half, 100 the whole blade - so one level can be screenshotted on demand. Press Apply and the gauge follows that number; press Reset and it follows your sharpness again. |
-| Cut start px | 129.0 | Where 0% lands, in screen pixels along the bar (its rect is 110..238), in 0.1 px steps. The box's right edge stops here at 0%. |
-| Cut end px | 201.0 | Where 100% lands, in the same pixels, in 0.1 px steps. The cut moves linearly between the two numbers, so 25% and 50% land a quarter and a half of the way between them. |
+| Cut start px | 128.0 | Where 0% lands, in screen pixels along the bar (its rect is 110..238), in 0.1 px steps. The box's right edge stops here at 0%. |
+| Cut end px | 200.0 | Where 100% lands, in the same pixels, in 0.1 px steps. The cut moves linearly between the two numbers, so 25% and 50% land a quarter and a half of the way between them. |
 | Apply | button | Publishes the three settings together: the gauge changes on the next frame. The sliders alone change nothing on the gauge. |
-| Reset | button | Returns the sliders to their defaults (129.0 and 201.0) and hands the gauge back to your sharpness. |
+| Reset | button | Returns the sliders to their defaults (128.0 and 200.0) and hands the gauge back to your sharpness. |
 
 All of it is session-only: nothing is written to a file, and it resets when the game restarts.
 The sliders are a draft: drag them freely, then press Apply to put them on the gauge, and press
-Reset to hand the gauge back to your sharpness on the accepted 129..201 px track. The
+Reset to hand the gauge back to your sharpness on the accepted 128..200 px track. The
 line under the buttons says which is live.
 
 ### Which log to send
@@ -76,7 +76,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r42`.
+lines that matter start with `MSG r43`.
 
 `forced ratio_bp` lines are printed when the cut moves:
 `0` to `10000` basis points of your sharpness. The line carries the box the mod

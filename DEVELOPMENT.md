@@ -1,4 +1,12 @@
-# Developing modern-sharpness-gauge
+Current state: Phase 4 candidate r43 (`DISTRIBUTION.json`, DEVELOPMENT). The tester's r42 run covered
+three quests - Long Sword, Dual Blades, then a bowgun - with the HD Project mod off and a non-English
+game, and reported all three right: 148 forced lines, 145 of them `src=live`, none off the accepted
+track. Their measurement moves the cut 1 px tighter at each end, so r43 ships the accepted endpoints as
+128.0 px at 0% and 200.0 px at 100%, and the quarter steps land at 128, 146, 164 and 200 px. The live
+sharpness fill, the bar rect as the box's limit, the mask insertion and links, the glow, the panel's
+Gauge shown % with Apply and Reset and the session-only rule are unchanged from the bytes the tester
+ran. 22 host fixtures pass; verify PASSED with the same 21 signature windows. NRO
+`58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6`. r43 gameplay NOT RUN.
 
 Current state: Phase 4 acceptance in progress on r42 (`DISTRIBUTION.json`, DEVELOPMENT). Three of the
 plan's Phase 4 scenarios are accepted by the tester on r42's bytes (2026-10-30): the cut tracks
@@ -1305,6 +1313,31 @@ scene changes, with no second insertion, and 2 lines report the HUD absent with 
 That closes the fill, the geometry and the mask lifecycle on r42's bytes. The remaining Phase 4 items
 are listed in `work/modern-sharpness-gauge/PLAN.md`. No version bump: the accepted bytes are the
 bytes in `DISTRIBUTION.json`.
+
+## r42 run 2 and r43, 2026-10-30: weapon variety, a no-gauge weapon, a non-English game, 128..200 px
+
+The tester ran r42 over three quests - Long Sword, Dual Blades, then a bowgun - with the HD Project mod
+off and a non-English game. "All right." Log copy
+`work/modern-sharpness-gauge/runs/r42-eden-2026-10-30-run2.txt` (sha256
+`2035577d30286ba32fe04eaaf588300a2357be17dc9a19c11a06fc8a55ab6307`), 2902 lines of ours: 148 forced
+lines, 145 of them `src=live`, 42 sample lines, 3 gauge-row insertions with their teardowns.
+
+The sample lines carry the weapon variety in the fields: cmd_tbl_id 1000 (Long Sword), 2000..2033 (Dual
+Blades) and 9999 (no weapon command, the bowgun), with the gauge identity tuple - anim 4, 4 objects, 15
+sequences, first_object 29 - unchanged across all of it. That is the structural lookup holding in a
+non-English game, which is what Phase 4 asked for. Depletion reaches current 8 and then 0 at tier 0, and
+the box holds its 0% width there.
+
+Their measurement from this run: 0% should be 128 px and 100% should be 200 px. Three `src=slider` lines
+show them dragging the start to 128.0, box right 128 at 0%. So r43 moves `CUT_START_DEFAULT` to 128.0 and
+`CUT_END_DEFAULT` to 200.0: 1 px tighter at both ends, which puts 0% 3 px past the ink start (measured 124)
+and 100% exactly on the measured tip (200). The quarter steps become 128, 146, 164 and 200 px. No other
+change: the live fill, the gates, the insertion and links, the glow, the panel and the session-only rule
+are the bytes they ran.
+
+22 host fixtures pass (the endpoint fixture now pins 128/146/164/182/200 px at 0/25/50/75/100%); verify
+PASSED with the same 21 signature windows. NRO `58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6`,
+ZIP sha256 `7bed54b2ba7c5a9172ac31b284e891efd2879de56047a4c1f858c4404013bc99`. r43 gameplay NOT RUN.
 
 ## Rules to keep
 

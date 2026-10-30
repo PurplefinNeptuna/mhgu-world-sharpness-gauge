@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r42",
+  "version": "r43",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r42",
+    "version": "r43",
     "status": "BUILT",
-    "nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
+    "nro_sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +87,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
       "src/hooks.rs": "185616466f5cc49dc662ff1d890f313b896c0641161a4364a700a3366ead0392",
-      "src/insert.rs": "87faa1ea9b79a4b4fd36bc0955753e3a1adbd5dcedc4e528ac38127f91f703e7",
+      "src/insert.rs": "d34439ac1f74610564af91291f438fb37198f0fb2c0592ff7b787896743b519c",
       "src/lib.rs": "1d074079c45375ea6759c45f482f7721ceb727cf9661b6f74686a79da1f324e8",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
       "src/sampling.rs": "530935a9c8c5ad19c1d2bf0ad91d4c4ce17125f2e98a40473a5931697edf71cd",
       "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "d70f8c19c0af22ab42fe418dd41e28ebc931849ac1b7f23bd23f8c721595c7c1",
-      "core/tests/behavior.rs": "35099a61ece44fe1066bdff4e1c5609d695b52bf4f636dcc6fad29f8a481af24",
+      "core/src/lib.rs": "9aca4ccb41847caea550718ec23bcef4d422064037f19eda33259e87792a2ad9",
+      "core/tests/behavior.rs": "77a456b28a21097c33ab9039595fd4184c88f033f2075dc2732706d2e2abbe50",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
-    "elf_sha256": "2fc52ab6f8f7606781a596dbea58b96220ab8f98565ddfc0010606e728fe9af7",
+    "nro_sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6",
+    "elf_sha256": "a8fafb03c62e52c5ab60b4eed3b2b2aadca50dfed152ef3bbc279e9a43c1506f",
     "exports": [
       "fini",
       "forge_onImGuiInit",
@@ -217,7 +217,7 @@
     },
     "words_per_sample": 116,
     "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
-    "nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a"
+    "nro_sha256": "58bfecdae7782b156314ee73e87fbcf7efaaf3c3d8c52e15da084cb8ceea16b6"
   },
   "runs": [
     {
@@ -817,6 +817,26 @@
         "user report, later the same day: health, stamina, timer and party member gauges are untouched by the clip"
       ],
       "conclusion": "The per-frame fill, the geometry, the mask lifecycle and the rest of the HUD are accepted on r42's bytes. Open Phase 4 items: a ranged weapon with no sharpness gauge, a later quest with a different melee weapon, a non-English language, and the HD Project and viewport variants."
+    },
+    {
+      "date": "2026-10-30",
+      "version": "r42",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r42-eden-2026-10-30-run2.txt",
+      "log_sha256": "2035577d30286ba32fe04eaaf588300a2357be17dc9a19c11a06fc8a55ab6307",
+      "our_lines": 2902,
+      "observed": [
+        "user report: three quests in a row - Long Sword, Dual Blades, then a bowgun - all right; the HD Project mod was switched off for this run (it was enabled before) and the game language is non-English",
+        "148 forced lines, 145 of them src=live with no slider touched; the 3 slider lines are the tester dialling the start endpoint down to 128.0",
+        "42 sample lines across the run, and the weapon changes are visible in them: cmd_tbl_id 1000 (Long Sword), 2000..2033 (Dual Blades), 9999 (no weapon command, the bowgun), with the gauge identity tuple (anim 4, 4 objects, 15 sequences, first_object 29) unchanged throughout - so the structural lookup held in a non-English game",
+        "depletion to zero is in the log: current 8, then 0 at tier 0, and current 0 keeps the box at its 0% width; sharpening back to 150/150 returns the box to 201 px",
+        "0 lines disagree with the accepted track (|box_right - (129 + 72*ratio/10000)| <= 1 px on all 148)",
+        "3 gauge-row insertions and their teardowns; the bowgun quest shows no gauge row to clip, and the 'no sharpness gauge controller' line fires only at the menu points",
+        "user measurement from this run: 0% should be 128 px and 100% should be 200 px - 1 px tighter at each end than the r39 pair"
+      ],
+      "conclusion": "Weapon variety, a weapon with no sharpness gauge, a non-English language and the base game (HD off) all behave. The tester wants the accepted endpoints at 128..200 px, which r43 ships as the defaults."
     }
   ],
   "not_proven": [
@@ -842,7 +862,7 @@
     "r35's 124/149/174/225 px steps have no runtime evidence. The endpoints come from the tester's two 100% photographs (226 whole, 190 cut) and the hilt's left edge from the two 0% photographs (~125 px), so each number carries the measurement noise of a downscaled screenshot, roughly a few px. The forced line prints bar_w= and feed= so a run confirms the mapping from the log.",
     "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here.",
     "r39's draft/Apply/Reset flow ran on Eden and published the endpoints, so the panel path is proven; what is not is r40's shipped defaults 129.0/201.0, which are the r39 log's applied pair, and the panel readout line's text.",
-    "r42 is accepted for the hunt, the glow, the lifecycle and the other HUD gauges. Not proven: a ranged weapon with no sharpness gauge, a later quest with a different melee weapon, a non-English language, and the HD Project and viewport variants."
+    "r43's defaults 128.0/200.0 have no runtime evidence of their own: 128 at 0% is proven in the r42 log (the tester dragged it there), 200 at 100% is the tester's report, and 101 lines of that run end at 201."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",

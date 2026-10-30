@@ -83,13 +83,13 @@ static SLIDER_BP: AtomicU32 = AtomicU32::new(u32::MAX);
 
 /// The tester's accepted cut geometry: the box's right edge at 0% and at 100%, in absolute screen
 /// pixels on the bar's rect (its 110..238 span). The pair is what the tester dialled in and
-/// accepted on r39 (129 and 201 px), confirmed by that run's log: with cut 129/201 the box's right
-/// edge is 129 at 0% and 201 at 100%. Every fill level cuts between these two, so a run sees
+/// accepted on the r42 run (128 and 200 px), confirmed by its log: with cut 128/201 the box's right
+/// edge is 128 at 0%. Every fill level cuts between these two, so a run sees
 /// the accepted track before anyone touches the panel. Stored as float bits in atomics: written on the
 /// overlay thread by the panel, read in the mask's enter handler on the game thread. No lock, no
 /// game pointer crossing, nothing persisted.
-pub const CUT_START_DEFAULT: f32 = 129.0;
-pub const CUT_END_DEFAULT: f32 = 201.0;
+pub const CUT_START_DEFAULT: f32 = 128.0;
+pub const CUT_END_DEFAULT: f32 = 200.0;
 pub const PERCENT_DEFAULT: f32 = 100.0;
 static CUT_START: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_START_DEFAULT));
 static CUT_END: AtomicU32 = AtomicU32::new(f32::to_bits(CUT_END_DEFAULT));
