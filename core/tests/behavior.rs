@@ -1,17 +1,13 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    boundary, kept, prototype_ratio,
-    BAR_INK_LEFT, CLIP_HEIGHT, CLIP_TOP, mask_box, span_box,
-    CMD_TBL_ID, CONTEXT_CLIP, CONTROLLER_CACHE, CONTROLLER_FLAGS, CONTROLLER_OWNER, CONTROLLER_ROOT,
-    CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_DRAWABLE, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED,
-    FIELD_VISIBLE, Gauge, Sample,
-    HEAD_WORDS, INPUT_FLAGS, KEY_FIELDS, Local, MAX_NODES, MAX_SHARPNESS,
-    Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS, NODE_KIND,
-    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE, NODE_WORDS,
-    PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
-    SHARPNESS_TYPE, SPLAYER_CELL, basis_points, draw_plan, fill_ratio, gauge_of,
-    is_sharp_animation, local_player, ratio_of_words, read_gauge, sample_controller,
-    scan_walk, count_nodes, cache_layout, SHARP_OBJECTS, SPRITE_WIDTH,
+    basis_points, count_nodes, cache_layout, cut_box, draw_plan, is_sharp_animation, local_player,
+    read_gauge, sample_controller, scan_walk, span_box,
+    CLIP_HEIGHT, CLIP_TOP,
+    CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
+    MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
+    NODE_KIND, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE,
+    PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS, SHARPNESS_TYPE,
+    SHARP_OBJECTS, SPLAYER_CELL,
 };
 use std::collections::BTreeMap;
 
@@ -53,29 +49,55 @@ fn ratio_needs_a_positive_maximum_then_clamps() {
     assert_eq!(ratio(100, 0), None); // unverified maximum
     assert_eq!(ratio(100, -1), None); // negative maximum is unsupported
     assert_eq!(ratio(i32::MIN, 3), Some(0));
-    assert_eq!(fill_ratio(Gauge {
-        current: 150,
-        maximum: 160,
-        tier: 3
-    }), Some(0.9375));
 }
 
 #[test]
-fn head_field_indexes_point_at_their_names() {
-    // The r9 log printed three tree nodes for visited=3 and sized the draw cache
-    // from a word that was the truncated flag, not the drawable count. The head
-    // block is positional, so pin every walk field to the value it must carry.
-    let mut sample = Sample::default();
-    sample.walk.visited = 21;
-    sample.walk.visible = 22;
-    sample.walk.drawable = 23;
-    sample.walk.truncated = true;
+fn sample_words_are_the_named_slots() {
+    // The copy is positional, so pin every named slot to the value it must carry.
+    let mut sample = sharpness_gauge_core::Sample {
+        controller: 0x6000,
+        row: 0x5000,
+        animation: 4,
+        objects: 4,
+        sequences: 15,
+        first_object: 29,
+        local: Local {
+            player: 0x9c00,
+            hunter_index: 1,
+        },
+        gauge: Some(Gauge {
+            current: 150,
+            maximum: 160,
+            tier: 2,
+        }),
+    };
+    sample.gauge = Some(Gauge {
+        current: -7,
+        maximum: 160,
+        tier: 2,
+    });
     let words = sample.words();
-    assert_eq!(words[FIELD_VISITED], 21);
-    assert_eq!(words[FIELD_VISIBLE], 22);
-    assert_eq!(words[FIELD_DRAWABLE], 23);
-    assert_eq!(words[FIELD_DRAWABLE + 1], 1);
-    assert_eq!(HEAD_WORDS, 26);
+    assert_eq!(words.len(), FIELDS.len());
+    assert_eq!(
+        FIELDS,
+        [
+            "ctrl",
+            "row",
+            "anim",
+            "objects",
+            "sequences",
+            "first_object",
+            "hunter",
+            "player",
+            "current",
+            "maximum",
+            "tier"
+        ]
+    );
+    assert_eq!(words[FIELD_CURRENT] as i32, -7); // signed points keep their sign
+    assert_eq!(words[FIELD_MAXIMUM] as i32, 160);
+    assert_eq!(words[FIELD_TIER], 2);
+    assert_eq!((words[0], words[6], words[7]), (0x6000, 1, 0x9c00));
 }
 
 #[test]
@@ -95,10 +117,13 @@ fn local_player_chain_is_validated() {
     fake.put(0x3000 + SESSION_LOCAL_INDEX, 2);
     fake.put(BASE + SPLAYER_CELL, 0x4000);
     fake.put(0x4000 + PLAYER_ARRAY + 2 * 4, 0x9c00);
-    assert_eq!(local_player(&fake, BASE), Some(Local {
-        player: 0x9c00,
-        hunter_index: 2
-    }));
+    assert_eq!(
+        local_player(&fake, BASE),
+        Some(Local {
+            player: 0x9c00,
+            hunter_index: 2
+        })
+    );
 
     // Hunter index outside 0..3 rejects the whole chain.
     fake.put(0x3000 + SESSION_LOCAL_INDEX, 7);
@@ -110,7 +135,7 @@ fn local_player_chain_is_validated() {
 
     // An empty slot in the player array is unsupported.
     fake.put(BASE + SESSION_CELL, 0x3000);
-    fake.put(0x3000 + SESSION_LOCAL_INDEX, 3);
+    fake.put(0x3000 + SESSION_LOCAL_INDEX, MAX_HUNTERS - 1);
     assert_eq!(local_player(&fake, BASE), None);
 }
 
@@ -138,12 +163,11 @@ fn gauge_fields_are_signed_points_and_the_tier_is_the_native_index() {
 
 /// Build the gauge controller fixture: animation row (id 4, packed counts 4
 /// objects and 15 sequences, first object 29), one group node with three text
-/// siblings, a draw context carrying the live clip, and a local player with
-/// 150/160 points at tier 2.
+/// siblings, and a local player with 150/160 points at tier 2.
 fn gauge_fixture() -> Fake {
     let mut fake = Fake::default();
-    let (row, controller, root, sharp, efx, edge, player, context) =
-        (0x5000u32, 0x6000u32, 0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32, 0x9c00u32, 0x9000u32);
+    let (row, controller, root, sharp, efx, edge, player) =
+        (0x5000u32, 0x6000u32, 0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32, 0x9c00u32);
     fake.put(BASE + SESSION_CELL, 0x3000);
     fake.put(0x3000 + SESSION_LOCAL_INDEX, 0);
     fake.put(BASE + SPLAYER_CELL, 0x4000);
@@ -151,20 +175,11 @@ fn gauge_fixture() -> Fake {
     fake.put(player + SHARPNESS, 150);
     fake.put(player + MAX_SHARPNESS, 160);
     fake.put(player + SHARPNESS_TYPE, 2);
-    fake.put(player + INPUT_FLAGS, 0x11);
-    fake.put(player + CMD_TBL_ID, 0x2003);
     fake.put(controller + CONTROLLER_ROW, row);
-    fake.put(controller + CONTROLLER_ROOT, root);
-    fake.put(controller + CONTROLLER_OWNER, 0x8000);
-    fake.put(controller + CONTROLLER_CACHE, 0x8800);
-    fake.put(controller + CONTROLLER_FLAGS, 1); // rebuild flag set
+    fake.put(controller + NODE_CHILD, root);
     fake.put(row, 4); // animation id
     fake.put(row + 4, 4 | (15 << 16)); // objects | sequences << 16
     fake.put(row + 0x0c, 29); // first object row
-    fake.put(context + CONTEXT_CLIP, 100);
-    fake.put(context + CONTEXT_CLIP + 4, 30);
-    fake.put(context + CONTEXT_CLIP + 8, 520);
-    fake.put(context + CONTEXT_CLIP + 12, 360);
     // The gauge subtree: a visible group node, then the sharp glyph, the
     // effect glyph, and the edge glyph. The edge glyph is drawable but its
     // visibility bit is clear, which is what the looping tiers do.
@@ -205,20 +220,19 @@ fn gauge_fixture() -> Fake {
 }
 
 #[test]
-fn controller_sample_carries_the_gauge_state() {
+fn controller_sample_carries_the_identity_and_the_player() {
     let fake = gauge_fixture();
-    let sample = sample_controller(&fake, 0x6000, 0x9000, BASE).expect("gauge controller");
+    let sample = sample_controller(&fake, 0x6000, BASE).expect("gauge controller");
     assert_eq!((sample.animation, sample.objects, sample.sequences), (4, 4, 15));
     assert_eq!(sample.first_object, 29);
-    assert_eq!((sample.owner, sample.cache, sample.cache_flags), (0x8000, 0x8800, 1));
-    assert_eq!(sample.local, Local {
-        player: 0x9c00,
-        hunter_index: 0
-    });
-    assert_eq!(sample.input_flags, 0x11);
-    assert_eq!(sample.cmd_tbl_id, 0x2003);
-    assert_eq!(sample.context, 0x9000);
-    assert_eq!(sample.clip, [100, 30, 520, 360]);
+    assert_eq!((sample.controller, sample.row), (0x6000, 0x5000));
+    assert_eq!(
+        sample.local,
+        Local {
+            player: 0x9c00,
+            hunter_index: 0
+        }
+    );
     assert_eq!(
         sample.gauge,
         Some(Gauge {
@@ -227,32 +241,12 @@ fn controller_sample_carries_the_gauge_state() {
             tier: 2
         })
     );
-    assert_eq!(sample.walk.visited, 4);
-    assert_eq!((sample.walk.visible, sample.walk.drawable), (3, 3));
-    assert_eq!(sample.walk.nodes[1].address, 0x7100);
-    assert_eq!(sample.walk.nodes[1].rect, [110, 38, 198, 62]);
-    assert_eq!(sample.walk.nodes[1].effective, [110, 38, 198, 62]);
-    // The atlas rectangle of Txt_sharp recorded from the archive: 0,280,88,304.
-    assert_eq!(sample.walk.nodes[1].texture, [0, 280, 88, 304]);
     let words = sample.words();
-    assert_eq!(words.len(), FIELDS.len());
-    assert_eq!(gauge_of(&words), sample.gauge);
-    assert_eq!(ratio_of_words(&words), Some(9_375));
     assert_eq!(words[FIELD_CURRENT] as i32, 150);
     assert_eq!(words[FIELD_MAXIMUM] as i32, 160);
     assert_eq!(words[FIELD_TIER], 2);
-    assert_eq!(words[HEAD_WORDS - 1], 0x2003);
-    let first = HEAD_WORDS + NODE_WORDS;
-    assert_eq!(words[HEAD_WORDS], 0x7000);
-    assert_eq!(words[first], 0x7100);
-    assert_eq!(words[first + 11..first + 15], [0, 280, 88, 304]);
-    // The change detector covers the gauge trio, the controller, the player and
-    // the first node address, and never reaches past the copied sample.
-    assert!(KEY_FIELDS.iter().all(|index| *index < words.len()));
-    for live in [FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, FIELD_VISITED, 0, 11, HEAD_WORDS] {
-        assert!(KEY_FIELDS.contains(&live));
-    }
-    assert_ne!((words[0], words[11], words[12]), (0, 0, 0));
+    assert_eq!(words[0], 0x6000);
+    assert_eq!(words[7], 0x9c00);
 }
 
 #[test]
@@ -286,10 +280,9 @@ fn a_hidden_subtree_is_not_walked() {
 
 #[test]
 fn the_sharpness_textures_are_siblings_under_the_root() {
-    // Shape proven by the r9 Eden log: bar 0x488aa9b0, glow 0x4872c300 and the
-    // edge are siblings whose parent is the controller 0x48898ec0, and the walk
-    // closes when a sibling comes back to that root. The gate set in gui.rs is
-    // written against this shape, so pin it here.
+    // Shape the gates in gui.rs are written against: the bar, the glow and the
+    // edge are siblings whose parent is the walk root, and the walk closes when
+    // a sibling comes back to that root.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = (0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32);
     fake.put(sharp + NODE_CHILD, 0);
@@ -316,8 +309,8 @@ fn the_sharpness_textures_are_siblings_under_the_root() {
     assert_eq!(walked.nodes[0].links, [sharp, efx, root]);
     assert_eq!(walked.nodes[1].links, [0, efx, mask]);
 
-    // The r10 log closed the chain with the edge glyph's sibling at 0 and popped
-    // through its parent, which is the root. Both closings end the walk.
+    // The chain also closes with the edge glyph's sibling at 0, popping through
+    // its parent, which is the root. Both closings end the walk.
     fake.put(edge + NODE_SIBLING, 0);
     let closed = scan_walk(&fake, sharp);
     assert_eq!(closed.nodes[2].links, [0x7400, 0, root]);
@@ -331,24 +324,24 @@ fn other_animations_cost_nothing_and_produce_no_sample() {
     fake.put(0x5100, 7);
     fake.put(0x5100 + 4, 6 | (8 << 16));
     fake.put(0x5100 + 0x0c, 33);
-    assert_eq!(sample_controller(&fake, 0x6100, 0x9000, BASE), None);
+    assert_eq!(sample_controller(&fake, 0x6100, BASE), None);
     // A null row pointer is unsupported state, not a fault.
     fake.put(0x6200 + CONTROLLER_ROW, 0);
-    assert_eq!(sample_controller(&fake, 0x6200, 0x9000, BASE), None);
+    assert_eq!(sample_controller(&fake, 0x6200, BASE), None);
 }
 
 #[test]
-fn a_gauge_without_a_player_reports_the_tree_only() {
+fn a_gauge_without_a_player_reports_the_identity_only() {
     let mut fake = gauge_fixture();
-    // Player absent (for example a non-quest state): the sample records the
-    // tree and leaves the gauge fields empty, so the ratio is unsupported.
+    // Player absent (for example a non-quest state): the identity is still the
+    // gauge row, and there is no gauge to fill from.
     fake.put(BASE + SESSION_CELL, 0);
-    let sample = sample_controller(&fake, 0x6000, 0x9000, BASE).expect("gauge controller");
+    let sample = sample_controller(&fake, 0x6000, BASE).expect("gauge controller");
     assert_eq!(sample.local, Local::default());
     assert_eq!(sample.gauge, None);
-    assert_eq!(sample.input_flags, 0);
-    assert_eq!(sample.walk.drawable, 3);
-    assert_eq!(ratio_of_words(&sample.words()), None);
+    assert_eq!((sample.animation, sample.objects), (4, 4));
+    let words = sample.words();
+    assert_eq!((words[FIELD_CURRENT], words[FIELD_MAXIMUM]), (0, 0));
 }
 
 #[test]
@@ -365,7 +358,10 @@ fn a_broken_tree_stops_at_its_bounds() {
     let scan = scan_walk(&fake, 0xa000);
     assert_eq!(scan.visited, SCAN_LIMIT);
     assert!(scan.truncated);
-    assert_eq!(scan.nodes[MAX_NODES - 1].address, 0xa000 + (MAX_NODES as u32 - 1) * 0x10);
+    assert_eq!(
+        scan.nodes[MAX_NODES - 1].address,
+        0xa000 + (MAX_NODES as u32 - 1) * 0x10
+    );
     // A dangling link is recorded as truncation, never followed.
     let mut broken = Fake::default();
     broken.put(0xb000 + NODE_FLAGS, NODE_VISIBLE);
@@ -373,78 +369,24 @@ fn a_broken_tree_stops_at_its_bounds() {
     let scan = scan_walk(&broken, 0xb000);
     assert_eq!(scan.visited, 1);
     assert!(scan.truncated);
-}
-
-#[test]
-fn the_prototype_fill_shares_one_boundary_column() {
-    // The rects the r3 run measured on the Long Sword gauge. The bar's drawn ink is measured on
-    // the rect the node reports: it starts 14 px from the rect's left (124 px, left of the hilt
-    // glyph) and runs 101 px to 225, the r33 100% box that photographed the whole blade with no
-    // cut. In sprite columns that is 10 in and 70 long at the rect's 128 px.
-    let sword = [110, 38, 238, 166];
-    let effect = [116, 32, 244, 160];
-    for (ratio, column) in [(0u32, 120), (2_500, 133), (5_000, 147), (10_000, 175)] {
-        assert_eq!(boundary(sword, ratio, 88), column);
-        assert_eq!(kept(sword, column), [110, 38, column, 166]);
-        assert_eq!(kept(effect, column), [116, 32, column.max(116), 160]);
-    }
-    for (ratio, column) in [(0u32, 124), (2_500, 144), (5_000, 164), (10_000, 204)] {
-        assert_eq!(boundary(sword, ratio, 128), column);
-    }
-    // Ratio 0 keeps a non-zero clip (14 px at the rect's width), so the degenerate zero-size
-    // scissor never has to be trusted, and it stops left of the hilt glyph the two 0%
-    // screenshots show. Ratio 1 covers the whole blade. The clip rows start at the effect
-    // glyph's top and cover the bar's rows.
-    assert_eq!(boundary(sword, 0, 128) - sword[0], BAR_INK_LEFT * 128 / SPRITE_WIDTH);
-    assert_eq!(boundary(sword, 10_000, 128), 204);
-    assert_eq!((CLIP_TOP, CLIP_HEIGHT), (-6, 32));
-    assert_eq!(kept([200, 0, 100, 10], 260), [200, 0, 200, 10]);
-    assert_eq!(
-        (0..200).step_by(20).map(prototype_ratio).collect::<Vec<_>>(),
-        [0, 2_500, 5_000, 10_000, 0, 2_500, 5_000, 10_000, 0, 2_500]
-    );
-}
-
-#[test]
-fn the_mask_box_covers_the_bar_and_the_effect() {
-    let sword = [110, 38, 238, 166];
-    // Top is 32 and the height 32: the bar's ink rows (+6..+17) and the effect glyph's
-    // offset rows (-6..+25) both fall inside. Width is never zero.
-    for (ratio, box_) in [
-        (0u32, [110, 32, 10, 32]),
-        (2_500, [110, 32, 23, 32]),
-        (5_000, [110, 32, 37, 32]),
-        (10_000, [110, 32, 65, 32]),
-    ] {
-        assert_eq!(mask_box(sword, ratio, 88), box_);
-        assert!(box_[2] > 0 && box_[3] > 0);
-    }
-    assert_eq!(mask_box(sword, 10_000, 88)[2], boundary(sword, 10_000, 88) - sword[0]);
-    assert_eq!(mask_box(sword, 0, 88)[2], BAR_INK_LEFT);
-    assert_eq!(mask_box(sword, 0, 128)[2], 14);
-    assert_eq!(mask_box(sword, 10_000, 128)[2], 94);
-}
-#[test]
-fn the_fill_track_scales_with_the_live_bar_width() {
-    // A 176-wide bar is the same art at double scale: the inset and the track double.
-    let sword = [110, 38, 238, 166];
-    assert_eq!(boundary(sword, 10_000, 176), 110 + 20 + 110);
-    assert_eq!(boundary(sword, 0, 176), 110 + 20);
-    assert_eq!(boundary(sword, 5_000, 176), 110 + 20 + 55);
-    assert_eq!(mask_box(sword, 10_000, 176)[2], 130);
+    // The node count the insertion gates on shares those bounds: the same chain,
+    // reached through a controller, counts up to the limit and reports the floor.
+    fake.put(0x9000 + NODE_CHILD, 0xa000);
+    let (count, cut) = count_nodes(&fake, 0x9000);
+    assert_eq!((count, cut), (SCAN_LIMIT, true));
 }
 
 /// The gauge tree as the runs show it, with every link the walker follows: the
 /// bar, glow and edge are siblings whose parent is the walk root, and the edge
-/// closes the chain with a zero sibling (r10/r11 Eden logs).
+/// closes the chain with a zero sibling.
 fn gauge_tree(fake: &mut Fake, edge_visible: bool) -> (u32, u32, u32, u32) {
     let (root, sharp, efx, edge) = (0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32);
     fake.put(sharp + NODE_PARENT, root);
     fake.put(efx + NODE_PARENT, root);
     fake.put(edge + NODE_PARENT, root);
     fake.put(edge + NODE_SIBLING, 0);
-    // The r10 log prints the edge glyph as `child=0 sibling=0 parent=controller`,
-    // so the gauge tree has nothing below it.
+    // The edge glyph has nothing below it, and in the looping tiers its
+    // visibility bit is clear.
     fake.put(edge + NODE_CHILD, 0);
     if edge_visible {
         fake.put(edge + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
@@ -454,10 +396,10 @@ fn gauge_tree(fake: &mut Fake, edge_visible: bool) -> (u32, u32, u32, u32) {
 
 #[test]
 fn the_walk_plan_closes_every_drawable_it_opens() {
-    // The port of main+0xa494a0 over the tree before any insertion: enter and exit
-    // for the bar and the glow, nothing for the hidden edge glyph, then the
-    // terminator. 5 records is the 40 bytes the r9-r11 logs show, inside the 56-byte
-    // record area main+0xa49b28 sizes for this row (2 records spare).
+    // The port of main+0xa494a0 over the tree before any insertion: enter and
+    // exit for the bar and the glow, nothing for the hidden edge glyph, then the
+    // terminator. 5 records is 40 bytes, inside the 56-byte record area main+0xa49b28
+    // sizes for this row (2 records spare).
     let mut fake = gauge_fixture();
     let (root, ..) = gauge_tree(&mut fake, false);
     let plan = draw_plan(&fake, root);
@@ -470,12 +412,11 @@ fn the_walk_plan_closes_every_drawable_it_opens() {
 fn the_cache_grows_with_the_object_count_not_the_sequence_prefix() {
     // main+0xa49b28 sizes the row's draw block as (objects << 4 | 8) + sequences * 12,
     // allocates it through the root's vtable slot 0x58 into root+0xa4, and publishes
-    // root+0x80 = alloc + sequences * 12. The r17 run read this row's sizing pair at row+8 as
-    // 3 objects and 16 sequences, and published minus alloc is 192 = 16 * 12 in all three runs
-    // (r17: 0x47fe7da0 - 0x47fe7ce0), so the record area is (3 << 4) | 8 = 56 bytes = 7
-    // records and the allocation is 248. That pair is also why r17's gate turned the insertion
-    // off (stage 48: 3 is not 3 + 1), and it restores the r14 cache claim: the inserted tree's
-    // 9 records are 72 bytes, 16 past this row's 56.
+    // root+0x80 = alloc + sequences * 12. This row's sizing pair at row+8 is 3 objects
+    // and 16 sequences, with the published pointer 192 = 16 * 12 into the allocation:
+    // a 56-byte record area of 7 records, and a 248-byte allocation. The inserted tree's
+    // 9 records are 72 bytes, 16 past that area, which is why the insertion grows the
+    // block for 4 objects: 72 bytes, exactly the 9.
     assert_eq!(cache_layout(3, 16), (248, 192, 56));
     assert_eq!(cache_layout(4, 16), (264, 192, 72));
     assert_eq!(cache_layout(0, 16), (192, 192, 0));
@@ -483,7 +424,7 @@ fn the_cache_grows_with_the_object_count_not_the_sequence_prefix() {
     assert_eq!(56 / 8, 7);
     assert_eq!(72 / 8, 9);
     // The tree the insertion produces, measured by the walker port: 9 records, exactly the
-    // grown area, and 16 bytes past the row's own 56 - which is r14's overflow.
+    // grown area, and 16 bytes past the row's own 56.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
     let mask = 0x7500u32;
@@ -508,10 +449,8 @@ fn the_object_array_is_sized_for_the_tree_it_was_built_with() {
     // one; main+0x5456e4 uses the sum as the length of the instance's array at +0xd8 and
     // calls vtable slot 0x50 on every entry. This row's 4 objects are the root plus its
     // 3 textures, so the tree it was built with is exactly the size that pass expects.
-    // r14 added a fourth node, the scissor mask, and left the array at 4: that pass then
-    // walks 5 entries through a 4-entry array. The r14 Eden run of 2026-10-23 ended in
-    // that loop, with a freed block's fill (0x727272) as the object pointer, in the
-    // teardown after the quest. Pinned so an insertion is never shipped without the map.
+    // An inserted fourth node makes that pass walk 5 entries through a 4-entry array.
+    // Pinned so an insertion is never shipped without the map.
     let mut fake = gauge_fixture();
     let (root, ..) = gauge_tree(&mut fake, false);
     let (plain, plain_cut) = count_nodes(&fake, root);
@@ -554,10 +493,8 @@ fn the_inserted_mask_gets_its_exit_record() {
     assert!(!plan.overflow);
     assert_eq!(plan.count * 8, 56);
     // Static tier: the edge glyph is visible, so it enters and its exit comes out
-    // inline (byte 0x57 bit 1 is word bit 25, the drawable bit the r10 log shows as
-    // 0x2040000). 9 records is 72 bytes, and the r17 run measured this row's record area at
-    // (3 << 4) | 8 = 56, so the inserted tree writes 16 bytes past it: r14's overflow, and the
-    // reason grow_cache rebuilds the block for 4 objects (72, exactly this plan).
+    // inline (byte 0x57 bit 1 is word bit 25, the drawable bit). 9 records is 72
+    // bytes, the grown area, which is why grow_cache rebuilds the block for 4 objects.
     fake.put(edge + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
     let full = draw_plan(&fake, root);
     assert_eq!(full.kinds[..full.count as usize], [0, 0, 1, 0, 1, 0, 1, 1, 2]);
@@ -567,10 +504,10 @@ fn the_inserted_mask_gets_its_exit_record() {
 
 #[test]
 fn a_mask_left_open_never_stops_clipping() {
-    // The r13 shape: the mask takes the bar as its child but keeps the glow and the
-    // edge as siblings whose parent is the root, so the pop from the edge jumps to
-    // the root and ends the walk. The mask gets an enter record and no exit record,
-    // which is a scissor that never ends. Pinned so this shape cannot come back.
+    // The shape where the mask takes the bar as its child but keeps the glow and the
+    // edge as siblings whose parent is the root, so the pop from the edge jumps to the
+    // root and ends the walk. The mask gets an enter record and no exit record, which
+    // is a scissor that never ends. Pinned so this shape cannot come back.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, _edge) = gauge_tree(&mut fake, false);
     let mask = 0x7500u32;
@@ -591,50 +528,67 @@ fn a_mask_left_open_never_stops_clipping() {
 }
 
 #[test]
-fn the_forced_ratios_step_the_box_from_the_rect_width() {
-    // The width fed to mask_box is the node's rect width, measured from the tester's 100%
-    // screenshots: r33's box (right 226, the 128 px rect's scale) shows the whole blade, and
-    // r34's (right 190, the authored 88 px scale) cuts the blade near the tip.
+fn the_accepted_cut_lands_on_the_measured_bar_at_every_ratio() {
+    // The bar's rect as the gauge row reports it: 110..238, 128 px. The accepted
+    // endpoints are 128 px at 0% and 200 px at 100% on that rect, so the cut's
+    // offsets are 18 and 90 px from its left, scaled by its live width.
     let bar = [110, 38, 238, 166];
-    let rect_width = bar[2] - bar[0];
-    let ratios: Vec<u32> = (0..160u32).step_by(20).map(prototype_ratio).collect();
-    assert_eq!(ratios[..4].to_vec(), vec![0, 2_500, 5_000, 10_000]);
-    assert_eq!(ratios[4..8].to_vec(), ratios[0..4].to_vec());
-    let widths: Vec<i32> = ratios[..4].iter().map(|r| mask_box(bar, *r, rect_width)[2]).collect();
-    assert_eq!(widths, vec![14, 34, 54, 94]);
-    // The kept widths 14, 34, 54 and 94 px, i.e. the box's right edge at 124, 144, 164 and
-    // 204 px: the empty step stops left of the hilt glyph, and 100% covers the blade.
-    assert_eq!(widths.iter().map(|w| bar[0] + w).collect::<Vec<_>>(), vec![124, 144, 164, 204]);
-    assert!(widths[0] > 0 && widths[0] < 18, "the empty step must stop left of the hilt glyph");
-    assert!(bar[0] + widths[3] >= 200);
-    // The drawn gauge ends at the measured 200 px: the 100% box covers it, and r34's authored
-    // 88 px feed ended at 190, which photographed as a cut tip.
-    assert!(bar[0] + widths[3] >= 200 && bar[0] + widths[3] <= 210);
-    assert!(mask_box(bar, 10_000, 88)[2] + bar[0] < 200);
+    let rights: Vec<i32> = [0u32, 2_500, 5_000, 7_500, 10_000]
+        .iter()
+        .map(|r| cut_box(bar, *r))
+        .map(|box_| box_[0] + box_[2])
+        .collect();
+    assert_eq!(rights, vec![128, 146, 164, 182, 200]);
+    let widths: Vec<i32> = [0u32, 2_500, 5_000, 10_000]
+        .iter()
+        .map(|r| cut_box(bar, *r)[2])
+        .collect();
+    assert_eq!(widths, vec![18, 36, 54, 90]);
+    // The rows cover the bar top to bottom and the effect glyph's offset rows.
+    for ratio_bp in [0u32, 5_000, 10_000] {
+        let box_ = cut_box(bar, ratio_bp);
+        assert_eq!((box_[1], box_[3]), (bar[1] + CLIP_TOP, CLIP_HEIGHT));
+        assert!(box_[2] >= 1 && box_[2] <= bar[2] - bar[0]);
+    }
+    assert_eq!((CLIP_TOP, CLIP_HEIGHT), (-6, 32));
 }
 
 #[test]
-fn the_cut_endpoints_land_the_box_where_the_slider_puts_it() {
-    // r38: the tester sets the box's right edge at 0% and at 100% in screen px on the bar's
-    // rect (110..238). The accepted pair is 128..200 px, the endpoints the tester set from the r42
-    // run (right edge 128 at 0%, 201 at 100% with the end slider at 201, and the report asks for
-    // 200 at 100%), and it is what the shipped defaults carry.
+fn the_cut_scales_with_the_bar_rect_the_row_reports() {
+    // The endpoints are offsets on the measured 128 px rect, so a bar laid out at
+    // half and at double that width cuts the same fraction of its blade: 9/45 px
+    // and 36/180 px from the left, landing at the same fractions.
+    let half = [110, 38, 174, 166]; // 64 px
+    let double = [110, 38, 366, 166]; // 256 px
+    assert_eq!(cut_box(half, 0)[2], 9);
+    assert_eq!(cut_box(half, 10_000)[2], 45);
+    assert_eq!(cut_box(double, 0)[2], 36);
+    assert_eq!(cut_box(double, 10_000)[2], 180);
+    for (rect, want) in [(half, 45.0 / 64.0), (double, 180.0 / 256.0), ([110, 38, 238, 166], 90.0 / 128.0)]
+    {
+        let got = cut_box(rect, 10_000)[2] as f64 / (rect[2] - rect[0]) as f64;
+        assert!((got - want).abs() < 0.02, "{rect:?} cuts at {got}");
+    }
+    // A narrow bar scales the same offsets down and the box never exceeds its own
+    // width: 2 px at 0% and 14 px at 100% on a 20 px rect.
+    let narrow = [110, 38, 130, 166];
+    assert_eq!((cut_box(narrow, 0)[2], cut_box(narrow, 10_000)[2]), (2, 14));
+}
+
+#[test]
+fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
+    // span_box is what cut_box drives: the right edge sits at the start offset at
+    // 0% and at the end offset at 100%, linear between, never below width 1 and
+    // never past the rect's right.
     let rect = [110, 38, 238, 166];
-    let (start, end) = (18, 90); // 128 and 200 px on screen, from the rect's left
+    let (start, end) = (18, 90);
     let widths: Vec<i32> = [0u32, 2_500, 5_000, 7_500, 10_000]
         .iter()
         .map(|r| span_box(rect, *r, start, end)[2])
         .collect();
     assert_eq!(widths, vec![18, 36, 54, 72, 90]);
-    assert_eq!(
-        widths.iter().map(|w| rect[0] + w).collect::<Vec<_>>(),
-        vec![128, 146, 164, 182, 200]
-    );
-    // Linear in the endpoints: every 25% moves the right edge a quarter of the 72 px track.
     let steps: Vec<i32> = widths.windows(2).map(|w| w[1] - w[0]).collect();
     assert_eq!(steps, vec![18, 18, 18, 18]);
-    // A tester who drags the endpoints 20 px right gets the box's right edge 20 px further at
-    // every step, and the width never collapses to zero.
     let shifted: Vec<i32> = [0u32, 5_000, 10_000]
         .iter()
         .map(|r| span_box(rect, *r, start + 20, end + 20)[2])

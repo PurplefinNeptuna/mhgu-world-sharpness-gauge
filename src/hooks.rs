@@ -52,11 +52,11 @@ const _: () = assert!(
         && core::mem::align_of::<forge::sys::hook::Hook>() == 4
 );
 
-/// The walker takes (controller, context). The observation runs before the native walker so
-/// the copied values are the state native code will draw with; it allocates, formats, logs,
-/// does floating point and, past its sample budget, reads no game memory.
+/// The walker takes (controller, context). The discovery runs before the native walker so the
+/// copied values are the state native code will draw with; it does two atomic loads and, on an
+/// attempt, a handful of checked reads, with no allocation, formatting, float or logging.
 ///
-/// Flags: the relocated window main+0xa494a0..0xa494ac keeps `cmp r1,#0` and the
+/// Flags: the relocated window main+0xa494a0..0xa494ac keeps the flag-setting compare and the
 /// flag-consuming `popeq` in the same unit; this callback restores NZCVQ through the normal
 /// AAPCS return and never writes APSR (verify.py scans the disassembly; the window has no
 /// SEL/USAD8/MRS/MSR, so no APSR_ge producer exists).
@@ -67,7 +67,7 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
         return;
     } // Installation never publishes an original of zero.
     if msg_active.load(Ordering::Acquire) {
-        sampling::observe(controller, context);
+        sampling::observe(controller);
         // Three word reads while a mask is inserted, and the only reacquire signal that runs
         // when the inserted mask dies with its row.
         insert::check_liveness();
@@ -104,16 +104,16 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
 /// The row root's destructor (cGUIObjRoot vtable slot 0x04, main+0xa486fc) frees the row's
 /// draw cache and then deletes its child chain, which is where the inserted mask and its
 /// children go. The capture is dropped before the original runs. Roots other than the captured
-/// controller are untouched. It has fired zero times in six sessions: the mask's liveness is
-/// checked at its enter hook, which is the teardown this build can prove.
+/// row root are untouched. This hook has fired in no logged run, so the mask's own liveness
+/// check at its enter hook is the teardown this build relies on.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_root_dtor(root: u32) {
     let original = msg_root_dtor_original.load(Ordering::Acquire);
     if original == 0 {
         return;
     }
-    // The argument is the row's root node: the r28 tree lines show the root's parent is the
-    // controller, so the controller is never this argument, and the old comparison was dead.
+    // The argument is the row's root node, whose parent is the controller: it is never the
+    // controller itself, which is what an earlier comparison tested.
     if msg_root_dtor_active.load(Ordering::Acquire)
         && root != 0
         && root == insert::row_root()
@@ -128,10 +128,10 @@ pub unsafe extern "C" fn msg_root_dtor(root: u32) {
 /// The mask's own enter handler (main+0xa4ba94), reached through the class vtable during the
 /// draw walk: the call that reads the mask's rectangle at +0xb0..+0xbc and applies the scissor.
 /// The game's layout rebuilds that rectangle from the node's own quad, and a node the animation
-/// row has no entry for comes out with width 0, which is r18's missing gauge: 376 of 383 probe
-/// lines read left == right with flags 0x1. The box is written here, in this same call,
-/// immediately before the original reads it. Only the mask carrying this plugin's marker is
-/// touched; every other scissor mask pays one word read and a compare.
+/// row has no entry for comes out with width 0, which is a gauge clipped away by a mask that was
+/// asked for a real box. The box is written here, in this same call, immediately before the
+/// original reads it. Only the mask carrying this plugin's marker is touched; every other
+/// scissor mask pays one word read and a compare.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_mask_enter(mask: u32, _context: u32) {
     let original = msg_mask_enter_original.load(Ordering::Acquire);
@@ -147,9 +147,8 @@ pub unsafe extern "C" fn msg_mask_enter(mask: u32, _context: u32) {
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
 /// instance capture, the row facts and the insertion all start over on the HUD the game builds
-/// next. Quests are split into areas with a loading screen between them (the tester's account,
-/// 2026-10-24, matching the logs: HUD-absent stretches, a bar rect that changes layout, then
-/// freed objects), so a row's death is a normal event of a hunt, not an edge case. Two paths
+/// next. Quests are split into areas with a loading screen between them, and each area's HUD is
+/// a row of its own, so a row's death is a normal event of a hunt, not an edge case. Two paths
 /// reach this: the root destructor hook, and the inserted mask's own link check.
 pub fn teardown_gauge_row(controller: u32) {
     gui::on_teardown();

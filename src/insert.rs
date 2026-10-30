@@ -1,36 +1,32 @@
 //! Insert one scissor mask into the gauge row, with the two storage expansions it needs.
 //!
-//! The native contracts this rests on, all read from the decompiles and the runs recorded in
+//! The native contracts this rests on, all read from the decompiles recorded in
 //! work/modern-sharpness-gauge/PHASE2_RESEARCH.md:
 //!
 //! - The row's object array at `instance+0xd8` (aliased at `root+0xa0`) is indexed by
 //!   main+0x5456e4 with main+0xa47d2c's node count + 1, dispatching vtable slot 0x50 on each
 //!   entry. It holds one word per object with the controller first, so an added node needs a
-//!   fifth word. It is grown through the `cGUIInstance` DTI's MT allocator, the accepted
-//!   Key Quest Markers pattern: Forge's malloc cannot free what the game's destructor frees.
+//!   fifth word. It is grown through the `cGUIInstance` DTI's MT allocator, the Key Quest
+//!   Markers pattern: Forge's malloc cannot free what the game's destructor frees.
 //! - The draw block is sized by main+0xa49b28 as `(objects << 4 | 8) + sequences * 12` from the
 //!   halfwords at row+8, allocated through the root's vtable slot 0x58, with the walker's
-//!   pointer at `alloc + sequences * 12`. This row measured 3 objects and 16 sequences, so its
-//!   record area is 56 = 7 records and the mask's tree emits 9 = 72: the insertion has to grow
-//!   it, which is r14's cache overflow.
+//!   pointer at `alloc + sequences * 12`. This row is sized for 3 objects and 16 sequences, so
+//!   its record area holds 7 records, and the mask's tree emits 9: the insertion has to grow
+//!   the block.
 //! - The mask's rectangle at `+0xb0..+0xbc` is owned by the game's layout, which rebuilds it
 //!   from the node's own quad (position + authored size). A node the animation row has no entry
-//!   for comes out with width 0, so the box is written at the mask's enter handler main+0xa4ba94
-//!   in the same call that reads it: r18 wrote it from the draw walker's entry and the run
-//!   showed 376 of 383 probe lines with left == right, the gauge clipped away.
+//!   for comes out with width 0, so the box is written at the mask's enter handler
+//!   main+0xa4ba94 in the same call that reads it.
 //!
 //! Everything here runs inside a native callback on the game's GUI thread. No game pointer is
 //! kept past the callback: addresses are plain integers, cleared by the root destructor hook
 //! and by the mask's own liveness check in `enter`.
-use crate::{
-    gui, memory,
-    sampling,
-};
+use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, span_box, NODE_AUTHORED_WIDTH, NODE_CHILD,
-    NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
+    basis_points, cut_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT, NODE_PARENT,
+    NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -62,7 +58,7 @@ static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
 
-/// The plugin thread's own update tick, used only to rate-limit the forced-ratio log line.
+/// The plugin thread's own update tick, used only to rate-limit the cut's log line.
 /// shortcut: pacing the log by update count, not seconds; 30 updates is a fraction of a second.
 static UPDATES: AtomicU32 = AtomicU32::new(0);
 
@@ -72,36 +68,28 @@ pub fn tick_clock() {
     UPDATES.fetch_add(1, Ordering::Relaxed);
 }
 
-/// The tester's accepted cut geometry: the box's right edge at 0% and at 100%, in absolute screen
-/// pixels on the bar's rect (its 110..238 span). The pair is what the tester dialled in and accepted
-/// on the r42 run: 128 px at 0%, and 200 px at 100%. Every fill level cuts between these two,
-/// linearly. Plain constants - this mod has no settings, no INI and no save data.
-pub const CUT_START_DEFAULT: f32 = 128.0;
-pub const CUT_END_DEFAULT: f32 = 200.0;
-
-
-/// The forced-ratio line queued by `enter`: ratio_bp, the box written, the bar's own rect at
+/// The cut line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
-/// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the width
-/// the box was built from. The ratio is always the player's own sharpness and the endpoints are
-/// the accepted constants, so neither is repeated on the line.
-pub const FORCED_WORDS: usize = 19;
-static FORCED: [AtomicU32; FORCED_WORDS] = const { [const { AtomicU32::new(0) }; FORCED_WORDS] };
-static FORCED_READY: AtomicBool = AtomicBool::new(false);
+/// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the rect
+/// width the box was built from. The ratio is always the player's own sharpness and the
+/// endpoints are core's accepted offsets, so neither is repeated on the line.
+pub const CUT_WORDS: usize = 19;
+static CUT: [AtomicU32; CUT_WORDS] = const { [const { AtomicU32::new(0) }; CUT_WORDS] };
+static CUT_READY: AtomicBool = AtomicBool::new(false);
 /// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
-static FORCED_RATIO: AtomicU32 = AtomicU32::new(u32::MAX);
+static CUT_RATIO: AtomicU32 = AtomicU32::new(u32::MAX);
 /// The last clock tick that queued a line, for the rate limit above.
-static FORCED_LOG_AT: AtomicU32 = AtomicU32::new(0);
+static CUT_LOG_AT: AtomicU32 = AtomicU32::new(0);
 
-/// The queued line, taken once per change of the forced ratio. `forge_onUpdate` prints it, so
+/// The queued line, taken once per change of the cut's ratio. `forge_onUpdate` prints it, so
 /// nothing is formatted in the hook and nothing is logged per frame.
-pub fn take_forced_line() -> Option<[u32; FORCED_WORDS]> {
-    if !FORCED_READY.swap(false, Ordering::Acquire) {
+pub fn take_cut_line() -> Option<[u32; CUT_WORDS]> {
+    if !CUT_READY.swap(false, Ordering::Acquire) {
         return None;
     }
-    let mut out = [0u32; FORCED_WORDS];
+    let mut out = [0u32; CUT_WORDS];
     for (index, slot) in out.iter_mut().enumerate() {
-        *slot = FORCED[index].load(Ordering::Relaxed);
+        *slot = CUT[index].load(Ordering::Relaxed);
     }
     Some(out)
 }
@@ -114,8 +102,10 @@ fn rect_at(node: u32, offset: u32) -> [i32; 4] {
     }
     out
 }
-// The r25 run: the gauge row is never rebuilt after an area change. Which link broke at the
-// drop, and what the kept addresses read as afterwards, are the facts no log line carries.
+
+/// The link state as the game left it at a drop: mask marker, mask.parent, mask.child,
+/// bar.parent, bar.sibling, root.child. Which link broke is the fact the log line names, and
+/// no later read can recover it.
 static LINK_LOST: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
 const SNAPSHOT: [(usize, u32); 6] = [
     (0, MASK_ID),       // the mask's own marker word
@@ -153,17 +143,16 @@ pub struct Outcome {
     pub records: u32,
 }
 
-/// The row root's destructor ran: the game owns the mask, the map and the cache now. Called
-/// from the root destructor hook and from the mask's own link check.
+/// The row is going away: the game owns the mask, the map and the cache. Called from the root
+/// destructor hook and from the mask's own link check.
 pub fn on_teardown() {
     ROOT.store(0, Ordering::Release);
     MASK.store(0, Ordering::Release);
     BAR.store(0, Ordering::Release);
 }
 
-/// The captured row root, for the root destructor hook's gate: the r28 tree lines show the
-/// root's parent is the controller, so the destructor argument is this node, never the
-/// controller the old comparison used.
+/// The captured row root, for the root destructor hook's gate. The destructor's argument is the
+/// root node, whose parent is the controller, so the controller is never that argument.
 pub fn row_root() -> u32 {
     ROOT.load(Ordering::Relaxed)
 }
@@ -214,7 +203,7 @@ impl Allocator {
 
 /// Grow the row's object array by one entry and publish both aliases. `entries` is the length
 /// main+0x5456e4 indexes with, so the block and the new entry have to be in place before the
-/// tree gains a node: that pairing is r14's crash.
+/// tree gains a node: a fifth node against a four-word array is read past its end.
 fn grow_map(instance: u32, root: u32, entries: u32, node: u32) -> Result<u32, u32> {
     let old = memory::word(instance + 0xd8).ok_or(43u32)?;
     if old == 0 || memory::word(root + 0xa0).ok_or(43u32)? != old {
@@ -242,11 +231,10 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32) -> Result<u32, u3
     }
     // shortcut: the old 4-word block leaks (16 bytes per insertion). No code read so far
     // allocates it, and handing a block to an allocator that never owned it corrupts that
-    // allocator's free list. r26's run: at the drop the row's objects read as freed-heap fill
+    // allocator's free list. At a row's drop its objects read as freed-heap fill
     // (0xffeaeaea/0xffe3e3e3), the memory is reused by the game within seconds, and no gauge
-    // controller is matched in 25,000 discovery attempts over the following 160 s. r27 tests
-    // the leak. If the game rebuilds its row in the next area again, read who allocated the
-    // old block and free it there.
+    // controller is matched afterwards. If the game rebuilds its row in the next area again,
+    // read who allocated the old block and free it there.
     Ok(fresh)
 }
 
@@ -275,9 +263,8 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
         return Err(46);
     }
     // The root's own destructor frees root+0xa4 through slot 0x5c, so the block it replaces
-    // goes back the same way. r28 leaked it and the bar stopped drawing in the quest's first
-    // area with the mask probe unchanged, so the replacement only works with the old block
-    // returned to the root's allocator.
+    // goes back the same way. Leaving it unreleased stops the bar drawing in the quest's first
+    // area, so the replacement only works with the old block returned to the root's allocator.
     if old_alloc != 0 && old_alloc != fresh {
         let _ = memory::call2(release, root, old_alloc);
     }
@@ -285,10 +272,10 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
-/// calling its enter handler (the r20 run: freed-object reads from t=630 and no links-lost
-/// line), and quests cross areas through loading screens, so the walk of the next area is where
-/// discovery has to start again. Nothing is written here: the mask is reached through links this
-/// plugin captured, so a stale read can only drop the addresses, never write into freed memory.
+/// calling its enter handler, and quests cross areas through loading screens, so the walk of
+/// the next area is where discovery has to start again. Nothing is written here: the mask is
+/// reached through links this plugin captured, so a stale read can only drop the addresses,
+/// never write into freed memory.
 pub fn check_liveness() {
     let (mask, root) = (MASK.load(Ordering::Relaxed), ROOT.load(Ordering::Relaxed));
     if mask == 0 {
@@ -307,9 +294,9 @@ pub fn check_liveness() {
 
 /// The mask's enter handler is about to read `+0xb0..+0xbc` and apply the scissor, so the box
 /// is written here, in this call. Returns without touching anything for a mask that is not
-/// ours, and drops the addresses when the links that made it ours are gone: the r18 run showed
-/// the plugin writing into a freed mask for 90 seconds after the row's scene ended, because the
-/// root destructor never fires.
+/// ours, and drops the addresses when the links that made it ours are gone: a mask left over
+/// from a row whose scene ended keeps being entered, and writing into it then writes into
+/// freed memory.
 pub fn enter(mask: u32) {
     if memory::word(mask + MASK_ID) != Some(MARKER) {
         return;
@@ -323,18 +310,18 @@ pub fn enter(mask: u32) {
     if !alive {
         // The links that made this mask are gone: the row is going away at an area's loading
         // screen. The game is calling this mask's handler right now, so it is live, and asking
-        // it to stop clipping here is the one disable this build can prove safe. r24's run left
-        // the mask applying its last rectangle into the next area.
+        // it to stop clipping here is the one disable this build can prove safe. Left alone, the
+        // mask applies its last rectangle into the next area.
         MISSES.fetch_add(1, Ordering::Relaxed);
         snapshot(mask, bar, root);
         let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
         crate::hooks::teardown_gauge_row(root);
         return;
     }
-    // The live fill (plan Phase 3): the local player's own sharpness points, read fresh in this
-    // call through the same checked mapping the sampler uses. No valid gauge - no player yet, a
-    // zero maximum, points above the maximum - is unsupported state, so the clip is turned off
-    // here and the native gauge is left as the game draws it.
+    // The live fill: the local player's own sharpness points, read fresh in this call through
+    // the same checked mapping discovery uses. No valid gauge - no player yet, a zero maximum,
+    // points above the maximum - is unsupported state, so the clip is turned off here and the
+    // native gauge is left as the game draws it.
     let ratio = match sampling::live_gauge().and_then(|gauge| basis_points(gauge)) {
         Some(bp) => bp,
         None => {
@@ -345,44 +332,30 @@ pub fn enter(mask: u32) {
     let updates = UPDATES.load(Ordering::Relaxed);
     let rect = rect_at(bar, NODE_RECT);
     // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
-    // enter: the clip line's own bar probe read 0xFFFF64EE there, and mask_box saw width 0
-    // every frame - the authored pair stayed (0,128), the rect stayed 110..110, and the mask
-    // subtree drew nothing in every run (r24-r27's visible gauge was the game's own bar on the
-    // unbroken sibling chain, never the mask's). The bar's screen rect is the proven width:
-    // 110..238 = 128 in the tree lines.
+    // enter, so it reads 0 here and a box built from it cuts the blade near the tip. The bar's
+    // screen rect is the proven draw width: 110..238, 128 px in the gauge row's tree.
     if rect[2] <= rect[0] {
         return;
     }
-    // Which width the box is built from is the whole question, and both runs photographed it.
-    // r34 fed the bar's authored 88 px (the field at bar+0xb4, printed as bar_w=): its 100% box
-    // ends at 190 and the tester's screenshot shows the blade cut near the tip, so the sprite is
-    // not drawn 88 px wide. r33 fed the rect's 128 px: its 100% box ends at 226 and shows the
-    // whole blade. The rect width is the draw scale, and it is the box's limit here. The authored
-    // read stays as the logged proof of the difference.
     let authored = memory::word(bar + NODE_AUTHORED_WIDTH)
         .map(|word| f32::from_bits(word) as i32)
         .unwrap_or(0);
-    // The box runs between the tester's accepted endpoints, linear in the ratio: 128 px at 0% and
-    // 200 px at 100% on the bar's 110..238 rect. Core's measured 124..204 track (mask_box) stays in
-    // core as the refutation record for the authored-88 feed and is not what the gauge draws.
-    let box_words = span_box(
-        rect,
-        ratio,
-        CUT_START_DEFAULT as i32 - rect[0],
-        CUT_END_DEFAULT as i32 - rect[0],
-    );
-    // One line per change of the driving ratio, rate-limited so dragging the slider cannot
-    // flood the log: a change inside the last 30 updates is not printed.
-    if ratio != FORCED_RATIO.swap(ratio, Ordering::Relaxed)
-        && updates.wrapping_sub(FORCED_LOG_AT.load(Ordering::Relaxed)) >= 30
+    // The box runs between the accepted endpoints, which core scales by this rect's width, so a
+    // bar laid out wider or narrower cuts the same fraction of its blade. The authored read
+    // stays in the log line as the proof of that difference.
+    let box_words = cut_box(rect, ratio);
+    // One line per change of the driving ratio, rate-limited so a fast sequence of ratio
+    // changes prints one line, not one per frame.
+    if ratio != CUT_RATIO.swap(ratio, Ordering::Relaxed)
+        && updates.wrapping_sub(CUT_LOG_AT.load(Ordering::Relaxed)) >= 30
     {
-        FORCED_LOG_AT.store(updates, Ordering::Relaxed);
-        // One line per change of the forced ratio, queued for the plugin thread to print:
-        // the box written, then the bar's own rect, the rect prepaint leaves after the clip
-        // intersection, the rect inside the atlas, and the width the box was built from.
+        CUT_LOG_AT.store(updates, Ordering::Relaxed);
+        // Queued for the plugin thread to print: the box written, then the bar's own rect, the
+        // rect prepaint leaves after the clip intersection, the rect inside the atlas, and the
+        // width the box was built from.
         let effective = rect_at(bar, NODE_EFFECTIVE_RECT);
         let texture = rect_at(bar, NODE_TEXTURE_RECT);
-        FORCED[0].store(ratio, Ordering::Relaxed);
+        CUT[0].store(ratio, Ordering::Relaxed);
         for (edge, word) in box_words
             .iter()
             .chain(rect.iter())
@@ -390,29 +363,29 @@ pub fn enter(mask: u32) {
             .chain(texture.iter())
             .enumerate()
         {
-            FORCED[1 + edge].store(*word as u32, Ordering::Relaxed);
+            CUT[1 + edge].store(*word as u32, Ordering::Relaxed);
         }
-        FORCED[17].store(authored as u32, Ordering::Relaxed);
-        FORCED[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
-        FORCED_READY.store(true, Ordering::Release);
+        CUT[17].store(authored as u32, Ordering::Relaxed);
+        CUT[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
+        CUT_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
-    // are the writes that matter. The r23 run read the rectangle 225 times with width 0 and
-    // height 32 at the parent's origin (110,38), against authored 128x32, which pins each input:
+    // are the writes that matter. A rectangle read as width 0, height 32 at the parent's origin
+    // (110,38), against authored 128x32, pins each input:
 
     // 1. The anchor modes, bits 0-3 of +0xa0: `& 0xc` is x and `& 3` is y, mode 0 spans
     //    0..size, 1 centres, 2 spans -size..0, 3 collapses the axis. The factory writes
     //    (word & 0xfffff000) | 0xff0 and leaves bits 0-3 as the block came from the allocator,
-    //    and the class has no Anchor property in its DTI record, so bits 0-3 are recycled.
-    //    r23 cleared them (its run read anchors=0xfffffff0) and the width stayed 0.
+    //    and the class has no Anchor property in its DTI record, so bits 0-3 are recycled. They
+    //    have to read 0 for the width to reach the rectangle.
     if let Some(anchors) = memory::word(mask + MASK_ANCHORS) {
         if anchors & 0xf != 0 {
             let _ = memory::write_word(mask + MASK_ANCHORS, anchors & !0xf);
         }
     }
     // 2. The transform's x row, at +0x10/+0x14. The builder multiplies the authored width by
-    //    +0x10 for x and by +0x14 for y, and the authored height by +0x20/+0x24. The r23 numbers
-    //    (width 0 from an authored 128, height 32 from an authored 32) say the height row is
+    //    +0x10 for x and by +0x14 for y, and the authored height by +0x20/+0x24. A width of 0
+    //    from an authored 128, with a height of 32 from an authored 32, says the height row is
     //    (0,1) and the width row is (0,0): the factory copies its matrix template, and that
     //    template carries no x scale. Set the x scale to 1.0 and the authored width reaches the
     //    rectangle.
@@ -422,7 +395,7 @@ pub fn enter(mask: u32) {
     //    top to bottom; the width is the ratio's share of it. The position at +0x80 is a DTI
     //    property that the row's layout resolves into the matrix for animated nodes, and this
     //    node has no animation entry, so writing it does nothing: the rectangle's origin comes
-    //    from the parent's transform, which is the gauge's own corner (110,38 in r22/r23).
+    //    from the parent's transform, which is the gauge's own corner (110,38).
     let height = (rect[3] - rect[1]).max(1);
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
@@ -441,9 +414,9 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     }) {
         return Err(49);
     }
-    // The r17 run read the row's two pairs: row+4 is 4 and 15, row+8 is 3 and 16, and the cache
-    // sits 192 = 16 * 12 into the allocation. The sizing pair is row+8, and its objects field
-    // equals the tree's node count; the map is the field that is one longer.
+    // The row's two count pairs: row+4 is 4 and 15, row+8 is 3 and 16, and the cache sits
+    // 192 = 16 * 12 into the allocation. The sizing pair is row+8, and its objects field equals
+    // the tree's node count; the map is the field that is one longer.
     let objects = memory::half(row.description + ROW_SIZING).ok_or(48u32)? as u32;
     let sequences = memory::half(row.description + ROW_SIZING + 2).ok_or(48u32)? as u32;
     let nodes = sharpness_gauge_core::count_nodes(&Read, root).0;
@@ -458,7 +431,7 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     }
     let dti = MtDti::find("cGUIObjScissorMask").ok_or(40u32)?;
     // The class factory allocates the 0xd0-byte object through the mask DTI's MT allocator and
-    // constructs it; r14's run shows the object it returns passes the class test and draws.
+    // constructs it; the object it returns passes the class test and draws.
     let mask = memory::call0(base() + 0xa4b6cc).ok_or(40u32)?;
     if mask == 0 || !is_type(mask, dti as *const _ as u32) {
         return Err(40);

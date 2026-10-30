@@ -19,7 +19,9 @@ pub const ROOT_DESTRUCTOR_HOOK: u32 = 0xa486fc;
 /// point where a written box is certain to be the box that gets applied.
 pub const MASK_ENTER_HOOK: u32 = 0xa4ba94;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
-    // main+0xa494a0: draw walker entry; the hook target. push {r4,r5,r11,lr} prologue, unique 12-word pattern
+    // main+0xa494a0: draw walker entry; the hook target. A push of four saved
+    // registers plus lr, so the relocated window has no PC-relative operand; unique
+    // 12-word pattern.
     (0xa494a0, [
         48, 72, 45, 233, 1, 64, 160, 225,
         128, 16, 144, 229, 0, 0, 81, 227,
@@ -124,9 +126,12 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         4, 80, 34, 224, 3, 48, 149, 225,
         48, 136, 189, 8, 168, 32, 128, 229,
     ]),
-    // main+0xa4844c: native sibling linker, `str r1,[r0,#0x6c]` then a copy of
-    // r0's parent into the attached node. main+0xa48460 is the native child linker,
-    // `str r1,[r0,#0x68]` then `str r0,[r1,#0x70]`. The insertion calls both.
+    // main+0xa4844c: the native sibling linker. It stores the second argument into
+    // the first argument's sibling link at +0x6c, then copies the first argument's
+    // parent into the attached node. main+0xa48460 is the native child linker: it
+    // stores the second argument into the first's child link at +0x68, then stores
+    // the first argument into the attached node's parent link at +0x70. The
+    // insertion calls both.
     (0xa4844c, [
         108, 16, 128, 229, 0, 0, 81, 227,
         112, 0, 144, 21, 112, 0, 129, 21,
@@ -149,8 +154,8 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     ]),
     // main+0xa486fc: cGUIObjRoot destructor, vtable slot 0x04 of main+0x178f9bc. It
     // frees the row's draw cache and then deletes the root's child chain. Hook
-    // target: push {r4,r5,r11,lr} then mov r4,r0, so the relocated window has no
-    // PC-relative operand.
+    // target: a push of four saved registers plus lr, then the argument copied into a
+    // saved register, so the relocated window has no PC-relative operand.
     (0xa486fc, [
         48, 72, 45, 233, 0, 64, 160, 225,
         144, 0, 159, 229, 0, 0, 159, 231,
@@ -158,7 +163,7 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         164, 80, 148, 229, 0, 0, 85, 227,
     ]),
     // main+0x7aa47c: MtDti::getAllocator, the DTI's MT allocator getter. Ghidra names it;
-    // Key Quest Markers r17 calls the same entry to allocate game-owned GUI memory. Called,
+    // Key Quest Markers calls the same entry to allocate game-owned GUI memory. Called,
     // never hooked. Window from original main.
     (0x7aa47c, [
         16, 16, 159, 229, 24, 0, 144, 229,
@@ -166,8 +171,9 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         0, 1, 145, 231, 30, 255, 47, 225,
         192, 239, 8, 1, 48, 72, 45, 233,
     ]),
-    // main+0xa4ba94: the mask enter handler; a hook target. push {r4..r11,lr} then
-    // add r11, sp, #0x18: no PC-relative operand in the relocated eight bytes.
+    // main+0xa4ba94: the mask enter handler; a hook target. A push of the callee-saved
+    // registers plus lr, then a frame-pointer set-up from the stack pointer: no
+    // PC-relative operand in the relocated eight bytes.
     (0xa4ba94, [
         240, 77, 45, 233, 24, 176, 141, 226,
         80, 208, 77, 226, 31, 208, 195, 231,

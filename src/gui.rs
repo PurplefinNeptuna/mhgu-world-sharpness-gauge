@@ -2,23 +2,23 @@
 //!
 //! The gauge row is the animation controller the walker reports, its root at `root+0x68`, and
 //! the bar, glow and edge as its child/sibling chain, identified by authored size. What the
-//! gates and facts rest on, from the decompiles and runs in work/modern-sharpness-gauge/
-//! PHASE2_RESEARCH.md:
+//! gates and facts rest on, from the decompiles recorded in
+//! work/modern-sharpness-gauge/PHASE2_RESEARCH.md:
 //! - main+0xa494a0 writes 8-byte records (kind, node) into `controller+0x80`; main+0xa49b28
 //!   sizes that area from the halfwords at **row+8** as `objects * 16 + 8 + sequences * 12` and
-//!   publishes `cache = allocation + sequences * 12`. The row measured 3 objects, 16 sequences:
-//!   area 56 = 7 records, and the inserted tree's 9 do not fit, which is r14's cache overflow.
+//!   publishes `cache = allocation + sequences * 12`. This row is sized for 3 objects and 16
+//!   sequences: a 7-record area, so the inserted tree's 9 records do not fit and the insertion
+//!   has to grow the block.
 //! - main+0xa47d2c counts the nodes under `+0x68`/`+0x6c` with no visibility test;
 //!   main+0xa38ffc returns that + 1 and main+0x5456e4 uses it as the length of the instance's
-//!   array at `+0xd8`, dispatching slot 0x50 per entry. The r16/r17 runs read the four entries
-//!   as controller, bar, glow, edge: r14's inserted node made five indexes against four words,
-//!   and the crash log's `0x727272` is that loop's read of freed fill.
+//!   array at `+0xd8`, dispatching slot 0x50 per entry. The gauge row's four entries are the
+//!   controller, bar, glow and edge, so an inserted node needs a fifth entry: five indexed
+//!   reads through a four-word array run past it and end in that loop.
 //! - the root destructor main+0xa486fc frees `root+0xa4` and deletes the child chain.
-//! - r14's mask clipped the gauge away: the rectangle the game built at `mask+0xb0..+0xbc` was
-//!   `0 0 W 32` in all 2,512 printed lines for a box asking `110,32`, and r18 proved the same
-//!   from the other side, writing the rectangle from the walker's entry and leaving 376 of 383
-//!   probe lines at left == right. The geometry belongs to the game's layout, so the box is
-//!   written at the mask's enter handler: see `src/insert.rs`.
+//! - the rectangle the game builds for a mask at `mask+0xb0..+0xbc` comes out of its own layout,
+//!   and a node the row has no entry for gives it width 0: a mask built from the walk's entry
+//!   clipped the gauge away. The geometry belongs to the game's layout, so the box is written at
+//!   the mask's enter handler: see `src/insert.rs`.
 use crate::{
     hooks,
     insert,
@@ -137,14 +137,16 @@ fn read_row() -> Result<Row, u32> {
     {
         return Err(24);
     }
-    // Gauge layout, from the walker decompile at main+0xa494a0 and the r9 Eden log.
+    // Gauge layout, from the walker decompile at main+0xa494a0.
     // The walk root is a cGUIObjRoot: the bar's parent, the draw cache lives at
     // root+0x80, and the walk ends when the next pointer comes back to the root. The
     // three sharpness textures are direct siblings of the root.
     // A sharpness gauge must be live. The hub has no gauge, a quest that ended
     // tears its HUD down, and weapons without sharpness (bowguns, the prowler
     // rig) never build the gauge row at all.
-    sampling::gauge_points().ok_or(34u32)?;
+    if !sampling::gauge_present() {
+        return Err(34);
+    }
     let root_dti = MtDti::find("cGUIObjRoot").ok_or(33u32)?;
     if !is_type(root, root_dti as *const _ as u32) {
         return Err(25);
@@ -203,7 +205,7 @@ fn read_row() -> Result<Row, u32> {
     // How the walk closes, from main+0xa494a0: a sibling equal to the root breaks
     // the loop, and a zero sibling pops to node+0x70, which the gates above prove
     // is the root. Both closings are valid, any other pointer is not the end of
-    // this chain. The r10 log shows the edge glyph closing with sibling 0.
+    // this chain. The gauge row's edge glyph closes it with sibling 0.
     let terminator = memory::word(edge.wrapping_add(sharpness_gauge_core::NODE_SIBLING)).ok_or(23u32)?;
     if terminator != 0 && terminator != holder {
         return Err(30);
@@ -241,10 +243,9 @@ impl sharpness_gauge_core::Memory for Read {
 
 /// Copy the row, map and object words out, read-only. The array at `instance+0xd8` is
 /// read for its four entries: main+0x5456e4 indexes it with `main+0xa47d2c`'s node count
-/// plus one, so this line prints both numbers. The r15 run of 2026-10-23 (163.5 s, gauge
-/// controller 0x4800b250) printed tree_nodes=3 against this row's 4 objects, and showed
-/// that `+0xd8` is only an array on the captured HUD instance: read from the controller's
-/// owner field at `root+0xa0` it is the freed block's fill 0x727272.
+/// plus one, so this line prints both numbers. The gauge row's count is 3 nodes against
+/// its 4 objects. `+0xd8` is an array only on the captured HUD instance: the same field on
+/// the controller's owner at `root+0xa0` is a different object.
 fn facts(row: &Row, instance: u32) -> [u32; FACTS_WORDS] {
     let root = row.root;
     let row_word = word(root + 0x9c);
@@ -354,9 +355,9 @@ pub fn tick() -> Option<Reading> {
     })
 }
 
-/// The row's root is being destroyed. Nothing in this build touches the tree, so this
-/// only clears the state: the facts line is printed once per gauge HUD, and the sampler
-/// stops comparing walker arguments against a freed address.
+/// The gauge row is going away. The game owns the tree, the mask, the map and the cache
+/// from here on: this clears this build's own state, so the facts line is printed once per
+/// gauge HUD and the sampler stops comparing walker arguments against a freed address.
 pub fn on_teardown() {
     insert::on_teardown();
     STATE.store(0, Ordering::Release);

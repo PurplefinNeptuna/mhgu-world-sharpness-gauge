@@ -1,14 +1,15 @@
 //! Modern sharpness gauge: the game's sharpness bar, clipped to the local player's own sharpness
-//! ratio, read in the mask's enter hook. The box is built from the tester's accepted 128..200 px
-//! endpoints on the bar's rect. There are no settings and therefore no Plugin UI panel.
+//! ratio, read in the mask's enter hook. The box is built from the accepted cut endpoints, as
+//! offsets on the bar's own rect, scaled by that rect's live width. There are no settings and
+//! therefore no Plugin UI panel.
 //!
-//! Four hooks: the draw walker (main+0xa494a0) observes the gauge controller, the player's
-//! sharpness fields and the node tree; the instance draw entry (main+0xa39300) records the row
-//! instance; the row root's destructor (main+0xa486fc) clears that capture; the scissor mask's
-//! enter handler (main+0xa4ba94) writes the clip box in the call that applies it. The build
-//! writes game memory and inserts one GUI object, so it changes what is drawn. `src/gui.rs`
-//! names the log lines and the native code behind them. Forge supplies lifecycle, allocation
-//! and logging; stock Forge filters levels below ERROR, hence log::error! for diagnostics.
+//! Four hooks: the draw walker (main+0xa494a0) finds the gauge controller and the local player;
+//! the instance draw entry (main+0xa39300) records the row instance; the row root's destructor
+//! (main+0xa486fc) clears that capture; the scissor mask's enter handler (main+0xa4ba94) writes
+//! the clip box in the call that applies it. The build writes game memory and inserts one GUI
+//! object, so it changes what is drawn. `src/gui.rs` names the log lines and the native code
+//! behind them. Forge supplies lifecycle, allocation and logging; stock Forge filters levels
+//! below ERROR, hence log::error! for diagnostics.
 #![no_std]
 extern crate alloc;
 use alloc::string::String;
@@ -76,7 +77,7 @@ pub extern "C" fn forge_onInit() {
             log::info!(concat!(
                 "Modern Sharpness Gauge ",
                 env!("MSG_VERSION"),
-                " loaded (diagnostic; no drawing changes)"
+                " loaded (clips the sharpness gauge to the player's sharpness)"
             ));
         }
         Err(reason) => log::error!("Modern Sharpness Gauge disabled: {reason}"),
@@ -85,26 +86,25 @@ pub extern "C" fn forge_onInit() {
 
 /// Logging runs here, outside the hook. What is printed is the run's evidence: one line per gauge
 /// row read (with the insertion's own outcome), one line per mask teardown, one line each time the
-/// fill's ratio steps, and one line when the gauge HUD is absent. The Phase 2 dump lines - the
-/// per-sample identity lines, the per-node tree lines, the clip readback and the dropped-row probe -
-/// are gone: their questions are answered and recorded in DEVELOPMENT.md.
+/// cut's ratio steps, and one line when the gauge HUD is absent. The row-check stage prints when
+/// it changes, not on every retry.
 #[unsafe(no_mangle)]
 pub extern "C" fn forge_onUpdate(delta: f32) {
     let _ = delta;
     // The clip box follows the player's sharpness; one line each time that ratio steps.
     insert::tick_clock();
-    if let Some(forced) = insert::take_forced_line() {
+    if let Some(cut) = insert::take_cut_line() {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
             " fill ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed}"
         ),
-        ratio = forced[0],
-        bl = forced[1] as i32, bt = forced[2] as i32, bw = forced[3] as i32, bh = forced[4] as i32,
-        l = forced[5] as i32, t = forced[6] as i32, r = forced[7] as i32, b = forced[8] as i32,
-        el = forced[9] as i32, et = forced[10] as i32, er = forced[11] as i32, eb = forced[12] as i32,
-        tu = forced[13] as i32, tv = forced[14] as i32, tw = forced[15] as i32, th = forced[16] as i32,
-        bw2 = forced[17] as i32, feed = forced[18] as i32);
+        ratio = cut[0],
+        bl = cut[1] as i32, bt = cut[2] as i32, bw = cut[3] as i32, bh = cut[4] as i32,
+        l = cut[5] as i32, t = cut[6] as i32, r = cut[7] as i32, b = cut[8] as i32,
+        el = cut[9] as i32, et = cut[10] as i32, er = cut[11] as i32, eb = cut[12] as i32,
+        tu = cut[13] as i32, tv = cut[14] as i32, tw = cut[15] as i32, th = cut[16] as i32,
+        bw2 = cut[17] as i32, feed = cut[18] as i32);
     }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;
@@ -165,7 +165,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         controller = hooks::capture().1,
         gauge = sampling::gauge_controller());
     }
-    let (calls, _taken, matched) = sampling::stats();
+    let (calls, matched) = sampling::stats();
     if matched && !REPORTED_FIRST.swap(true, Ordering::Relaxed) {
         log::error!(concat!(
             "MSG ",

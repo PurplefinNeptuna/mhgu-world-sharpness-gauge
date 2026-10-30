@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r43",
+  "version": "r44",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r43",
+    "version": "r44",
     "status": "BUILT",
-    "nro_sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2",
+    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -85,16 +85,16 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "ae4d60e8ce6c648b9892eba06bba0b34646b90aa040114f874cbef3802295ece",
-      "src/hooks.rs": "dad9210880c0f9b4080571078ddb47d9f41fba19abdbfe21ac0aa37e281a535e",
-      "src/insert.rs": "4cd73075e51a2483c386aeae26c557ef6c94aaaba802e4724f5e76fd85efe004",
-      "src/lib.rs": "fd71b78fc0cf674ff21ba52c32539761326811edc1056b7a8d1b4d4548f0f3dc",
+      "src/gui.rs": "713c156037c64eb0d08540df95a73da6deb5f0b9d531c4529e6e3399e6c1204c",
+      "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
+      "src/insert.rs": "719a2644a43b46bdfb70e3a1f3e149b287ba3d97ee22a1ddf9327e119a50adf9",
+      "src/lib.rs": "34438114248708691678b02f74d0457450ba648b87b5ec2f82af1428de2eb6cd",
       "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
-      "src/sampling.rs": "918d50f0a32fbbb80d1c4fea3895e575f7244c4656731bbce20c5be85318ec89",
-      "src/signatures.rs": "ca5b16329bed4b45da1c282932c1409ae3a63e4d68d913c360fda837ada4319a",
+      "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
+      "src/signatures.rs": "9c225772c8d22b394c18bce255bc95a78a82378dba7d2705f606319c6697e10b",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "9aca4ccb41847caea550718ec23bcef4d422064037f19eda33259e87792a2ad9",
-      "core/tests/behavior.rs": "77a456b28a21097c33ab9039595fd4184c88f033f2075dc2732706d2e2abbe50",
+      "core/src/lib.rs": "7c7434b3e534551937a501acf5527834040c39a815cad7bff6a782dc4c35970d",
+      "core/tests/behavior.rs": "8819afe771a2888caa3710d72db3be34a96770b88dfa13210291a6dabb1f3b86",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2",
-    "elf_sha256": "cfd99fe0790a87533a9c1dac968492b20a142a5793d466faac45ad7ced35b5dd",
+    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
+    "elf_sha256": "b1c335ec238377d0f0f37fec8a8ff878ea0f76c691e62637b155de08769f506a",
     "exports": [
       "fini",
       "forge_onInit",
@@ -173,41 +173,31 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 22,
+    "count": 20,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
+      "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
       "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
       "local player chain: hunter index 0..3, index out of range, null session, empty slot",
       "signed sharpness points, tier index, null player",
-      "full controller sample copy round-trip: identity, chain, clip, 4 nodes, 3 drawables, 150/160 at tier 2, atlas rectangle 0,280,88,304",
-      "fixture walk node by node: group node then three text siblings with flags, kinds and rectangles",
+      "controller sample: identity, row and controller addresses, local player, 150/160 at tier 2",
+      "gauge controller without a player: identity reported, no gauge to fill from",
       "non-gauge controller and null row produce no sample",
-      "gauge without a player reports the tree only",
-      "tree scan truncation, dangling links, and a hidden subtree that is not walked",
+      "fixture walk node by node: group node then three text siblings with flags, kinds and rectangles; a hidden subtree is not walked",
+      "the row gates' shape: bar, glow and edge as siblings under the root, both chain closings, and the inserted mask's shape",
+      "tree scan truncation and dangling links, with the node count the insertion gates on reporting the same floor",
       "walker port main+0xa494a0 over the gauge tree before any insertion: 5 records, 40 bytes, every drawable closed",
-      "walker port over the inserted tree: mask entered first, exited last, 7 records in the looping tier and 9 with the edge glyph visible (56 and 72 bytes, inside the row's own 72-byte cache)",
+      "walker port over the inserted tree: mask entered first, exited last, 7 records in the looping tier and 9 with the edge glyph visible",
       "the r13 shape pinned: mask with the glow and edge outside its subtree emits no exit record, so a scissor started there never ends",
-      "the mask's clip is asked for by bit 0 of mask+0xa4 (main+0xa4ba20's bit); the rectangle rebuild is bit 1",
-      "cache sizing main+0xa49b28: (objects << 4 | 8) + sequences * 12, the r17-measured pair (3 objects, 16 sequences): 248-byte allocation, 56-byte area = 7 records, and 72 = 9 for the grown 4-object row",
+      "cache sizing main+0xa49b28: (objects << 4 | 8) + sequences * 12, the measured pair (3 objects, 16 sequences): 248-byte allocation, 56-byte area = 7 records, 72 = 9 for the grown 4-object row",
       "main+0xa47d2c's node count (+1) against the row's object count, on the unmodified and the inserted tree",
-      "the plan's fixed ratios through mask_box at the node's rect width: 0/2500/5000/10000 repeat every four 20 s steps, the boxes are 14/39/64/115 px (rights 124/149/174/225), the empty step stops left of the hilt glyph, and the authored 88 px feed is refuted because its 100% box ends at 190, inside the blade",
-      "the r36 steps 124/144/164/204 px at the rect width, with the 100% box covering the measured 200 px tip and staying under 210",
-      "the r38/r40 endpoints: span_box puts the box's right edge at the given start at 0% and at the given end at 100%, linear between, reproducing core's measured track at the defaults 14/94 px, never below width 1 and never past the rect"
+      "the accepted cut on the bar's 110..238 rect: rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%, widths 18 / 36 / 54 / 90 px, the box rows covering the bar and the effect glyph's offset, width never below 1 and never past the rect",
+      "the same endpoints as offsets on the measured rect: 64, 128 and 256 px rects cut at the same fraction of their width; a narrow rect scales down",
+      "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right"
     ],
-    "sampling_budget": {
-      "max_samples": 320,
-      "bucket_shift": 3,
-      "periodic_every": 2400,
-      "min_calls_apart": 120,
-      "full_resolution_on": [
-        "tier",
-        "maximum",
-        "player"
-      ]
-    },
-    "words_per_sample": 116,
-    "note": "r23: 20 host fixtures pass, unchanged: the change is the mask's anchor modes and asking the game to rebuild the rectangle, which is not host-testable; the cache/geometry fixtures were not touched.",
-    "nro_sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2"
+    "words_per_sample": 11,
+    "note": "r44: 20 fixtures pass against 22 at r43. head_field_indexes_point_at_their_names, the_prototype_fill_shares_one_boundary_column, the_mask_box_covers_the_bar_and_the_effect, the_fill_track_scales_with_the_live_bar_width and the_forced_ratios_step_the_box_from_the_rect_width tested the removed ink track, the fixed-ratio cycle and the old sample head block; the_box_endpoints_are_linear_and_never_leave_the_rect keeps span_box, which cut_box drives. The cut fixtures pin r43's boxes exactly on the bar's 110..238 rect.",
+    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f"
   },
   "runs": [
     {
@@ -853,7 +843,11 @@
     "r36's 124/144/164/204 px steps and r37's slider have no runtime evidence. The 200 px tip is measured from the r35 screenshots fitted on that run's logged cuts, a few px of noise on downscaled images; the slider path (overlay thread writes an atomic the enter handler reads) has never run, and the Plugin UI row has not been opened in a Forge overlay here.",
     "r39's draft/Apply/Reset flow ran on Eden and published the endpoints, so the panel path is proven; what is not is r40's shipped defaults 129.0/201.0, which are the r39 log's applied pair, and the panel readout line's text.",
     "r43's defaults 128.0/200.0 have no runtime evidence of their own: 128 at 0% is proven in the r42 log (the tester dragged it there), 200 at 100% is the tester's report, and 101 lines of that run end at 201.",
-    "The r43 closing build (no panel, pruned logs) has no runtime evidence: the accepted behaviour runs on r42's bytes, and the pruned build changed only the panel, the log sites and the code that fed them."
+    "The r43 closing build (no panel, pruned logs) has no runtime evidence: the accepted behaviour runs on r42's bytes, and the pruned build changed only the panel, the log sites and the code that fed them.",
+    "The r44 consolidation build has no runtime evidence. Its accepted behaviour is r42's bytes; the endpoints it stores are the tester's 128 px at 0% and 200 px at 100%, recorded as offsets on the bar's 128 px rect and proven on the host only.",
+    "r44 changes the box's arithmetic to offsets scaled by the bar rect's live width. Equal output is proven on the host at the 64, 128 and 256 px rects; a bar the game lays out at another width has not been seen on screen.",
+    "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
+    "Whether the accepted 128 / 200 px pair was dialled in with the MHGU HD Project active is unrecorded: the measuring run's log says the HD Project mod was switched off for it."
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",

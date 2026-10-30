@@ -1,3 +1,27 @@
+Current state: Phase 4 closed on r43 and the tester accepted it, so r44 is forge-modding P7: the
+consolidation after acceptance. Nothing on screen is meant to change. What the accepted build no
+longer needs is gone: core's measured ink track (`mask_box`, `boundary`, `kept`, `BAR_INK_LEFT`,
+`BAR_INK_TRACK`, `SPRITE_WIDTH`), the prototype ratio table and its 20 s clock, the float
+`fill_ratio`, the sampler's tier-packed gauge snapshot, and the sample dump from 134 words to 11 -
+the row's identity tuple, the local player and its sharpness trio, which is all discovery reads.
+The accepted cut is stored as offsets on the rect it was measured on: 18 px at 0% and 90 px at 100%
+of that rect's own 128 px, scaled by its live width, so the box's right edge is 128, 146, 164, 182
+and 200 px on the bar's 110..238 rect - the pair the tester dialled in. The names say what the code
+does now: `cut_box`, the cut line, no `forced`, no `slider`, no `prototype`, no `diagnostic`.
+README.md is the user guide and the tester steps, log-line guide and stage codes are in
+`TESTING.md`. 20 host fixtures pass, from 22: five tested only the removed track, cycle and
+head block, and three new ones pin the copied sample's slots and the cut's scaling. verify PASSED with the same 21 signature windows, the same five exports and the
+same one-file payload. `src/*.rs` is 1894 lines and `core/src/lib.rs` 547, against 1927 and 745 (the audited
+`src/svc.S` is 38 lines and unchanged).
+Gameplay NOT RUN on r44's bytes; the accepted behaviour is on r42's. The open items are at the end
+of this file. NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`.
+
+## Superseded current-state paragraphs
+
+Moved out of the head on 2026-10-30, when the phases they described closed.
+
+### r43, Phase 4 closed (2026-10-30)
+
 Current state: Phase 4 closed on r43 (`DISTRIBUTION.json`, DEVELOPMENT). The tester's instruction was to
 close the phase by pruning the spam log lines and removing the Plugin UI controls, amended on r43. The
 panel is gone - no settings, so no panel - and with it the sample ring and its 320-sample budget, the
@@ -9,6 +33,8 @@ the accepted 128..200 px track. verify.py's export list moved with the panel (no
 which is recorded beside the gate. 22 host fixtures pass; verify PASSED with the same 21 signature
 windows. NRO `c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2`. The closing build has
 not been run.
+
+### r42, Phase 4 acceptance in progress (2026-10-30)
 
 Current state: Phase 4 acceptance in progress on r42 (`DISTRIBUTION.json`, DEVELOPMENT). Three of the
 plan's Phase 4 scenarios are accepted by the tester on r42's bytes (2026-10-30): the cut tracks
@@ -198,28 +224,37 @@ r13 shape; the ARM fixtures for insertion and allocation failure are not written
 ## Commands
 
 `./build.sh doctor|build|test|verify|package|export --output DEST`. There is no
-`prepare`: this mod ships no resources, assets or INI, and has no settings
-panel (`#[forge::imgui_render] fn panel() {}` stays empty so the export set
-matches the proven loader shape). Inputs come from `build.local.json`
-(`main`, `sdk`, `forge` under `inputs`, copied from `work/shared/game-exefs/`);
-`build.local.example.json` documents the keys. Outputs go to
-`build/modern-sharpness-gauge/candidates/r1/`, scratch to
-`work/modern-sharpness-gauge/candidates/r1/`. `package` refuses to run for a
+`prepare`: this mod ships no resources, assets or INI, and has no settings,
+so no Plugin UI panel: the build exports `forge_onLoad`, `forge_onInit`,
+`forge_onUpdate`, `init` and `fini`, and `verify.py` requires exactly that set.
+Inputs come from `build.local.json` (`main`, `sdk`, `forge` under `inputs`,
+copied from `work/shared/game-exefs/`); `build.local.example.json` documents
+the keys. Outputs go to `build/modern-sharpness-gauge/candidates/VERSION/` and
+scratch to `work/modern-sharpness-gauge/candidates/VERSION/`, where VERSION is
+`scripts/paths.py`'s current version. `package` refuses to run for a
 `READY_TO_DISTRIBUTE` spec: no distribution approval exists.
 
 ## Files
 
-- `core/src/lib.rs` — `#![no_std]` decisions only: local-player chain, gauge
-  read, fill math, gauge-HUD identity, bounded tree walk, the copied `Sample`
-  and its 24 field names. No Forge, no FFI, no `unsafe`.
+- `core/src/lib.rs` — `#![no_std]` decisions only: the local-player chain, the
+  gauge read, the fill math in basis points, the gauge-HUD identity, the cut
+  box from the accepted rect offsets, the node count and cache sizing the
+  insertion gates on, the walker ports the fixtures pin, and the copied `Sample`
+  with its 11 field names. No Forge, no FFI, no `unsafe`.
 - `core/tests/behavior.rs` — host fixtures over a fake memory map.
-- `src/hooks.rs` — the single Forge hook, signature gate, rollback.
-- `src/sampling.rs` — the hot-path copy-out ring; budget, cadence, ordering.
+- `src/hooks.rs` — the four Forge hooks (walker, instance draw, row root
+  destructor, mask enter), their signature gate and rollback.
+- `src/sampling.rs` — discovery in the walker's hot path: the slow attempt
+  cadence, the captured controller and player, the gauge-present gate, and the
+  capture's teardown.
+- `src/gui.rs` — the row gates 21..34, the row facts, the retry cadence.
+- `src/insert.rs` — the mask insertion, the map and cache growth, the cut box
+  write at the mask's enter handler, and the liveness check.
 - `src/memory.rs`, `src/svc.S` — mapping-checked reads and the three SVC
   wrappers Forge does not expose (query memory, GetInfo program id, process
   cache flush). Gap documented beside each use.
-- `src/signatures.rs` — 15 32-byte windows taken from the original main NSO.
-- `src/lib.rs` — metadata record, install, drain-and-format, empty panel.
+- `src/signatures.rs` — 32-byte windows taken from the original main NSO.
+- `src/lib.rs` — metadata record, install, and the log lines outside the hooks.
 
 ## Offsets, units and proof
 
@@ -293,12 +328,12 @@ above and is read through the mapping query at runtime.
   window keeps `cmp r1,#0` with the flag-consuming `popeq`, and holds no
   SEL/USAD8/MRS/MSR, so no `APSR_g`/`APSR_nzcvqg` producer is separated from
   its consumer.
-- Inside the hook: two atomic loads after the budget is spent; no allocation,
-  formatting, file access, float, or logging. Reads go through
-  `memory::word`, which queries the mapping per access.
-- Budget: 60 samples, one every 60 walker calls, one ring slot per sample, no
-  overwrite. `forge_onUpdate` drains two per frame and formats with `FIELDS`,
-  hex for pointers and counts, decimal for the gauge.
+- Inside the hook: no allocation, formatting, file access, float, or logging.
+  Reads go through `memory::word`, which queries the mapping per access. Once
+  the row is known a walker call costs two atomic loads and one integer compare.
+- Discovery cadence: one attempt every 60 walker calls, so a few fractions of a
+  second per HUD. Nothing is queued, and `FIELDS` names the copied words;
+  formatting and logging happen only in `forge_onUpdate`.
 - Fill math, in `core`: require a live player and a maximum `> 0`, compute in
   `i64` basis points, clamp to 0..=10000. A zero, negative, missing or
   above-maximum state yields no ratio; above maximum draws full, depletion
@@ -1369,6 +1404,113 @@ the flag audit changed.
 22 host fixtures pass; verify PASSED. NRO `c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2`,
 ZIP sha256 `fda46586ab95dbb06485b0d562ebdb95666d6ed12fe52aa7b909bb6bd434e81a`. The closing build has not
 been run: the accepted behaviour is on r42's bytes and the 128/200 endpoints are the tester's measurement.
+
+## r44, built 2026-10-30: what the accepted build no longer needs
+
+The tester accepted r42's behaviour and closed Phase 4 with the r43 instruction,
+so r44 is forge-modding P7: remove the scaffolding, keep the accepted cut, and
+fix the wording that still described experiments. No hook, signature, gate,
+insertion order, link, mask write, glow or `svc.S` changed.
+
+Removed, with what each one was for:
+
+- core's measured ink track: `mask_box`, `boundary`, `kept`, `BAR_INK_LEFT` 10
+  and `BAR_INK_TRACK` 55 sprite columns against `SPRITE_WIDTH` 88. Fed the rect
+  width it gave the 124 / 144 / 164 / 204 px steps; fed the bar's authored 88 px
+  its 100% box ended at 190 px and cut the blade near the tip. That track was the
+  box builder while the Plugin UI was untouched; the accepted endpoints replaced it
+  in r41, and r44 deletes the dead builder with it.
+- `PROTOTYPE_RATIOS` and `PROTOTYPE_SECONDS`, the plan's fixed 0 / 25% / 50% /
+  100% cycle, and `fill_ratio`, the float form of a ratio the runtime never
+  formats. The cycle drove the box until r42 put the player's own sharpness in
+  its place.
+- The sampler's tier-packed gauge snapshot (10 bits current, 10 maximum, 6 tier)
+  and its `TAKEN` counter. What the row check needs is one plain question: did
+  the accepted sample carry a gauge, meaning a positive maximum and points that do
+  not pass it. Stage 34 asks exactly that.
+- The sample's extra fields. `FIELDS` is 11 words: the controller, the animation
+  row's identity tuple, the hunter index, the player and its sharpness trio. Out
+  went the owner, cache and cache flags, the tree root, the whole node walk, the
+  draw context and its live clip, `mInputFlags` (the riding-state candidate,
+  disproved: that word is the tier), `mCmdTblId` (it named the weapon in the
+  per-sample lines that no longer print), and with them `HEAD_WORDS`,
+  `NODE_WORDS`, `KEY_FIELDS`, the walk field indexes, `gauge_of` and
+  `ratio_of_words`. The node walk and the clip read existed to feed the per-node
+  tree lines and the clip readback, deleted in r43.
+- The `CUT_START_DEFAULT` / `CUT_END_DEFAULT` pair as absolute screen pixels,
+  128.0 and 200.0 on the bar's 110..238 rect. core keeps the same accepted pair
+  as offsets on that rect (18 and 90 of its 128 px) and scales them by the live
+  rect width, so a bar laid out at another width cuts the same fraction of its
+  blade. `the_accepted_cut_lands_on_the_measured_bar_at_every_ratio` pins 18 / 36 /
+  54 / 90 px widths, rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 /
+  100%, which is what r43's constants produce on that rect;
+  `the_cut_scales_with_the_bar_rect_the_row_reports` pins the scaling at 64, 128
+  and 256 px rects.
+
+Names and wording, the same pass: `FORCED` / `FORCED_WORDS` / `take_forced_line`
+are `CUT` / `CUT_WORDS` / `take_cut_line`, because the ratio is the player's, not
+forced; the startup line says the mod clips the gauge to the player's sharpness
+instead of "diagnostic; no drawing changes", which stopped being true at r17;
+`gui::on_teardown` no longer says nothing in this build touches the tree;
+`sampling::clear_controller` names the row's teardown instead of calling the
+destroyed object a controller (it is the row root, whose parent is the
+controller); "dragging the slider" left with the panel; and the run narratives
+left `src/` and `core/src/`, so `grep -nE '\br[0-9]{1,3}\b' src core/src` is
+empty. The facts those comments carried are the sections above: the 2,512 lines of
+zero-width rectangles, the 376 of 383 with `left == right`, the row's 4 objects
+against 3 tree nodes and its `0x727272` crash, `anchors=0xfffffff0`, the 3 objects
+and 16 sequences with the pointer 192 into the allocation, the freed-heap fills at
+a row's drop, and the authored-88 versus rect-128 screenshots.
+
+README.md is now the user guide. The tester steps, the report list, the log
+guide, the stage-code reference and the run-measurement note are in `TESTING.md`,
+which stays outside the ZIP, and `EXPORT.json` was refreshed for it.
+
+20 host fixtures pass, from 22: `head_field_indexes_point_at_their_names`,
+`the_prototype_fill_shares_one_boundary_column`,
+`the_mask_box_covers_the_bar_and_the_effect`,
+`the_fill_track_scales_with_the_live_bar_width` and
+`the_forced_ratios_step_the_box_from_the_rect_width` tested only the removed
+track, cycle and head block, and `the_box_endpoints_are_linear_and_never_leave_the_rect`
+keeps `span_box`, the maths `cut_box` drives. `src/*.rs` is 1894 lines and
+`core/src/lib.rs` 547, from 1927 and 745; the audited `src/svc.S` (38 lines) is unchanged.
+NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`, ZIP
+`build/modern-sharpness-gauge/candidates/r44/delivery/modern-sharpness-gauge-r44-candidate.zip`
+sha256 `f074824a3954f01e30dcbae51573c705717017437e577c4c38b3c88f93133fb7`.
+
+Gameplay NOT RUN on r44's bytes. The accepted behaviour is on r42's, and the
+cut's arithmetic is proven on the host: same endpoints, same boxes on the
+measured bar, and the scaling that only shows up on a bar laid out at a
+different width.
+
+## Open items, recorded at r44 (2026-10-30), not resolved
+
+1. Was the accepted 128 / 200 px pair dialled in with the MHGU HD Project
+   active? The tester's measurement came from the r42 run whose record says the
+   HD Project mod was switched off for that run, having been enabled before it.
+   r44 keeps the pair as offsets on the bar's own rect, which is the form that
+   survives a layout change, so the open part is only whether the accepted numbers
+   were taken with HD's layout. A run with HD on answers it; nothing in this
+   workspace says.
+2. Which thread runs the draw walker at main+0xa494a0? `insert::run` changes the
+   gauge row's tree, map and cache from `forge_onUpdate`, and Forge calls that
+   after the game's update entry at main+0x3da8fc, which the saved index names
+   `sFestaMain::move`. The mask's own writes happen inside the walker's draw on
+   whatever thread reaches the walker, and the two paths share the captured
+   addresses through atomics with no lock. Searched with
+   `./scripts/tool.sh research find 014124a0 --kind symbols` (the walker's own
+   `FUN_014124a0`, and `main+0xa39300`'s instance entry, which takes the
+   controller as its first argument), then
+   `work/modern-sharpness-gauge/scripts/xref.py 0xa494a0` and `xref.py 0xa39300`
+   for `bl` sites, `find_word.py 0xa494a0` for stored words equal to the load
+   address, and a scan of `work/research-tooling/dti` for the same number as a
+   decimal. No `bl` site, no stored word and no DTI property names either entry:
+   both are reached through pointers this index does not list, so the caller's
+   thread is not provable from the saved Ghidra and DTI data. What is proven from
+   the runs is the behaviour, not the thread: the insertion, the mask's writes and
+   the facts line all complete on a row, and the mask's enter handler is reached
+   every frame while the row is drawn. r44 changes no code for this; a fix needs
+   the thread identified first.
 
 ## Rules to keep
 

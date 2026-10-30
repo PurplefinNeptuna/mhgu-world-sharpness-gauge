@@ -5,8 +5,8 @@
 //! slow cadence until the row is known, and after that one walker call costs two loads and one
 //! integer compare. All formatting and logging happens later in `forge_onUpdate`.
 use crate::memory;
-use core::sync::atomic::{AtomicU32, Ordering};
-use sharpness_gauge_core::{FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Memory, sample_controller};
+use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use sharpness_gauge_core::{Gauge, Memory, sample_controller};
 
 /// Walker calls between discovery attempts. The walker runs for every animation controller each
 /// frame, so this is a fraction of a second.
@@ -20,18 +20,17 @@ impl Memory for Machine {
 }
 
 static CALLS: AtomicU32 = AtomicU32::new(0);
-static TAKEN: AtomicU32 = AtomicU32::new(0);
 /// The gauge controller and local player found so far. Zero CTRL means "not found yet".
 static CTRL: AtomicU32 = AtomicU32::new(0);
 static PLAYER: AtomicU32 = AtomicU32::new(0);
-/// The sharpness triple of the accepted discovery, packed 10 bits current, 10 bits maximum, 6 bits
-/// tier. A gauge of 0/0 is not a sharpness weapon.
-static LAST_GAUGE: AtomicU32 = AtomicU32::new(0);
+/// The last accepted sample carried a sharpness gauge: a positive maximum, and points that do not
+/// pass it. A gauge of 0/0 is not a sharpness weapon, and a weapon with no sharpness (a bowgun,
+/// the prowler rig) never builds the gauge row at all.
+static GAUGE_PRESENT: AtomicBool = AtomicBool::new(false);
 
-/// Called from the hook with the walker's own two arguments: the animation controller about to
-/// build its draw cache, and the draw context whose live clip every drawable in that cache is
-/// intersected with.
-pub fn observe(controller: u32, context: u32) {
+/// Called from the hook with the walker's animation-controller argument: the controller about to
+/// build its draw cache.
+pub fn observe(controller: u32) {
     let calls = CALLS.fetch_add(1, Ordering::Relaxed);
     let gauge = CTRL.load(Ordering::Relaxed);
     if gauge != 0 && controller == gauge {
@@ -41,19 +40,17 @@ pub fn observe(controller: u32, context: u32) {
         return;
     }
     let base = memory::BASE.load(Ordering::Relaxed);
-    let Some(sample) = sample_controller(&Machine, controller, context, base) else {
+    let Some(sample) = sample_controller(&Machine, controller, base) else {
         return;
     };
-    let words = sample.words();
-    LAST_GAUGE.store(
-        (words[FIELD_CURRENT as usize] & 0x3ff)
-            | ((words[FIELD_MAXIMUM as usize] & 0x3ff) << 10)
-            | ((words[FIELD_TIER as usize] & 0x3f) << 20),
+    GAUGE_PRESENT.store(
+        sample
+            .gauge
+            .is_some_and(|gauge| gauge.maximum > 0 && gauge.current <= gauge.maximum),
         Ordering::Relaxed,
     );
     CTRL.store(controller, Ordering::Relaxed);
     PLAYER.store(sample.local.player, Ordering::Relaxed);
-    TAKEN.fetch_add(1, Ordering::Release);
 }
 
 /// The controller of the gauge row, as recorded by the last accepted sample.
@@ -61,21 +58,21 @@ pub fn gauge_controller() -> u32 {
     CTRL.load(Ordering::Relaxed)
 }
 
-/// Drop the recorded gauge controller. Called from the row's root destructor
-/// (main+0xa486fc), where the object being destroyed is that controller, so the
-/// sampler stops comparing walker arguments against a freed address. Discovery
-/// starts again when a new HUD is built.
+/// Drop the recorded gauge controller and its player. Called on the gauge row's teardown, where
+/// the row the controller belongs to is going away, so the sampler stops comparing walker
+/// arguments against a freed address. Discovery starts again when a new HUD is built.
 pub fn clear_controller() {
     CTRL.store(0, Ordering::Relaxed);
+    GAUGE_PRESENT.store(false, Ordering::Relaxed);
     // The player pointer goes with it: reading a captured player after its HUD is gone is the
     // stale capture the plan's Phase 2 blocker names, and the fill reads this pointer per frame.
     PLAYER.store(0, Ordering::Relaxed);
 }
 
 /// The gauge to fill from, read fresh from the captured local player: the live sharpness points
-/// through the same checked mapping the sampler logs. Nothing captured yet, or an unsupported
+/// through the same checked mapping discovery uses. Nothing captured yet, or an unsupported
 /// player state, is None, and the caller leaves the native gauge alone.
-pub fn live_gauge() -> Option<sharpness_gauge_core::Gauge> {
+pub fn live_gauge() -> Option<Gauge> {
     let player = PLAYER.load(Ordering::Relaxed);
     if player == 0 {
         return None;
@@ -83,24 +80,15 @@ pub fn live_gauge() -> Option<sharpness_gauge_core::Gauge> {
     sharpness_gauge_core::read_gauge(&Machine, player)
 }
 
-/// Current and maximum sharpness points of the last accepted sample, when that
-/// sample carried a sharpness gauge at all. Weapons without sharpness (bowguns,
-/// the prowler rig) produce no gauge row, so there is nothing to accept.
-/// The last sampled sharpness triple. The tier is part of it: each tier is its own segment of
-/// points, so the fill ratio inside the bar is a function of the tier as much as the points.
-pub fn gauge_points() -> Option<(u32, u32, u32)> {
-    let packed = LAST_GAUGE.load(Ordering::Relaxed);
-    let current = packed & 0x3ff;
-    let maximum = (packed >> 10) & 0x3ff;
-    let tier = (packed >> 20) & 0x3f;
-    (maximum != 0 && current <= maximum).then_some((current, maximum, tier))
+/// Whether the gauge row of a weapon with sharpness has been found, which is what the row check
+/// in `src/gui.rs` needs before it reads that row.
+pub fn gauge_present() -> bool {
+    GAUGE_PRESENT.load(Ordering::Relaxed)
 }
 
-
-pub fn stats() -> (u32, u32, bool) {
+pub fn stats() -> (u32, bool) {
     (
         CALLS.load(Ordering::Relaxed),
-        TAKEN.load(Ordering::Relaxed),
         CTRL.load(Ordering::Relaxed) != 0,
     )
 }

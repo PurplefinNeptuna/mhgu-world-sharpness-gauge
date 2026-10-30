@@ -2,18 +2,18 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "Phase 4 closes on the tester's instruction: the sharpness, start-px, end-px, Apply and Reset controls are removed from the Plugin UI - no settings, so no panel - and the spam log lines go with them. The build now prints one line per gauge row read (with the insertion outcome), one per mask teardown, one each time the fill's ratio steps, one when the gauge HUD is absent, and the row-check stage only when it changes. The per-sample identity lines, the per-node tree lines, the clip readback and the dropped-row probe are deleted, along with the code that existed only to feed them: the sample ring and its 320-sample budget, the bucketing constants, the render-target scissor capture in the mask hook, and the clip/kept probe readbacks. The sampler is now discovery only. The cut is unchanged: the live player's sharpness on the accepted 128..200 px track, gates, insertion order, links, the mask's writes and the glow as the tester ran them. Amend on r43, the version the tester named as the base. verify.py's export list moved with the panel: the build now exports no ImGui callbacks at all.",
+  "reason": "Phase 4 closed on r43 and the tester accepted the behaviour, so r44 is forge-modding P7, the consolidation after acceptance: it removes what the accepted build no longer needs and aims at no visible change. Gone are core's measured ink track (mask_box, boundary, kept, BAR_INK_LEFT, BAR_INK_TRACK, SPRITE_WIDTH), the fixed-ratio prototype table and its 20 s clock, the float fill_ratio, the sampler's tier-packed gauge snapshot and its accepted-sample counter, and the sample dump beyond what discovery reads: FIELDS is 11 words (the row's identity tuple, the local player and its sharpness trio) where it was 134. The accepted cut is stored as offsets on the rect it was measured on, 18 px at 0% and 90 px at 100% of that rect's own 128 px, scaled by its live width, so the same accepted boxes (rights 128, 146, 164, 182 and 200 px) come out on the bar's 110..238 rect and a bar laid out at another width cuts the same fraction of its blade. Names and log text say what the code does now: the cut line, no 'forced', no 'slider', no 'prototype', no 'diagnostic; no drawing changes'. README.md is the user guide; the tester steps, the log guide and the stage codes are in TESTING.md, outside the ZIP. 20 host fixtures pass (22 before: the two removed fixtures covered only the deleted track and cycle) and verify PASSED with the same 21 signature windows, the same five exports and the same one-file payload. Hooks, signatures, svc.S, gates, insertion order, links, the mask's writes and the glow are untouched.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r43",
+  "version": "r44",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r43-candidate.zip",
-  "candidate": "build/modern-sharpness-gauge/candidates/r43/delivery",
+  "archive": "modern-sharpness-gauge-r44-candidate.zip",
+  "candidate": "build/modern-sharpness-gauge/candidates/r44/delivery",
   "candidate_builder": "scripts/build.py",
-  "runtime_test": "NOT RUN on the closing build. The behaviour was accepted on r42's bytes (three quests, the bowgun, non-English, HD off, other HUD gauges untouched) and the 128/200 endpoints on r43's pre-closing bytes; the pruned build has not been run. Gameplay NOT RUN.",
+  "runtime_test": "NOT RUN on r44. The behaviour was accepted on r42's bytes (three quests, the bowgun, non-English, HD off, other HUD gauges untouched) and the endpoints on the tester's r42-run measurement; the consolidation build has not been played. Gameplay NOT RUN.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -73,7 +73,8 @@
     "r25 has not been run. r24's run drew the gauge from the quest start and lost it at an area change, where a mask kept clipping after its links broke; the disable-on-loss path has no runtime evidence, and a mask inserted into a second area's row has never been observed (r24's log ends 12 s after the transition, gauge HUD absent)",
     "r40 has not been run. Its two defaults are the endpoints the r39 log shows applied (right edge 129 px at 0% and 201 px at 100%), read from the tester's run, not from an r40 run.",
     "r42 has not been run. Its fill comes from the player fields Phase 1 verified and the r41 run's accepted geometry; the per-frame fill has not been seen on screen.",
-    "r43 has not been run. 128 px at 0% is proven by the r42 log (the tester dragged the start there); 200 px at 100% is the tester's measurement, and that run's box ended at 201."
+    "r43 has not been run. 128 px at 0% is proven by the r42 log (the tester dragged the start there); 200 px at 100% is the tester's measurement, and that run's box ended at 201.",
+    "r44 has not been run. Its box arithmetic is offsets scaled by the bar rect's live width, proven on the host at the 64, 128 and 256 px rects and against r43's boxes on the 110..238 rect; the scaled form has not been seen on a bar laid out at another width."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -94,7 +95,7 @@
     "manual": [
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r3: pinned toolchain build; 10 host fixtures passed; verify.py PASSED with 15 NSO signature windows, unique hook window, expected exports, resolved imports only, no settings import, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json and DEVELOPMENT.md.",
+    "static_summary": "r44: pinned toolchain build; 20 host fixtures passed; verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json and DEVELOPMENT.md.",
     "manual_summary": "r3 was run on Eden and read: 238 lines, Long Sword 250 points and Dual Blades 200 in the same 128x128 box, tier boundaries as per-weapon point segments, a Light Bowgun hunt with no gauge HUD and no lines, a frame-based native gauge. r4 runtime NOT RUN; README.md lists the scenarios and the log to send."
   },
   "dependencies": [
@@ -107,12 +108,13 @@
   "support": {
     "DEVELOPMENT.md": "mods/modern-sharpness-gauge/DEVELOPMENT.md",
     "EVIDENCE.json": "mods/modern-sharpness-gauge/EVIDENCE.json",
-    "tests/README.md": "mods/modern-sharpness-gauge/tests/README.md"
+    "tests/README.md": "mods/modern-sharpness-gauge/tests/README.md",
+    "TESTING.md": "mods/modern-sharpness-gauge/TESTING.md"
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r43/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "c3bf8c3a8d3f795647a4e7a2c838869bd579021d4416a6e34c8742d221d55ce2"
+      "source": "build/modern-sharpness-gauge/candidates/r44/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f"
     }
   }
 }
