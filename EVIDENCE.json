@@ -4,7 +4,7 @@
   "version": "r44",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
-  "status": "DEVELOPMENT",
+  "status": "READY_TO_DISTRIBUTE",
   "provenance": {
     "plan": "work/modern-sharpness-gauge/PLAN.md (Phase 1)",
     "phase0_research": "work/modern-sharpness-gauge/PHASE0_RESEARCH.md",
@@ -817,6 +817,25 @@
         "user measurement from this run: 0% should be 128 px and 100% should be 200 px - 1 px tighter at each end than the r39 pair"
       ],
       "conclusion": "Weapon variety, a weapon with no sharpness gauge, a non-English language and the base game (HD off) all behave. The tester wants the accepted endpoints at 128..200 px, which r43 ships as the defaults."
+    },
+    {
+      "date": "2026-10-30",
+      "version": "r44",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
+      "matches_packaged_payload": true,
+      "log": "work/modern-sharpness-gauge/runs/r44-eden-2026-10-30.txt",
+      "log_sha256": "f2960a93370f283e00b7ae22db4727bb44d74f62b0a95c22ce902e5c152cc9e5",
+      "our_lines": 224,
+      "observed": [
+        "user report: ran successfully; the melee checks (full, low, empty, sharpen back), the HD Project mod on, and an area change with a quest end were all covered, and the cut sits where r43 put it at full, low and empty sharpness",
+        "209 fill lines, ratios 10000 down to 0; every line on bar rect 110 38 238 166 with feed=128, and the box at the accepted endpoints: width 18 at ratio 0 (right 128 px), 54 at 5000 bp (164 px), 90 at 10000 bp (200 px), min width 18, max 90",
+        "3 insertions (t=117.4, 1936.5, 2596.7), each with a 5-entry map and a 9-record cache; 3 links-lost teardowns (t=1319.0, 2266.5, 2889.0), each followed by a new insertion, so three gauge rows were built and dropped in one session",
+        "1 gauge controller observed line, 1 row check stopped at stage 21 (t=27.9, before any gauge HUD existed), 4 HUD-absent lines; no stage 34 and no insertion failure",
+        "33 Eden maxwell_3d Critical asserts (Eden's own GPU records, seen at shutdown in earlier runs), no ForceStop, no host SIGSEGV and no guest exception in the log"
+      ],
+      "hd_project": "on for this run (the tester's report); the gauge row's bar rect read 110 38 238 166 in every line, the same 128 px rect as the accepted runs",
+      "note": "First run of the consolidation build. Its box maths is proven at the measured rect; no bar rect other than 110..238 has been seen."
     }
   ],
   "not_proven": [
@@ -844,23 +863,17 @@
     "r39's draft/Apply/Reset flow ran on Eden and published the endpoints, so the panel path is proven; what is not is r40's shipped defaults 129.0/201.0, which are the r39 log's applied pair, and the panel readout line's text.",
     "r43's defaults 128.0/200.0 have no runtime evidence of their own: 128 at 0% is proven in the r42 log (the tester dragged it there), 200 at 100% is the tester's report, and 101 lines of that run end at 201.",
     "The r43 closing build (no panel, pruned logs) has no runtime evidence: the accepted behaviour runs on r42's bytes, and the pruned build changed only the panel, the log sites and the code that fed them.",
-    "The r44 consolidation build has no runtime evidence. Its accepted behaviour is r42's bytes; the endpoints it stores are the tester's 128 px at 0% and 200 px at 100%, recorded as offsets on the bar's 128 px rect and proven on the host only.",
     "r44 changes the box's arithmetic to offsets scaled by the bar rect's live width. Equal output is proven on the host at the 64, 128 and 256 px rects; a bar the game lays out at another width has not been seen on screen.",
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
-    "Whether the accepted 128 / 200 px pair was dialled in with the MHGU HD Project active is unrecorded: the measuring run's log says the HD Project mod was switched off for it."
+    "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too."
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-23 (r16), 2026-10-24 (r17 gate stop, r18/r20/r22/r23 insertions hiding the gauge, r24 insertion with the gauge drawing until an area change); r25 ran 2026-10-24 (links-lost fired, mask disabled; gauge row absent for 150 s after the area change); r26 ran 2026-10-24 (row freed at the drop, never rebuilt in 160 s); r27 ran 2026-10-24 (row freed at the drop, no rebuild; the map leak was not the cure); r28 ran 2026-10-24 (regression: no bar in area 1; the cache leak was the cause); r29 ran 2026-10-24 (clean teardown; nothing visible: zero-width clip); r30 ran 2026-10-24: bar visible in area 1 AND the gauge visible after an area change (rebuild healthy, the r24-r28 failure is closed); edge movement not seen; r31 ran 2026-10-24: clip applied at exact ratio in screen coordinates (scr probe), moving with sharpness; render pixel-identical to vanilla because the clip edge coincides with the fill edge; r32 NOT RUN; r33 ran 2026-10-29 on Eden (four forced steps visible, gauge survives sharpness, area and quest changes; 0% kept the hilt and 8 px of blade); r34 ran 2026-10-29 on Eden (the four steps land exactly on their boxes, and the 100% box at 190 px cuts the blade near the tip, unlike r33's 226); r35 NOT RUN",
-    "date": "2026-10-23",
-    "binary_sha256": "88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b",
+    "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",
+    "date": "2026-10-30",
+    "binary_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
-    "previous_runs": [
-      "r1 Eden 2026-10-22",
-      "r3 Eden 2026-10-22",
-      "r15 Eden 2026-10-23: read-only baseline, clean; r14 Eden 2026-10-23: the failed insertion run",
-      "r16 Eden 2026-10-23: read-only, bar visible, clean guest session; r17 inserts a mask and has not been run"
-    ]
+    "previous_runs": "r42 ran twice on Eden 2026-10-30 (three quests, bowgun, non-English, HD off); r41 ran 2026-10-29; r14-r35 as recorded in the runs list."
   },
   "sharpness_chain_research": {
     "writer": "uPlayerQuest::adjustSharpness main+0x2ad288: applies the amount as a short, clamps to 0 and mMaxSharpness, recomputes the tier, stores mSharpnessType, fires events 0x1c/0x1d/0x1e through vft+0x3ac",
@@ -880,5 +893,16 @@
     "hidden_saber_lv1": "two level-1 fits, both raw 130: levelId 55 baseId 8 type 1 (red 60, orange 30, yellow 100, green 190 to 250, 60 points wide) and levelId 431 baseId 61 type 65 (red 60, orange 40, yellow 90, green 60). The r3 log cannot separate them: one sample with sharpness between 90 and 99 decides",
     "not_claimed": "no weapon base id is mapped to a weapon name from game files; the identification is by level, amount, kireaji boundaries and raw damage against the tester's own report",
     "status": "reference only: the gauge uses current/mMaxSharpness and the game's own tier colour, so tier boundaries are not a mod requirement (tester's scope note, 2026-10-22)"
+  },
+  "promotion": {
+    "date": "2026-10-30",
+    "version": "r44",
+    "approved_by": "the user's message: ready to distribute",
+    "shipped_bytes_unchanged": true,
+    "nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
+    "candidate_zip_sha256": "19af9431338202171c70b5991d455871e32d6df8b725d93d03270cfddc2f0d00",
+    "archive": "build/modern-sharpness-gauge/releases/r44/modern-sharpness-gauge-r44.zip",
+    "backup": "backups/accepted/modern-sharpness-gauge/r44-distribution-approved/",
+    "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   }
 }

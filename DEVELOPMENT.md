@@ -1,5 +1,4 @@
-Current state: Phase 4 closed on r43 and the tester accepted it, so r44 is forge-modding P7: the
-consolidation after acceptance. Nothing on screen is meant to change. What the accepted build no
+Current state: r44 is READY_TO_DISTRIBUTE (`DISTRIBUTION.json`), promoted on 2026-10-30 and shipped unchanged. It is forge-modding P7, the consolidation after the tester accepted r42's gauge and closed Phase 4 on r43. Nothing on screen is meant to change. What the accepted build no
 longer needs is gone: core's measured ink track (`mask_box`, `boundary`, `kept`, `BAR_INK_LEFT`,
 `BAR_INK_TRACK`, `SPRITE_WIDTH`), the prototype ratio table and its 20 s clock, the float
 `fill_ratio`, the sampler's tier-packed gauge snapshot, and the sample dump from 134 words to 11 -
@@ -13,8 +12,9 @@ README.md is the user guide and the tester steps, log-line guide and stage codes
 head block, and three new ones pin the copied sample's slots and the cut's scaling. verify PASSED with the same 21 signature windows, the same five exports and the
 same one-file payload. `src/*.rs` is 1894 lines and `core/src/lib.rs` 547, against 1927 and 745 (the audited
 `src/svc.S` is 38 lines and unchanged).
-Gameplay NOT RUN on r44's bytes; the accepted behaviour is on r42's. The open items are at the end
-of this file. NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`.
+r44 ran once on Eden 2026-10-30 and the tester accepted it on its own bytes: the cut sits where r43 put
+it at full, low and empty sharpness, with the MHGU HD Project mod on, across an area change and a quest
+end (the run is recorded under r44 below). NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`.
 
 ## Superseded current-state paragraphs
 
@@ -1504,16 +1504,15 @@ cut's arithmetic is proven on the host: same endpoints, same boxes on the
 measured bar, and the scaling that only shows up on a bar laid out at a
 different width.
 
-## Open items, recorded at r44 (2026-10-30), not resolved
+## Open items, recorded at r44 (2026-10-30)
 
-1. Was the accepted 128 / 200 px pair dialled in with the MHGU HD Project
-   active? The tester's measurement came from the r42 run whose record says the
-   HD Project mod was switched off for that run, having been enabled before it.
-   r44 keeps the pair as offsets on the bar's own rect, which is the form that
-   survives a layout change, so the open part is only whether the accepted numbers
-   were taken with HD's layout. A run with HD on answers it; nothing in this
-   workspace says.
-2. Which thread runs the draw walker at main+0xa494a0? `insert::run` changes the
+1. Closed by r44's run: the accepted 128 / 200 px pair with the MHGU HD Project
+   active. The measurement came from the r42 run whose record says HD was
+   switched off for it, and r44 kept the pair as offsets on the bar's own rect,
+   so the open part was whether the accepted numbers belonged to HD's layout. The
+   r44 run played with HD on and reported the cut where r43 put it, with the bar
+   rect `110 38 238 166` on every line, the same 128 px rect as the accepted runs.
+2. Open: which thread runs the draw walker at main+0xa494a0? `insert::run` changes the
    gauge row's tree, map and cache from `forge_onUpdate`, and Forge calls that
    after the game's update entry at main+0x3da8fc, which the saved index names
    `sFestaMain::move`. The mask's own writes happen inside the walker's draw on
@@ -1532,6 +1531,44 @@ different width.
    the facts line all complete on a row, and the mask's enter handler is reached
    every frame while the row is drawn. r44 changes no code for this; a fix needs
    the thread identified first.
+
+## r44 run 2026-10-30 (Eden): the accepted cut, with the HD Project on
+
+The tester ran r44 on Eden. Installed NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`
+= the packaged payload. Log copy `work/modern-sharpness-gauge/runs/r44-eden-2026-10-30.txt` (sha256
+`f2960a93370f283e00b7ae22db4727bb44d74f62b0a95c22ce902e5c152cc9e5`), 784 lines, 224 of ours.
+
+"its ran, successfully", and all three of the checks TESTING.md asked for: the melee steps at
+full, low and empty sharpness with a sharpen back, the MHGU HD Project mod on, and a quest that
+crossed an area's loading screen and ended. On where the cut lands: "Same as r43".
+
+The log agrees. 209 fill lines, ratios from 10000 down to 0, every one on bar rect `110 38 238
+166` with `feed=128`, and the box at the accepted endpoints: width 18 at ratio 0 (right 128 px),
+54 at 5000 bp (164 px), 90 at 10000 bp (200 px), the smallest width seen 18 and the largest 90.
+Three insertions (t=117.4, 1936.5, 2596.7), each with a 5-entry map and a 9-record cache, and
+three `links lost` teardowns (t=1319.0, 2266.5, 2889.0) with a new insertion after each, so three
+gauge rows were built and dropped in one session. One `gauge controller observed`, one row check
+at stage 21 at t=27.9 before any gauge HUD existed, four HUD-absent stretches, no insertion
+failure and no stage 34. Eden logged 33 of its own `maxwell_3d` Critical asserts, with no
+ForceStop, no host SIGSEGV and no guest exception.
+
+What this settles: the accepted 128 px at 0% and 200 px at 100% work with the HD Project active,
+which was an open item, and r44 is accepted on its own bytes. What it does not settle: every line's bar rect is the measured 110..238, so the scaled
+offsets have only been seen where they reproduce r43's numbers, and the row check after a
+teardown never printed stage 34, so the cleared flag shows up as a clean restart, not a stage.
+
+## r44 promoted, 2026-10-30
+
+"ready to distribute". The candidate bytes ship unchanged: NRO
+`c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`, candidate ZIP
+`19af9431338202171c70b5991d455871e32d6df8b725d93d03270cfddc2f0d00`, kept in
+`backups/accepted/modern-sharpness-gauge/r44-distribution-approved/` with the records as they
+stood at approval. `DISTRIBUTION.json` now reads READY_TO_DISTRIBUTE with that approval, the
+archive is `modern-sharpness-gauge-r44.zip` (sha256
+`ee23ed17c52d84bbcc4ffdee3fac73d80099132bef84ede238162795705b0022`), and the release folder is
+`build/modern-sharpness-gauge/releases/r44/`. The approval quotes the Eden run above and says
+plainly what it does not cover: native Switch hardware, Ryujinx, a bar rect other than 110..238,
+and the draw walker's thread. Nothing was rebuilt for promotion.
 
 ## Rules to keep
 

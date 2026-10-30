@@ -21,7 +21,7 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r44-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r44.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
