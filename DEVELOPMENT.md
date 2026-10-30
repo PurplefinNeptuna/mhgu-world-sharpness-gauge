@@ -1476,7 +1476,7 @@ keeps `span_box`, the maths `cut_box` drives. `src/*.rs` is 1894 lines and
 `core/src/lib.rs` 547, from 1927 and 745; the audited `src/svc.S` (38 lines) is unchanged.
 NRO `c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f`, ZIP
 `build/modern-sharpness-gauge/candidates/r44/delivery/modern-sharpness-gauge-r44-candidate.zip`
-sha256 `f074824a3954f01e30dcbae51573c705717017437e577c4c38b3c88f93133fb7`.
+sha256 `19af9431338202171c70b5991d455871e32d6df8b725d93d03270cfddc2f0d00`.
 
 Gameplay NOT RUN on r44's bytes. The accepted behaviour is on r42's, and the
 cut's arithmetic is proven on the host: same endpoints, same boxes on the

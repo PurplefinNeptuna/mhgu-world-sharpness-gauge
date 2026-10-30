@@ -164,7 +164,7 @@
     "text_relocations": false,
     "observes": [
       "gauge controller identity",
-      "gauge node tree counts",
+      "local player pointer",
       "local player sharpness fields"
     ],
     "runtime_test": "NOT RUN"

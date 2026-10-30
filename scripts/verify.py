@@ -78,7 +78,7 @@ def verify():
         'hook_abi_bytes':24,'forge_trampoline_bytes':32,'forge_pool_chunk_bytes':16384,
         'compiled_status_writes':writes,'local_player_cells':['main+0x188ca48 session','main+0x1885b58 sPlayer (.bss, Ghidra-proven)'],
         'runtime_active':True,'drawing_changed':DRAWING_CHANGED,'text_relocations':False,
-        'observes':['gauge controller identity','gauge node tree counts','local player sharpness fields'],
+        'observes':['gauge controller identity','local player pointer','local player sharpness fields'],
         'runtime_test':'NOT RUN'})
     print('PASS: native imports/signatures, hook window uniqueness, flag-rule audit and payload inventory')
 if __name__=='__main__': verify()
