@@ -46,8 +46,8 @@ Tell me if any of these happen:
 - the glow next to the bar, or the glyph at the bar's edge, is missing;
 - the game stops responding, at the quest end in particular.
 
-Note which weapon you carried, whether you switched weapons, and whether the quest ended
-with the results screen.
+Note which weapon you started each quest with - MHGU changes weapons at the box between quests,
+not during one - and whether the quest ended with the results screen.
 
 ### Settings
 
