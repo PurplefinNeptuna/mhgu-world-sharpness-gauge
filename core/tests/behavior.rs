@@ -603,7 +603,8 @@ fn the_dim_blade_shows_the_hidden_part_of_the_strip() {
     // The bar's atlas window is the blade's length along v, and it slides with sharpness: the
     // live bar reads tex=0 156 87 440 at full sharpness and tex=0 440 87 512 at 44%. The hidden
     // blade is the sprite's v from the tip end down to the bar's current v1, drawn from the cut's
-    // right edge to where the tip sits at full sharpness (110 + 90 = 200 on the measured bar).
+    // right edge to where the tip sits at full sharpness (110 + 90 = 200 on the measured bar), in
+    // the bar's own band, which is where its blade ink is.
     let bar = [110, 38, 238, 166];
     let window_at = |v1: f32| [0.0f32, v1, 87.0, 440.0];
     for (ratio, v1, left, right) in [
@@ -625,7 +626,8 @@ fn the_dim_blade_shows_the_hidden_part_of_the_strip() {
     // so the copy runs 119..155 with the same sprite rows.
     let half = [110, 38, 174, 166];
     let (rect, hidden) = dim_shape(half, 0, window_at(298.0), 156.0);
-    assert_eq!((rect[0], rect[2], hidden[1], hidden[3]), (119, 155, 156.0, 298.0));
+    assert_eq!((rect[0], rect[1], rect[2], rect[3]), (119, 38, 155, 166));
+    assert_eq!((hidden[1], hidden[3]), (156.0, 298.0));
 }
 #[test]
 fn a_second_node_fits_the_grown_tree_exactly() {

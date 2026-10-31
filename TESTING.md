@@ -6,9 +6,11 @@ report, and what the log lines mean.
 ## What to check on r48
 
 r48 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
-copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47's copy drew in
-the right place with the sprite sliced the wrong way (a noisy dark band). This is the third attempt:
-report both what you see and the `dim=`, `dim_tex=` and `dim_flags=` words on the insertion line. The accepted cut itself is
+copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47 and r48 both
+report the copy built, resolved and flagged drawable, with nothing of it visible in the sharpness
+gauge (the noisy band and the grey band in the photos are the Dual Blade's demon gauge, not this mod).
+This is the next attempt: report what the sharpness gauge - the upper row, the cropped red blade -
+shows, and the `dim=`, `dim_tex=` and `dim_flags=` words on the insertion line. The accepted cut itself is
 unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
 rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
 

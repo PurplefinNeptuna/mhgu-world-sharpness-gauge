@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r48",
+  "version": "r49",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r48",
+    "version": "r49",
     "status": "BUILT",
-    "nro_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
+    "nro_sha256": "591747fc24e54fcb0eb732f1d6027a03fbeff8f38923bae6de479ff5b5135e59",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +87,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "5f29d8df3bbd923bff51eb42e0986257a3b523026ddfbe054b2cb068c2c3b655",
+      "src/insert.rs": "f0b30ad1bf4c6f2e4707cf2c6f70afa838605b7aac2baa7cc617410cf8058974",
       "src/lib.rs": "3834e5487ce76e52748ead46a80bf164de9167939dfbb4a18d8f496f5167a1b4",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
       "core/src/lib.rs": "438ba64c8cecb6934e9b70a15722d8b0fb510ff4519d68b941f00643cae667cf",
-      "core/tests/behavior.rs": "597bf46723de6376db5a3f9945744fd032733b4e9aff49b9a7f56727e8f7414a",
+      "core/tests/behavior.rs": "2bb150f6d744aed4eb88e123bda91d576cce4aa7105888d5d4946fb2f71455d8",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
-    "elf_sha256": "af97f6e3410726e1bca60f16d5e99da83edecbe640452179c28048ed94bf1410",
+    "nro_sha256": "591747fc24e54fcb0eb732f1d6027a03fbeff8f38923bae6de479ff5b5135e59",
+    "elf_sha256": "3e45c42efc701c37eb7a7e76874b51bf25081d9f115adafe487e95c5c605f216",
     "exports": [
       "fini",
       "forge_onInit",
@@ -199,7 +199,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd"
+    "nro_sha256": "591747fc24e54fcb0eb732f1d6027a03fbeff8f38923bae6de479ff5b5135e59"
   },
   "runs": [
     {
@@ -867,13 +867,22 @@
       "date": "2026-10-31",
       "version": "r47",
       "emulator": "Eden Development (user run)",
-      "status": "DRAWN_WITH_WRONG_SPRITE_WINDOW",
+      "status": "DRAW_NOT_SEEN",
       "binary_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
       "log": "work/modern-sharpness-gauge/runs/r47-eden-2026-10-31.txt",
       "log_sha256": "dc17611a502e834c7ebbcb07ea22438f053e084559a328dc6cf24fc9f176d08d",
-      "observed": "48 lines, no fault. 'scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001' - the copy exists, resolved its texture, and is visible and drawable. The tester photographed a noisy dark band to the right of the bar: the copy draws in the right place with the wrong content.",
-      "root_cause": "The bar draws the blade as a window in the atlas v: the same bar reads tex=0 156 87 440 at full sharpness and tex=0 440 87 512 at 44%, with u fixed at 0..87. r47 built its copy's window in u (the cut's fraction of the 88 columns) and copied the bar's v pair, so it sliced ~284 sheet rows sideways into a 38 px strip.",
+      "observed": "48 lines, no fault. 'scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001'. The copy exists, resolved its texture, carries the visible and drawable bits, and appeared nowhere in the sharpness gauge. The noisy band in the tester's photo near the gauges is the Dual Blade's demon gauge row (the full red blade under the sharpness gauge), which this mod does not touch.",
+      "root_cause": "Two defects in the copy, read from the geometry: its atlas window was built in u (the cut's fraction of the 88 columns) while the bar draws the blade as a window in v (tex=0 156 87 440 at full sharpness, 0 440 87 512 at 44%), and its position pair was written with screen pixels in fields the layout reads as offsets in the parent's space.",
       "fixed_in": "r48"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r48",
+      "emulator": "Eden Development (user run)",
+      "status": "DRAW_NOT_SEEN",
+      "binary_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
+      "log": "work/modern-sharpness-gauge/runs/r48-eden-2026-10-31.txt",
+      "log_sha256": "6d2da8a7e0517302f20b6e76aaf907bfe3905b9fe144fe6394b13a5f02b772ce"
     }
   ],
   "not_proven": [
@@ -905,9 +914,9 @@
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
     "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too.",
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
-    "the dim blade reading as a blade: r47's copy drew as a noisy strip (the sprite's length axis is v, not u), r48 has not been run",
     "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
-    "that the copy reads correctly under the glow's edge"
+    "that the copy reads correctly under the glow's edge",
+    "the dim blade appearing in the sharpness gauge at all: r47 and r48 report it built, resolved and flagged drawable in the log, and the tester sees no copy in the gauge; r49 fixes the layout inputs and has not been run"
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",

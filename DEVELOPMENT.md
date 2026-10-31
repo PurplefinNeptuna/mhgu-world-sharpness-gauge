@@ -1,3 +1,25 @@
+Current state: r49 DEVELOPMENT candidate. The Phase 5 copy now appears on screen: the r48 run
+reported `dim=0x48043500 dim_tex=0x5194bab0 dim_flags=0x20a0001` with `records=11`, no fault and 62
+normal cut lines, and the tester's photo shows a grey blade-shaped band with the slanted tip - the
+copy - sitting above the sharpness gauge's red cropped blade and as wide as the whole blade. Both
+flaws come from one thing: a `cGUIObjTexture` is laid out from its position and authored size, and
+that layout runs on the node's own visit in the draw walk, after this plugin's callback, so writing
+the node's rectangle per frame gets overwritten and the copy comes out at the authored 88 px starting
+from wherever its position points. r48 also placed that position with screen coordinates in fields
+that read them as offsets in the parent's space, which is why the band sat above the blade. r49 moves
+the quad in the bar's own space: the copy's position is the bar's position plus the kept part's width,
+its authored width is the hidden blade's width, and its y and band height stay the bar's. The sprite
+rows and the accepted cut are unchanged from r48 (the bar's `u` pair, its `v` from the strip's
+tip end - the smallest `v1` the row has drawn - down to the bar's current `v1`). Construction is r47's
+(proven in play): the class DTI's allocator slot 0x20 with the DTI id, a zeroed 304-byte block, the
+standalone constructor main+0xa4f60c, the bar's owner, resource, `+0x64` cGUI, authored pair and
+drawable flags, the texture resolved last, flat grey at the four corners, placed as the mask's
+sibling. 22 host fixtures pass; verify PASSED with the same 21 signature windows. Gameplay NOT RUN.
+The MT `color` word's byte order is unproven, so the grey's alpha byte position is an inference.
+
+## Superseded current-state paragraphs
+
+r48 DEVELOPMENT (2026-10-31), superseded by r49 after its run:
 Current state: r48 DEVELOPMENT candidate. The Phase 5 copy is built and drawn — the r47 log reports
 `dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001` with `records=11` and no fault — and it
 appeared on screen as a noisy strip to the right of the bar. The cause is the sprite's axis: the bar
@@ -15,8 +37,6 @@ node-clone function to copy the sword node wholesale: the class's vtable slot 0x
 not a function in Ghidra's analysis, which is why r45 faulted calling it. 22 host fixtures pass;
 verify PASSED with the same 21 signature windows. Gameplay NOT RUN. The MT `color` word's byte order
 is unproven, so the grey's alpha byte position is an inference.
-
-## Superseded current-state paragraphs
 
 r47 DEVELOPMENT (2026-10-31), superseded by r48 after its run:
 Current state: r47 DEVELOPMENT candidate. The plan's Phase 5 copy did not appear on screen in the
@@ -1744,19 +1764,6 @@ reached from main+0xa4f60c) writes 0 at +0x64, and r46 wrote +0x74/+0x78, the po
 pair, the flags, the atlas rectangle and the colours, but never +0x64. A lookup through 0 finds
 nothing, so +0x104 stayed 0 and stage 52 dropped the node.
 
-## r47, built 2026-10-31: give the copy the cGUI its texture resolves through
-
-`build_dim` reads the bar's `+0x64` (the `cGUI` that owns the gauge sprite's texture list), refuses
-with stage 52 when the bar has none, and writes it into the copy before calling the `Texture`
-setter. The insertion line now also carries `dim_tex=`, the texture object the copy resolved, and
-`dim_flags=`, its flag word, so a run separates "no copy" from "copy present, not drawn".
-
-Not proven, in the order a run can prove it: that the resolved texture draws at all (the copy's
-flag word comes from the class constructor plus the badge's drawable and layout-dirty bits, not from
-the bar's own flags, which read `41943045` = bits 0, 2, 23, 25 live), where it lands, its scale, and
-the colour packing. Plan's fallback stays recorded: if the copy reads wrong, keep the empty side
-clear as r44 ships it.
-
 ## r47, built 2026-10-31: resolve the texture after the fields
 
 Reading the setter (`work/research-tooling/ghidra-export/function_00a4faf0.c`) against the code
@@ -1766,18 +1773,19 @@ called it as the first thing after the constructor, so every copy it built was r
 `+0x104` check. r47 writes the marker, `+0x64`, owner, resource, position, authored pair, flags,
 atlas rectangle and colours first, and resolves the texture last. The insertion line gained
 `dim_tex=` (the texture object the copy resolved) and `dim_flags=` (its flag word).
-## r47 run 2026-10-31 (Eden): the copy draws, and the sprite axis says why it looks wrong
+## r47 run 2026-10-31 (Eden): the copy is in the tree, and the sharpness gauge shows none of it
 
 `scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11
 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001`, 48 lines, no insertion failure, no guest
-fault. So the node is built, its texture resolved (`dim_tex`), it is drawable and visible (bits 0,
-17, 19, 25), and the tree is the 5-node/11-record shape the fixtures pin. On screen the tester saw a
-noisy dark strip to the right of the bar (screenshot
-`6158ff20dcb8b60d8cfdf81225e2cc141c59a624116d6acb3d13227e2228f266`): present, in the right place,
-with the wrong content. Log: `work/modern-sharpness-gauge/runs/r47-eden-2026-10-31.txt` (sha256
+fault. So the node exists, its texture resolved, and it carries the visible and drawable bits - and
+nothing of it appeared in the sharpness gauge. The tester's photo of that build
+(`6158ff20dcb8b60d8cfdf81225e2cc141c59a624116d6acb3d13227e2228f266`) shows a noisy dark band near the
+gauges; the tester has identified it as part of the Dual Blade's demon gauge row, the full red blade
+under the sharpness gauge, which this mod does not touch. Log:
+`work/modern-sharpness-gauge/runs/r47-eden-2026-10-31.txt` (sha256
 `dc17611a502e834c7ebbcb07ea22438f053e084559a328dc6cf24fc9f176d08d`).
 
-The two fill lines say what the bar's own atlas window is doing:
+The fill lines say what the bar's atlas window is doing:
 
 ```
 fill ratio_bp=10000 box=110 32 90 32 bar=110 38 238 166 tex=0 156 87 440
@@ -1785,29 +1793,54 @@ fill ratio_bp=4400  box=110 32 49 32 bar=110 38 238 166 tex=0 440 87 512
 ```
 
 (`tex` is the raw words at `+0x10c`, read as floats.) The bar draws the blade as a **window in `v`**:
-`[u1, v1, u2, v2]` with `u` fixed at 0..87 and `v1` sliding 156 → 440 as sharpness drops. r47 built
-its copy's window in `u` (`u1` = the cut's fraction of the 88 columns, `v` copied from the bar), so
-it sliced 284 rows of the sheet sideways into a 38 px strip: the stripes.
+`[u1, v1, u2, v2]` with `u` fixed at 0..87 and `v1` sliding 156 toward 440 as sharpness drops. r47
+built its copy's window in `u` (`u1` = the cut's fraction of the 88 columns, `v` copied from the bar),
+so its window sliced ~284 rows of the sheet sideways: a band of sheet, not a blade. That is a defect
+in the copy's atlas window, read off the geometry; the photos near the gauges were the demon gauge row
+and told us nothing about the copy.
 
 ## r48, built 2026-10-31: the copy takes the sprite rows the bar is not drawing
 
-`dim_shape` now returns the bar's own `u` pair and the `v` range the bar is *not* drawing — the
-strip's tip end down to the bar's current `v1` — as its atlas window, and its screen rect from the
-cut's right edge to the tip's screen position (the cut box's width at 100%: 90 px on the measured
-bar, 200 px in screen x). The tip end is read live: the smallest `v1` the bar has been seen drawing
-is its full-sharpness window, so a row never taken to full sharpness draws no copy instead of
-guessing at the sprite. `window_at` reads and writes the four words as floats, which is how the bar's
-own pair is stored. The fixture `the_dim_blade_shows_the_hidden_part_of_the_strip` pins the rect and
-window at 100/50/25/0% (rights 200 at every step, lefts 200/164/146/128, windows 156..156,
-156..298, 156..369, 156..512), the uncalibrated case (no width) and a 64 px bar (119..155).
+`dim_shape` returns the bar's own `u` pair plus the `v` range the bar is *not* drawing - the strip's
+tip end down to the bar's current `v1` - as the copy's atlas window, with its screen rect from the
+cut's right edge to the tip's screen position (the 100% cut box's width: 90 px on the measured bar,
+screen x 200). The tip end is read live as the smallest `v1` the bar has been seen drawing, its
+full-sharpness window, so a row never taken to full sharpness draws no copy instead of guessing at
+the sprite. `window_at` reads and writes those four words as floats, which is how the bar's pair is
+stored. The fixture `the_dim_blade_shows_the_hidden_part_of_the_strip` pins 100/50/25/0% (lefts
+200/164/146/128, rights 200, windows 156..156, 156..298, 156..369, 156..512), the uncalibrated case
+(no width) and a 64 px bar (119..155).
 
-On the tester's suggestion of cloning the sword node: there is nothing to clone. The class's vtable
-(main+0x178fcc8) slots read +00 main+0x866a4, +04 main+0x8677c, +0c = 0xb54 (not code), and
-main+0x866a4 has no function in Ghidra's 47 986 analyzed functions — the same address r45 called as a
-constructor and faulted on. There is no `Clone` symbol for the GUI classes. The available clone is
-the one this build does: the same texture, the same authored size, the bar's owner/resource/cGUI, and
-the sprite rows the gauge is not drawing, in flat grey, with no glow node joined to it (the glow is a
-separate node in the row, never copied).
+## r48 run 2026-10-31 (Eden): same state, and the layout fact that explains it
+
+`scissor mask inserted: mask=0x443887f0 map=0x47f6b970 entries=6 cache=0x44388910 records=11
+dim=0x48043500 dim_tex=0x5194bab0 dim_flags=0x20a0001`, 67 lines, 62 cut lines, no fault, no
+teardown. The sharpness gauge - the upper row, the cropped red blade - showed no copy. The grey band
+with the slanted tip in the tester's photo (`476014feca70a36e881189a2986b8a24cd27219653233e0fc34196316e1b0251`)
+is the demon gauge's own graphics, as the tester said; my reading of it as this mod's copy was wrong,
+and the section written from that reading has been replaced. Log:
+`work/modern-sharpness-gauge/runs/r48-eden-2026-10-31.txt` (sha256
+`6d2da8a7e0517302f20b6e76aaf907bfe3905b9fe144fe6394b13a5f02b772ce`).
+
+The layout fact, read from the class: a `cGUIObjTexture` is laid out from its position pair at
+`+0x80/+0x84` and its authored pair at `+0xb4/+0xb8`, and that layout runs when the walker visits the
+node - after this plugin's callback at the mask's enter. r48 wrote the node's rectangle at the mask's
+enter and never touched the position/authored pair after the build, so the quad the layout built came
+from the bar's authored 88 px and from the position r48 wrote. That position was the bar's rect corner
+(110, 38) read as screen pixels, written into fields that are offsets in the parent's space: the copy
+hangs off the inserted mask, so its offset has to be measured from the mask, the way the bar's own
+offset is. With a 110/38 offset applied in the mask's local space, the node lands far from the blade,
+which is consistent with the sharpness gauge showing nothing of it in both r47 and r48.
+
+## r49, built 2026-10-31: move the quad in the bar's own space
+
+`write_dim` reads the bar's live position pair, and writes the copy's as **the bar's position plus
+the kept part's width**, with its authored width as **the hidden blade's width** (tip width minus kept
+width), keeping the bar's y and band height, and sets the layout dirty bit so the layout applies
+them. The rectangle and the atlas window are still written in the same call, and the sprite rows are
+unchanged from r48. The geometry the fixtures pin (lefts 200/164/146/128, tip 200, the `v` windows
+156..156 / 156..298 / 156..369 / 156..512, the 64 px bar at 119..155) is the widths this writes; the
+place it lands is the first thing the next run has to confirm.
 
 ## Rules to keep
 

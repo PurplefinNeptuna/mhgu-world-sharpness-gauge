@@ -86,6 +86,15 @@ const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
 const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
 static DIM: AtomicU32 = AtomicU32::new(0);
 
+/// The bar's position pair as raw float bits, read live. The copy is moved in the bar's space,
+/// so its own position is the bar's plus the kept part's width.
+fn bar_position(bar: u32) -> [u32; 2] {
+    [
+        memory::word(bar + TEX_POSITION).unwrap_or(0),
+        memory::word(bar + TEX_POSITION + 4).unwrap_or(0),
+    ]
+}
+
 /// The atlas window of a node, in float pixels: the bar's live blade window is a pair of `v`
 /// rows, and the copy's window has to be read and written the same way.
 fn window_at(node: u32, offset: u32) -> [f32; 4] {
@@ -362,11 +371,14 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         return Err(52);
     }
     // The bar's own geometry as float bits, read raw: the authored pair and the atlas rectangle.
-    let (authored, atlas, rect) = (
-        rect_at(bar, TEX_AUTHORED),
-        window_at(bar, NODE_TEXTURE_RECT),
-        rect_at(bar, NODE_RECT),
-    );
+    let (authored, atlas) = (rect_at(bar, TEX_AUTHORED), window_at(bar, NODE_TEXTURE_RECT));
+    // The bar's own position pair, in float bits: a node's quad is position + authored size in the
+    // parent's space, and the bar is a child of the inserted mask, so its offsets are local. The
+    // copy hangs off the same parent, so it starts from the same pair.
+    let pos = [
+        memory::word(bar + TEX_POSITION).ok_or(50u32)?,
+        memory::word(bar + TEX_POSITION + 4).ok_or(50u32)?,
+    ];
     let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
     let node = match allocator.alloc_text(TEXTURE_SIZE, dti.id()) {
         Some(pointer) if pointer & 15 == 0 => pointer,
@@ -401,8 +413,8 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         && memory::write_word(node + TEX_GUI, gui)
         && memory::write_word(node + TEX_OWNER, owner)
         && memory::write_word(node + TEX_RESOURCE, resource)
-        && memory::write_word(node + TEX_POSITION, (rect[0] as f32).to_bits())
-        && memory::write_word(node + TEX_POSITION + 4, (rect[1] as f32).to_bits())
+        && memory::write_word(node + TEX_POSITION, pos[0])
+        && memory::write_word(node + TEX_POSITION + 4, pos[1])
         && memory::write_word(node + TEX_AUTHORED, authored[0] as u32)
         && memory::write_word(node + TEX_AUTHORED + 4, authored[1] as u32)
         && memory::word(node + TEX_FLAGS).is_some_and(|flags| {
@@ -430,7 +442,7 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
 /// pixels and the window is float pixels, which is how the bar's own pair reads live. With no
 /// valid gauge, no hidden blade, or no tip-end sample yet, the width is 0 and nothing is drawn,
 /// which is the accepted shipped appearance.
-fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4]) {
+fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4], pos: [u32; 2]) {
     let tip_v = f32::from_bits(TIP_V.load(Ordering::Relaxed));
     let (box_rect, box_window) = if ratio_bp == u32::MAX {
         (
@@ -446,6 +458,21 @@ fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4]) {
             dim + NODE_TEXTURE_RECT + edge as u32 * 4,
             box_window[edge].to_bits(),
         );
+    }
+    // A texture node is laid out from its position and authored size, and the layout runs on the
+    // node's own visit, after this callback: writing only the rectangle is overwritten and the copy
+    // comes out at the bar's authored size. So the quad is moved in the bar's own space: start the
+    // copy where the kept part ends and make it as wide as the hidden blade, keeping the bar's y and
+    // band height, and ask the layout to apply it.
+    let start = (box_rect[0] - rect[0]) as f32;
+    let width = (box_rect[2] - box_rect[0]).max(1) as f32;
+    let _ = memory::write_word(
+        dim + TEX_POSITION,
+        (f32::from_bits(pos[0]) + start).to_bits(),
+    );
+    let _ = memory::write_word(dim + TEX_AUTHORED, width.to_bits());
+    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
+        let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
     }
 }
 
@@ -507,7 +534,13 @@ pub fn enter(mask: u32) {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the copy is hidden to width 0, the accepted appearance.
             if dim != 0 {
-                write_dim(dim, rect_at(bar, NODE_RECT), u32::MAX, window_at(bar, NODE_TEXTURE_RECT));
+                write_dim(
+                    dim,
+                    rect_at(bar, NODE_RECT),
+                    u32::MAX,
+                    window_at(bar, NODE_TEXTURE_RECT),
+                    bar_position(bar),
+                );
             }
             return;
         }
@@ -591,7 +624,7 @@ pub fn enter(mask: u32) {
         if window[1].is_finite() && (tip == f32::MAX || window[1] < tip) {
             TIP_V.store(window[1].to_bits(), Ordering::Relaxed);
         }
-        write_dim(dim, rect, ratio, window);
+        write_dim(dim, rect, ratio, window, bar_position(bar));
     }
 }
 
