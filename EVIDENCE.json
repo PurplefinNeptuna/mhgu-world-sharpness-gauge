@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r49",
+  "version": "r50",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r49",
+    "version": "r50",
     "status": "BUILT",
-    "nro_sha256": "591747fc24e54fcb0eb732f1d6027a03fbeff8f38923bae6de479ff5b5135e59",
+    "nro_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,8 +87,8 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "f0b30ad1bf4c6f2e4707cf2c6f70afa838605b7aac2baa7cc617410cf8058974",
-      "src/lib.rs": "3834e5487ce76e52748ead46a80bf164de9167939dfbb4a18d8f496f5167a1b4",
+      "src/insert.rs": "be941fab3c4d6163d82f782e83b74afc06dc4c446e2b966c88981b3cc57eeec1",
+      "src/lib.rs": "2c742525780f111a3794b45dcd952c4cf4277a8d3704b9b71592affac37455c2",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "591747fc24e54fcb0eb732f1d6027a03fbeff8f38923bae6de479ff5b5135e59",
-    "elf_sha256": "3e45c42efc701c37eb7a7e76874b51bf25081d9f115adafe487e95c5c605f216",
+    "nro_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
+    "elf_sha256": "e78b16b151cfa3ae6b1671aef1207debcb50b88f53a20a2466a859d0b695643c",
     "exports": [
       "fini",
       "forge_onInit",
@@ -199,7 +199,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "591747fc24e54fcb0eb732f1d6027a03fbeff8f38923bae6de479ff5b5135e59"
+    "nro_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93"
   },
   "runs": [
     {

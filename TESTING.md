@@ -3,14 +3,14 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r48
+## What to check on r50
 
-r48 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
+r50 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
 copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47 and r48 both
 report the copy built, resolved and flagged drawable, with nothing of it visible in the sharpness
 gauge (the noisy band and the grey band in the photos are the Dual Blade's demon gauge, not this mod).
-This is the next attempt: report what the sharpness gauge - the upper row, the cropped red blade -
-shows, and the `dim=`, `dim_tex=` and `dim_flags=` words on the insertion line. The accepted cut itself is
+This is the next attempt. Watch only the sharpness gauge - the upper row, the cropped red blade - and
+send the log: the insertion line's `dim=`, `dim_tex=`, `dim_flags=`, and the new `fill copy rect=... pos=... authored=...` lines, which say where the mod put the copy. That reports the placement without a photo. The accepted cut itself is
 unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
 rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
 
@@ -72,11 +72,11 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r48`.
+lines that matter start with `MSG r50`.
 
 ## The log lines
 
-`fill ratio_bp` lines are printed when the cut moves: `0` to `10000` basis points
+`fill ratio_bp` lines are printed when the cut moves, each followed by a `fill copy rect=x y x2 y2 pos=... authored=...` line: the rectangle the copy was given, its x offset in the gauge's own space and its authored width. If the copy is missing from the gauge, that line says where it was placed. `0` to `10000` basis points
 of your sharpness. The line carries the box the mod wrote (`box=`), the bar's own
 rectangle (`bar=`), the rectangle the game draws inside (`eff=`), the part of the
 sword picture the bar uses (`tex=`), the bar's authored width (`bar_w=`, 88) and

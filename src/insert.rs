@@ -86,6 +86,19 @@ const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
 const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
 static DIM: AtomicU32 = AtomicU32::new(0);
 
+/// The quad the copy was last given: rect corners, the x position in the bar's space, its authored
+/// width, and the `v` rows it samples. `forge_onUpdate` prints it next to the cut line, so a run
+/// reports the copy's placement from the log instead of from a photograph.
+static DIM_QUAD: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
+
+pub fn take_dim_quad() -> [u32; 6] {
+    let mut out = [0u32; 6];
+    for (index, slot) in out.iter_mut().enumerate() {
+        *slot = DIM_QUAD[index].load(Ordering::Relaxed);
+    }
+    out
+}
+
 /// The bar's position pair as raw float bits, read live. The copy is moved in the bar's space,
 /// so its own position is the bar's plus the kept part's width.
 fn bar_position(bar: u32) -> [u32; 2] {
@@ -473,6 +486,20 @@ fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4], pos:
     let _ = memory::write_word(dim + TEX_AUTHORED, width.to_bits());
     if let Some(flags) = memory::word(dim + TEX_FLAGS) {
         let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
+    }
+    let pos_x = (f32::from_bits(pos[0]) + start) as i32;
+    for (index, word) in [
+        box_rect[0],
+        box_rect[1],
+        box_rect[2],
+        box_rect[3],
+        pos_x,
+        width as i32,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        DIM_QUAD[index].store(word as u32, Ordering::Relaxed);
     }
 }
 

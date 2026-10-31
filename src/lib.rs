@@ -105,6 +105,14 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         el = cut[9] as i32, et = cut[10] as i32, er = cut[11] as i32, eb = cut[12] as i32,
         tu = cut[13] as i32, tv = cut[14] as i32, tw = cut[15] as i32, th = cut[16] as i32,
         bw2 = cut[17] as i32, feed = cut[18] as i32);
+        let quad = insert::take_dim_quad();
+        log::error!(concat!(
+            "MSG ",
+            env!("MSG_VERSION"),
+            " fill copy rect={x} {y} {x2} {y2} pos={pos} authored={width}"
+        ),
+        x = quad[0] as i32, y = quad[1] as i32, x2 = quad[2] as i32, y2 = quad[3] as i32,
+        pos = quad[4] as i32, width = quad[5] as i32);
     }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;

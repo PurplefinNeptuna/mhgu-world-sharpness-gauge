@@ -1,3 +1,23 @@
+Current state: r50 DEVELOPMENT candidate. The plan's Phase 5 copy has never been seen in the
+sharpness gauge: the r47 and r48 runs both log it built, its texture resolved and its visible and
+drawable bits set (`records=11`, `dim=0x…`, `dim_tex=0x…`, `dim_flags=0x20a0001`), with no fault and
+the accepted cut running normally, and the tester sees nothing of it in the gauge. The bands near the
+gauges in those runs' photos are the Dual Blade's demon gauge - the full red blade under the
+sharpness gauge, a row this mod does not touch; my earlier readings of them as this mod's copy were
+wrong and the records are corrected. r49 fixes the placement: a `cGUIObjTexture` is laid out from its
+position pair (+0x80/+0x84) and authored pair (+0xb4/+0xb8) when the walker visits it, after this
+plugin's callback at the mask's enter, so r48's per-frame rectangle writes lose to that layout, and
+r48's position pair held screen pixels (110, 38) written into parent-space offsets. r49 moves the quad
+in the bar's own space: position = the bar's position plus the kept part's width, authored width =
+the hidden blade's width, the bar's y and band height, layout dirty bit set. r50 prints that quad on
+the log (`fill copy rect=x y x2 y2 pos=... authored=...` under each cut line), so the next run reports
+the placement from the log instead of from a photograph. 22 host fixtures pass; verify PASSED with
+the same 21 signature windows. Gameplay NOT RUN. The MT `color` word's byte order is unproven, so the
+grey's alpha byte position is an inference.
+
+## Superseded current-state paragraphs
+
+r49 DEVELOPMENT (2026-10-31), superseded by r50:
 Current state: r49 DEVELOPMENT candidate. The Phase 5 copy now appears on screen: the r48 run
 reported `dim=0x48043500 dim_tex=0x5194bab0 dim_flags=0x20a0001` with `records=11`, no fault and 62
 normal cut lines, and the tester's photo shows a grey blade-shaped band with the slanted tip - the
@@ -16,8 +36,6 @@ standalone constructor main+0xa4f60c, the bar's owner, resource, `+0x64` cGUI, a
 drawable flags, the texture resolved last, flat grey at the four corners, placed as the mask's
 sibling. 22 host fixtures pass; verify PASSED with the same 21 signature windows. Gameplay NOT RUN.
 The MT `color` word's byte order is unproven, so the grey's alpha byte position is an inference.
-
-## Superseded current-state paragraphs
 
 r48 DEVELOPMENT (2026-10-31), superseded by r49 after its run:
 Current state: r48 DEVELOPMENT candidate. The Phase 5 copy is built and drawn — the r47 log reports
@@ -1841,6 +1859,14 @@ them. The rectangle and the atlas window are still written in the same call, and
 unchanged from r48. The geometry the fixtures pin (lefts 200/164/146/128, tip 200, the `v` windows
 156..156 / 156..298 / 156..369 / 156..512, the 64 px bar at 119..155) is the widths this writes; the
 place it lands is the first thing the next run has to confirm.
+
+## r50, built 2026-10-31: print the quad the copy is given
+
+Each cut line is followed by `fill copy rect=x y x2 y2 pos=... authored=...`: the rectangle written
+for the copy, its x offset in the gauge's own space and its authored width. The point is that a run
+answers "where did the mod put the copy?" from the log, so the next report does not depend on
+reading a photograph, and the answer is next to the ratio, the box and the bar's atlas window on the
+line above it.
 
 ## Rules to keep
 
