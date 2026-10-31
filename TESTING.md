@@ -31,12 +31,16 @@ What to look at:
 7. If the game faults, send the log.
 
 The insertion line now ends with `bar_sampler=2 dim_sampler=2` on the bar you measured; report the two
-numbers if they differ. The first `copy state` line after the insertion should read
-`mat ... 110.0 38.0 3.0 1.0` and `rect=110 38 238 166` right away, with no tier change needed.
+numbers if they differ. The first `copy state` line after the insertion is read in the same draw
+pass, before the game's next transform update, so it can still show `rect=0 0 0 0` and the identity
+matrix. The second one, about half a second later, should read `mat ... 110.0 38.0 3.0 1.0` and
+`rect=110 38 238 166`, with no tier change needed. If that second line still reads
+`mat ... 0.0 0.0 0.0 1.0`, the fix did not work: report it.
 `entries=7 records=13` on that line is the tree r57, r58 and r59 share. The fill line ends with
-`shade_box=x0 y0 x1 y1`, the box the game folded for the shade's own clip mask: on your bar the left
-number moves with the cut (128 at empty sharpness, 198 at full) and the right stays 238. Report the
-line beside the screenshot; the lines that matter start with `MSG r59`.
+`shade_box=x0 y0 x1 y1`, the box the game folded for the shade's own clip mask: on your bar it reads
+`128 38 200 166` at empty sharpness, the left number moves right with the cut, and the right number
+stays 200 (201 at full sharpness, where the box is 1 px wide). Report the line beside the screenshot;
+the lines that matter start with `MSG r59`.
 
 By design the coloured part keeps the glow's halo - about 3 px above the blade, 2 px below it and 4 px
 past the tip - and the dark part has no glow. Say whether the dark part's missing halo bothers you.
