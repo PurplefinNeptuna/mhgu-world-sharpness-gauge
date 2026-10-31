@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r45",
+  "version": "r46",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r45",
+    "version": "r46",
     "status": "BUILT",
-    "nro_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3",
+    "nro_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,9 +87,9 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "a3af29a3e89d18ca12c45da879a1cf405f61fc5e11fe74d09c3a52e138fe4af7",
+      "src/insert.rs": "e051f76e8f1a39315528a3ae485aeaaa374e68fec9984c9f42cae02a3a774b5e",
       "src/lib.rs": "9fa085a75f7a936596c8b3a0d82b4793684d532110ffec4a667f77b5782a686c",
-      "src/memory.rs": "95fc7656306f5f7c0356c62853f7975fa7a3cea29589fd5861d604a1bc0603de",
+      "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3",
-    "elf_sha256": "a21ca135e9c09576e10678b158348a7d77f09bf6922935777bd7d116b82c64d8",
+    "nro_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989",
+    "elf_sha256": "c8f387f5a50b96f2cf72f2d90d0b2b6395bf8f4ec18bc9d294866b317aaa0e33",
     "exports": [
       "fini",
       "forge_onInit",
@@ -198,8 +198,8 @@
       "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in"
     ],
     "words_per_sample": 11,
-    "note": "r45: 22 fixtures, the two new ones pinning the Phase 5 copy's geometry and the grown tree's record count, array length and cache area. The added node is proven on the host only; the copy has not been seen on screen.",
-    "nro_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3"
+    "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
+    "nro_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989"
   },
   "runs": [
     {
@@ -838,6 +838,18 @@
       ],
       "hd_project": "on for this run (the tester's report); the gauge row's bar rect read 110 38 238 166 in every line, the same 128 px rect as the accepted runs",
       "note": "First run of the consolidation build. Its box maths is proven at the measured rect; no bar rect other than 110..238 has been seen."
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r45",
+      "emulator": "Eden Development (user run)",
+      "status": "FROZEN",
+      "binary_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3",
+      "log": "work/modern-sharpness-gauge/runs/r45-eden-2026-10-31-frozen.txt",
+      "log_sha256": "773c006244f885c8d3097378913c45ed40ee769d3c3b14d3b6e4c95ba599a326",
+      "observed": "Two quest launches. The installed NRO matched the packaged payload. The mod started (stage 21 at the title, the watchdog line, then 'gauge controller observed' at t=250.36, and the same pattern in the first attempt at t=123.70). The insertion printed nothing on any path: no 'scissor mask inserted', no 'mask insertion failed at stage', no 'dim blade not added at stage'. At the gauge HUD's first draw the guest faulted: Unmapped Read32 @ 0x00000000000000 and Unmapped Read8 @ 0x00000000005ce4, after three maxwell_3d asserts. 6 'MSG r45' lines in the whole log, none from the insertion. The tester stopped the session; the game was unresponsive about five seconds into the quest both times.",
+      "root_cause": "build_dim called the class's vtable slot 0x00 (main+0x866a4) as a constructor on a block straight from the recycled pool. cGUIObjTexture's DTI has three virtual slots, vtable+0x0c is null, and slot 0x00 is not the constructor. The verified construction on this class is the DTI allocator's slot 0x20 with (bytes, align, dti id), a zeroed 304-byte block, and main+0xa4f60c taking the storage in r0: Key Quest Markers, shipped and played on this class. The log's null read is inside that call.",
+      "fixed_in": "r46"
     }
   ],
   "not_proven": [
@@ -868,9 +880,10 @@
     "r44 changes the box's arithmetic to offsets scaled by the bar rect's live width. Equal output is proven on the host at the 64, 128 and 256 px rects; a bar the game lays out at another width has not been seen on screen.",
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
     "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too.",
-    "r45's dim blade has no runtime evidence: its rectangle, atlas u, colour writes, links and the grown map/cache sizes are host-proven and read from the decompiles, but the copy has never been drawn on screen.",
-    "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference (byte-symmetric grey, alpha written high). The facts line now prints the bar's four corner colours so a run pins the packing against the colour on screen.",
-    "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions."
+    "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
+    "the dim blade on screen: r45 froze the game five seconds into the quest and r46 has not been run",
+    "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
+    "that the copy reads correctly under the glow's edge"
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",

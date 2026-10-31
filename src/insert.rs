@@ -52,8 +52,11 @@ const REBUILD_AND_APPLY: u32 = 3;
 const ROW_SIZING: u32 = 0x08;
 
 // The dim blade (plan Phase 5): a second copy of the blade sprite, outside the mask, in a flat
-// dark colour. Its class is `cGUIObjTexture`, size 304, constructor at its vftable slot 0x00;
-// the field offsets are from the DTI record and the setter decompiles, all recorded in
+// dark colour. Its class is `cGUIObjTexture`, size 304. Construction and allocation follow the
+// contract the Key Quest Markers badge runs on: the class's DTI has three virtual slots and no
+// placement constructor, so the standalone constructor main+0xa4f60c takes the storage in r0 and
+// returns it, and the DTI's allocator allocates through slot 0x20 with (bytes, align, dti id).
+// The field offsets are from the DTI record and the setter decompiles, recorded in
 // work/modern-sharpness-gauge/PHASE5_RESEARCH.md.
 pub const DIM_MARKER: u32 = 0x4d534732;
 /// Flat dark grey for all four corner colours. The MT `color` word's byte order is not proven in
@@ -62,15 +65,21 @@ pub const DIM_MARKER: u32 = 0x4d534732;
 /// not the mechanism.
 const DIM_COLOUR: u32 = 0x73404040;
 const TEXTURE_SIZE: u32 = 304;
-const TEXTURE_CTOR: u32 = 0x866a4;
+const TEXTURE_CTOR: u32 = 0xa4f60c;
+const TEXTURE_ALLOC_SLOT: u32 = 0x20;
 const TEXTURE_SETTER: u32 = 0xa4faf0;
 const TEX_MID: u32 = 0x50;
-const TEX_STATE: u32 = 0x30; // the kind byte (+0x33) and the word at +0x34 prepaint reads
-const TEX_FLAGS: u32 = 0x54; // bit 0 visible, 0x0200_0000 drawable, +0x56 bit 6 prepaint skip
-const TEX_OWNER: u32 = 0x74;
-const TEX_AUTHORED: u32 = 0xb4;
+/// bit 17 drawable and bit 19 layout dirty: the badge's flag writes, seen live as
+/// `bar_flags=41943045` on the bar.
+const TEX_FLAGS: u32 = 0x54;
+const DRAWABLE_AND_DIRTY: u32 = 0x000a_0000;
+const TEX_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
+const TEX_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
+const TEX_POSITION: u32 = 0x80; // DTI PosX/PosY, float pixels
+const TEX_AUTHORED: u32 = 0xb4; // authored width/height, float pixels
 const TEX_COLOURS: u32 = 0xa4; // four corner words: LT, RT, LB, RB
-const TEX_TEXTURE_ID: u32 = 0x100;
+const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
+const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
 static DIM: AtomicU32 = AtomicU32::new(0);
 
 /// Times the enter hook found the mask's links gone: the count the log prints, and the only
@@ -222,6 +231,12 @@ impl Allocator {
         let f = memory::method(self.handle, 0x1c)?;
         memory::call3(f, self.handle, bytes, 16).filter(|p| *p != 0)
     }
+    /// Slot 0x20 is the allocate the class's objects are built with: `(bytes, align, dti id)`,
+    /// the id the destructor frees the block by.
+    fn alloc_text(&self, bytes: u32, id: u32) -> Option<u32> {
+        let f = memory::method(self.handle, TEXTURE_ALLOC_SLOT)?;
+        memory::call4(f, self.handle, bytes, 16, id).filter(|p| *p != 0)
+    }
     fn release(&self, pointer: u32) {
         if pointer != 0 {
             let _ = memory::call2(self.free, self.handle, pointer);
@@ -301,15 +316,30 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
     Ok((fresh, area / 8))
 }
 
-/// Build the dim blade: a `cGUIObjTexture` allocated through its own DTI's MT allocator and
-/// constructed by the class's slot-0x00 constructor, then given the bar's render fields so it
-/// draws the same sprite in the flat dark colour. Nothing is linked and no list head is copied:
-/// the node has no animation entry, so no keyframe writes to it, which is what keeps it constant
-/// and non-pulsing and leaves `Txt_sharp`'s own keyframes untouched. Stages 50..52.
+/// Build the dim blade: a `cGUIObjTexture` allocated through its own DTI's MT allocator (slot
+/// 0x20 with the DTI id) and constructed by the class's standalone constructor on a zeroed block,
+/// then given the bar's owner, resource, texture id, authored size, position and flat colours.
+/// Nothing is linked and no field is copied from the bar: the node has no animation entry, so no
+/// keyframe writes to it, which is what keeps it constant and non-pulsing and leaves `Txt_sharp`'s
+/// own keyframes untouched. Stages 50..52.
 fn build_dim(bar: u32) -> Result<u32, u32> {
     let dti = MtDti::find("cGUIObjTexture").ok_or(50u32)?;
+    let (owner, resource, texture) = (
+        memory::word(bar + TEX_OWNER).ok_or(50u32)?,
+        memory::word(bar + TEX_RESOURCE).ok_or(50u32)?,
+        memory::word(bar + TEX_TEXTURE_ID).ok_or(50u32)?,
+    );
+    if owner == 0 || resource == 0 || texture == 0 {
+        return Err(50);
+    }
+    // The bar's own geometry as float bits, read raw: the authored pair and the atlas rectangle.
+    let (authored, atlas, rect) = (
+        rect_at(bar, TEX_AUTHORED),
+        rect_at(bar, NODE_TEXTURE_RECT),
+        rect_at(bar, NODE_RECT),
+    );
     let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
-    let node = match allocator.alloc(TEXTURE_SIZE) {
+    let node = match allocator.alloc_text(TEXTURE_SIZE, dti.id()) {
         Some(pointer) if pointer & 15 == 0 => pointer,
         Some(pointer) => {
             allocator.release(pointer);
@@ -317,38 +347,50 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         }
         None => return Err(50),
     };
+    // The block comes from a recycled pool, so it arrives as freed-heap fill: constructor inputs
+    // and every field the constructor leaves alone have to read 0 first.
+    if !memory::zero_words(node, (TEXTURE_SIZE / 4) as usize) {
+        allocator.release(node);
+        return Err(50);
+    }
     let built = memory::call1(base() + TEXTURE_CTOR, node).is_some_and(|got| got == node);
     if !built
         || !is_type(node, dti as *const _ as u32)
         || !memory::writable(node, TEXTURE_SIZE as usize)
     {
+        // Not constructed: the block is still ours, so it goes back to its allocator.
         allocator.release(node);
         return Err(51);
     }
-    // The render fields, read live from the bar: the transform rows, the kind and the word
-    // prepaint reads, the visible and drawable bits, owner and resource, the authored pair, the
-    // texture id and object, and the atlas rectangle.
-    let copied = (0..8usize).all(|index| {
-        memory::word(bar + 0x10 + index as u32 * 4)
-            .is_some_and(|word| memory::write_word(node + 0x10 + index as u32 * 4, word))
-    }) && memory::copy_words(bar + TEX_STATE, node + TEX_STATE, 2)
-        && memory::word(bar + TEX_FLAGS).is_some_and(|flags| {
-            memory::write_word(node + TEX_FLAGS, flags & 0x0200_0001)
+    // Constructed: the native destructor owns the block from here. A failure calls the
+    // destructor and never the allocator's free - the destructor frees through this allocator.
+    let owned = memory::method(node, 0x04);
+    let texture = memory::call2(base() + TEXTURE_SETTER, node, texture)
+        .is_some_and(|_| memory::word(node + TEX_TEXTURE_OBJECT).is_some_and(|p| p != 0));
+    let ready = memory::write_word(node + TEX_MID, DIM_MARKER)
+        && memory::write_word(node + TEX_OWNER, owner)
+        && memory::write_word(node + TEX_RESOURCE, resource)
+        && memory::write_word(node + TEX_POSITION, (rect[0] as f32).to_bits())
+        && memory::write_word(node + TEX_POSITION + 4, (rect[1] as f32).to_bits())
+        && memory::write_word(node + TEX_AUTHORED, authored[0] as u32)
+        && memory::write_word(node + TEX_AUTHORED + 4, authored[1] as u32)
+        && memory::word(node + TEX_FLAGS).is_some_and(|flags| {
+            memory::write_word(node + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY)
         })
-        && memory::copy_words(bar + TEX_OWNER, node + TEX_OWNER, 2)
-        && memory::copy_words(bar + TEX_AUTHORED, node + TEX_AUTHORED, 2)
-        && memory::copy_words(bar + TEX_TEXTURE_ID, node + TEX_TEXTURE_ID, 2)
-        && memory::copy_words(bar + NODE_TEXTURE_RECT, node + NODE_TEXTURE_RECT, 4);
-    let texture = memory::word(bar + TEX_TEXTURE_ID)
-        .and_then(|id| memory::call2(base() + TEXTURE_SETTER, node, id))
-        .is_some();
-    let marked = memory::write_word(node + TEX_MID, DIM_MARKER)
-        && (0..4usize).all(|corner| memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR));
-    if !copied || !texture || !marked {
-        if let Some(destructor) = memory::method(node, 0x04) {
+        && (0..4usize).all(|edge| {
+            memory::write_word(
+                node + NODE_TEXTURE_RECT + edge as u32 * 4,
+                (atlas[edge] as f32).to_bits(),
+            )
+        })
+        && (0..4usize).all(|corner| {
+            memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR)
+        })
+        && texture;
+    if !ready {
+        if let Some(destructor) = owned {
             let _ = memory::call1(destructor, node);
         }
-        allocator.release(node);
         return Err(52);
     }
     Ok(node)
@@ -356,8 +398,10 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
 
 /// Write the dim blade's rectangle and atlas for this frame's cut. It starts where the kept part
 /// ends and runs to the bar rect's right edge, with the atlas `u` at the same fraction of the
-/// authored 88 columns, so the copy keeps the blade's scale. With no valid gauge the width is
-/// zero and nothing is drawn, which is the accepted shipped appearance.
+/// authored 88 columns, so the copy keeps the blade's scale. The rectangle is signed pixels and
+/// the atlas rectangle is float pixels, which is how the bar's own pair reads live
+/// (`tex=0 156 87 440`). With no valid gauge the width is zero and nothing is drawn, which is the
+/// accepted shipped appearance.
 fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32) {
     let atlas = rect_at(dim, NODE_TEXTURE_RECT);
     let (box_rect, box_atlas) = if ratio_bp == u32::MAX {
@@ -369,7 +413,7 @@ fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32) {
         let _ = memory::write_word(dim + NODE_RECT + edge as u32 * 4, box_rect[edge] as u32);
         let _ = memory::write_word(
             dim + NODE_TEXTURE_RECT + edge as u32 * 4,
-            box_atlas[edge] as u32,
+            (box_atlas[edge] as f32).to_bits(),
         );
     }
 }
@@ -601,8 +645,12 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         // the bar chain moved under the mask, so the root's sibling chain has to end.
         && memory::write_word(root + NODE_SIBLING, 0)
         // The dim blade sits on the root's chain as the mask's sibling, so it is drawn after the
-        // mask's subtree and outside the scissor.
-        && (dim == 0 || memory::call2(link_sibling, mask, dim).is_some());
+        // mask's subtree and outside the scissor. The parent's layout dirty bit is the badge's
+        // way of telling the walker a sibling chain changed under it.
+        && (dim == 0
+            || (memory::word(mask + TEX_FLAGS)
+                .is_some_and(|flags| memory::write_word(mask + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY))
+                && memory::call2(link_sibling, mask, dim).is_some()));
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);

@@ -8,10 +8,10 @@
     "url": null,
     "date": null
   },
-  "version": "r45",
+  "version": "r46",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r45-candidate.zip",
-  "runtime_test": "NOT RUN. The accepted cut is r44's, which ran once on Eden 2026-10-30 with the installed NRO matching its packaged payload; the dim blade added here has not been seen on screen.",
+  "archive": "modern-sharpness-gauge-r46-candidate.zip",
+  "runtime_test": "NOT RUN. The accepted cut is r44's, which ran once on Eden 2026-10-30 with the installed NRO matching its packaged payload. r45 added the dim blade and froze the game about five seconds into both quest launches of its run; r46 builds that copy the way the shipped Key Quest Markers badge is built and has not been run.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -75,7 +75,7 @@
     "The thread that runs the draw walker at main+0xa494a0 is unproven, and the run did not change that: no bl site, stored word or DTI property in main names that entry.",
     "r45 has not been run. The dim blade's rect, atlas u, colour and links are proven on the host and in the decompiles; the copy has not been seen on screen.",
     "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference. The facts line now prints the bar's four corner colours, so a run pins it next to the colour on screen.",
-    "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 is a new candidate and carries no distribution approval."
+    "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 is frozen-out; r46 is a new candidate and carries no distribution approval."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -96,8 +96,8 @@
     "manual": [
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r45: pinned toolchain build; 22 host fixtures passed (the two new ones pin the dim blade's rect/atlas and the 5-node tree's records, array length and cache area); verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
-    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, box widths 18 / 54 / 90 px at 0 / 5000 / 10000 bp, three insertions with a 5-entry map and 9-record cache, three links-lost teardowns each followed by a new insertion, no insertion failure and no guest exception; the tester reported it ran successfully with the HD Project mod on and the cut where r43 put it, which closed the HD Project question. r45's dim blade is NOT RUN. See EVIDENCE.json and backups/accepted/."
+    "static_summary": "r46: pinned toolchain build; 22 host fixtures passed (the two new ones pin the dim blade's rect/atlas and the 5-node tree's records, array length and cache area); verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
+    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, box widths 18 / 54 / 90 px at 0 / 5000 / 10000 bp, three insertions with a 5-entry map and 9-record cache, three links-lost teardowns each followed by a new insertion, no insertion failure and no guest exception; the tester reported it ran successfully with the HD Project mod on and the cut where r43 put it, which closed the HD Project question. r45's run froze the game five seconds into two quest launches (the insertion printed no line and the guest faulted on a null read); r46's dim blade is NOT RUN. See EVIDENCE.json and backups/accepted/."
   },
   "dependencies": [
     {
@@ -112,10 +112,10 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r45/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3"
+      "source": "build/modern-sharpness-gauge/candidates/r46/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989"
     }
   },
-  "candidate": "build/modern-sharpness-gauge/candidates/r45/delivery",
+  "candidate": "build/modern-sharpness-gauge/candidates/r46/delivery",
   "candidate_builder": "scripts/build.py"
 }

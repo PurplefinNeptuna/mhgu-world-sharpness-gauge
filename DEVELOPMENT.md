@@ -1,3 +1,25 @@
+Current state: r46 DEVELOPMENT candidate. r45 froze the game about five seconds into a quest, on
+both launches, and the log says why: the copy was built by calling the class's vtable slot 0x00 as
+its constructor, which on this class is not one, and the game faulted on a null read inside that
+call before the insertion printed any line. r46 builds the same copy the way the shipped Key Quest
+Markers badge is built on this exact class: the DTI allocator's slot 0x20 with (bytes, align, dti
+id), a zeroed 304-byte block, and the standalone constructor main+0xa4f60c that takes the storage
+in r0 and returns it; then the fields that recipe sets (marker, the bar's owner and resource,
+position, the bar's authored pair, the drawable and layout-dirty bits, the texture id through its
+setter, the bar's atlas rectangle, the four corner colours) instead of copying the bar's words.
+The atlas rectangle is float pixels, like the bar's, where r45 wrote integers, and a failed copy
+is now freed once. Nothing else about Phase 5 moved: the same placement as the mask's sibling, the
+same per-frame rect and atlas writes from core's `dim_shape`, the same no-animation-entry
+constancy, the same 6-word object array and 88-byte draw block, the same additive stages 50..52
+that leave the accepted appearance. The accepted r44 cut, mask, storage and link code is
+untouched. 22 host fixtures pass; verify PASSED with the same 21 signature windows. Gameplay NOT
+RUN. The MT `color` word's byte order is still unproven, so the flat dark constant stays
+byte-symmetric grey with the alpha byte written high, labelled as an inference. The research is
+`work/modern-sharpness-gauge/PHASE5_RESEARCH.md`.
+
+## Superseded current-state paragraphs
+
+r45 DEVELOPMENT (2026-10-30), superseded by r46 after its run froze the game:
 Current state: r45 DEVELOPMENT candidate, the plan's Phase 5 (the dimmed empty blade). r44 is
 READY_TO_DISTRIBUTE and accepted on its own bytes, so this adds one thing and changes nothing on
 the accepted path: a second copy of the blade sprite, allocated as a `cGUIObjTexture` through its
@@ -18,8 +40,6 @@ unproven, so the flat dark constant is byte-symmetric grey with the alpha byte w
 labelled as an inference; the facts line now prints the bar's four corner colours so a run pins
 the packing next to the colour on screen. The research is
 `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`.
-
-## Superseded current-state paragraphs
 
 Moved out of the head on 2026-10-30, when the phases they described closed.
 
@@ -1616,6 +1636,54 @@ sources in `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`:
   screen), and whether the copy reads correctly under the glow's edge. The plan's
   fallback for a copy that looks wrong is recorded in the plan: keep the empty side
   clear, as r44 does, and report it.
+## r45 run 2026-10-31 (Eden): the game froze about five seconds into the quest
+
+Two quest launches on the packaged bytes (the installed NRO hashed
+`6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3`, the payload in the candidate
+ZIP). Both went the same way: the mod started, the title-screen row check printed stage 21, the
+watchdog printed `no sharpness gauge controller seen in 6002 walker calls`, then
+`gauge controller observed` at t=250.36 - and the insertion reported nothing. No
+`scissor mask inserted`, no `mask insertion failed at stage`, no `dim blade not added at stage`.
+Those three lines are printed by `run()` on every path, success and failure, so `run()` never
+returned. 1.5 seconds later, when the gauge HUD drew, the guest faulted on
+`Unmapped Read32 @ 0x00000000000000` and `Unmapped Read8 @ 0x00000000005ce4` after three
+`maxwell_3d` asserts, and the session was stopped by hand. The only new native calls in that path
+were Phase 5's. Log: `work/modern-sharpness-gauge/runs/r45-eden-2026-10-31-frozen.txt` (sha256
+`773c006244f885c8d3097378913c45ed40ee769d3c3b14d3b6e4c95ba599a326`), 6 lines from this mod, none
+from the insertion.
+
+The workspace already had the verified recipe for this class, and r45 did not use it.
+`cGUIObjTexture`'s DTI has three virtual slots and vtable+0x0c is null, so the class has no
+placement constructor, and its vftable slot 0x00 (main+0x866a4) is not one. The Key Quest
+Markers badge, shipped and played on this class, allocates through the DTI allocator's slot 0x20
+with (bytes, align, dti id), zeroes the 304-byte block, and calls the standalone constructor
+main+0xa4f60c, which takes the storage in r0 and returns it
+(`.agents/skills/mhgu-forge-modding/references/native-gui-extensions.md`,
+`mods/key-quest-markers/src/gui.rs`). r45 called slot 0x00 on a block straight out of the
+recycled pool, so every field the call reads was freed-heap fill. That is the null read in the
+log, and the GUI thread died with it.
+
+Two more faults in the same block, which that run never reached: the atlas rectangle was written
+as integers where the bar's own pair reads live as floats (`tex=0 156 87 440`), and the stage-52
+path returned the block to its allocator *and* called the class destructor, which frees it again.
+
+## r46, built 2026-10-31: the copy built the way the shipped badge is built
+
+`build_dim` follows the recipe: allocator slot 0x20 with `dti.id()`, 304 zeroed words, the
+constructor at main+0xa4f60c with the pointer required back, the class test, then the fields that
+recipe sets - the marker at +0x50, the bar's owner and resource at +0x74/+0x78, position at
++0x80/+0x84 as float pixels from the bar's rect corner, the bar's authored pair at +0xb4 in float
+bits, the drawable and layout-dirty bits at +0x54, the texture id through main+0xa4faf0 with the
+resolved object at +0x104 required, the bar's atlas rectangle as floats at +0x10c.., and the four
+flat corner colours at +0xa4. Ownership follows the badge's rule: before the constructor the block
+goes back to its allocator, after it only the destructor frees it. When the copy joins the
+mask's sibling chain the mask gets the layout-dirty bit, the badge's way of telling the walker a
+chain changed under a node. `write_dim` writes the rect as signed pixels and the atlas as floats.
+No field is copied from the bar any more, and no transform row is touched.
+
+Core, geometry, the mask, the map and cache growth, the links and the cut are untouched, so the 22
+host fixtures are the same fixtures. The open questions are unchanged: the MT `color` word's byte
+order, how the copy reads under the glow's edge, and the draw walker's thread.
 
 ## Rules to keep
 

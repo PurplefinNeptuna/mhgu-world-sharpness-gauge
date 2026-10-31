@@ -3,10 +3,12 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r45
+## What to check on r46
 
-r45 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
-copy of the sprite in a flat dark colour, with no glow and no pulse. The accepted cut itself is
+r46 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
+copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game about five
+seconds into both quest launches, and the fix is in how that copy is created, so the first thing to
+check is that the game reaches the quest at all. The accepted cut itself is
 unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
 rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
 
@@ -68,7 +70,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r45`.
+lines that matter start with `MSG r46`.
 
 ## The log lines
 
