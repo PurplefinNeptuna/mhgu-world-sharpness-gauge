@@ -25,7 +25,7 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT,
+    basis_points, cut_box, dim_quad, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT,
     NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -521,20 +521,38 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the shadow's atlas window for this frame: the four words at `+0x10c` become the bar's live
-/// window, so the dim blade samples the tier band the bar is drawing and follows it on a tier
-/// change. Its quad is not written here - the node is walked before the mask, under the gauge, and
-/// keeps the bar's own position and authored pair from the build, so the bar's ink covers its kept
-/// part and the sprite's own shape shows past the cut.
-///
-/// shortcut: written at the mask's enter, which the walk visits after the shadow's own records, so
-/// a tier change shows on the shadow one frame late. Writing it in the shadow's enter (this class's
-/// vtable slot 0x38, main+0x85628) needs a second hook on a shared class function, gated on the
-/// marker word; nothing measured needs it yet.
-fn write_band(dim: u32, bar: u32) {
+/// Write the shadow's quad and atlas for this frame's cut. `dim_quad` sizes it in the units the
+/// node's own `+0x80/+0xb4` pair uses - the bar's authored 88.0 covers its rect's whole width, and
+/// its position pair maps 1:1 onto the rect's corner - because the layout reads those fields, not
+/// the rectangle, and it reads them on the node's own visit, after this callback. So the quad is
+/// written every frame and the layout dirty bit goes with it. With no gauge to cut by, the width
+/// goes to 0, which is the accepted appearance.
+fn write_dim(dim: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
+    let (band, position, authored) = (
+        window_at(bar, NODE_TEXTURE_RECT),
+        window_at(bar, TEX_POSITION),
+        window_at(bar, TEX_AUTHORED),
+    );
+    let (position, authored, window) = if ratio_bp == u32::MAX {
+        ([position[0], position[1]], [0.0f32, authored[1]], band)
+    } else {
+        dim_quad(
+            rect,
+            ratio_bp,
+            band,
+            [position[0], position[1]],
+            [authored[0], authored[1]],
+        )
+    };
     for edge in 0..4usize {
-        let word = window_at(bar, NODE_TEXTURE_RECT)[edge].to_bits();
-        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + edge as u32 * 4, word);
+        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + edge as u32 * 4, window[edge].to_bits());
+    }
+    let _ = memory::write_word(dim + TEX_POSITION, position[0].to_bits());
+    let _ = memory::write_word(dim + TEX_POSITION + 4, position[1].to_bits());
+    let _ = memory::write_word(dim + TEX_AUTHORED, authored[0].to_bits());
+    let _ = memory::write_word(dim + TEX_AUTHORED + 4, authored[1].to_bits());
+    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
+        let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
     }
 }
 
@@ -597,8 +615,10 @@ pub fn enter(mask: u32) {
         Some(bp) => bp,
         None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
-            // No gauge to cut by: the mask stops clipping and the bar draws its whole blade, which
-            // covers the shadow behind it. Nothing is written to the shadow.
+            // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
+            if dim != 0 {
+                write_dim(dim, bar, rect_at(bar, NODE_RECT), u32::MAX);
+            }
             return;
         }
     };
@@ -673,11 +693,11 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
-    // The shadow's band follows the bar's live tier band here. Its quad is not written: it is
-    // walked before the mask, under the gauge, with the bar's own quad from the build, and the
-    // read-back above measures what the game made of it.
+    // The shadow follows the cut from here: `write_dim` sizes it to the part of the blade past the
+    // cut, in the units its own quad uses, and the read-back above measures what the game did with
+    // the quad of the previous frame.
     if dim != 0 {
-        write_band(dim, bar);
+        write_dim(dim, bar, rect, ratio);
     }
 }
 
@@ -758,37 +778,23 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         }
     };
     // Link last, so a 5-node tree never exists against the old array. The native linkers write
-    // the parent links too: 0xa48460(node, child), 0xa4844c(node, sibling).
+    // the parent links too: 0xa48460(parent, child), 0xa4844c(node, sibling).
     let link_child = base() + 0xa48460;
     let link_sibling = base() + 0xa4844c;
-    // The layering is the walk order: main+0xa494a0 appends (0,node) on entry and (1,node) on
-    // exit in the order it visits nodes, and the consumer of that record list works through it in
-    // order, with no sort and no z value (the DTI `Priority` property, the bar 0 / the glow 1 /
-    // the edge 2, is what ordered the chain when the row was built; the walker never reads it).
-    // So the shadow goes first: root.child = shadow, shadow.sibling = mask, which emits its
-    // records before the mask's enter record, where the scissor starts. It is drawn under the
-    // gauge and outside the scissor, and the bar's own ink covers its kept part.
-    let linked = (if dim == 0 {
-        memory::call2(link_child, root, mask).is_some()
-    } else {
-        // The sibling linker copies the node's parent into the sibling, so the mask's parent is
-        // the root here exactly as in the accepted path; dim.parent is the root from the child
-        // link above it.
-        memory::call2(link_child, root, dim).is_some()
-            && memory::call2(link_sibling, dim, mask).is_some()
-    })
-    && memory::call2(link_child, mask, row.bar).is_some()
-    && memory::call2(link_sibling, row.bar, row.effect).is_some()
-    && memory::call2(link_sibling, row.effect, row.edge).is_some()
-    // One inbound chain per node, the invariant every native teardown walk relies on: the bar
-    // chain moved under the mask, so the root's sibling chain has to end.
-    && memory::write_word(root + NODE_SIBLING, 0)
-    // With the shadow in front of the mask on the root's chain, the mask's own sibling link ends.
-    && (dim == 0 || memory::write_word(mask + NODE_SIBLING, 0))
-    // The badge's layout dirty bit on the mask is how the walker is told the chain under it
-    // changed.
-    && memory::word(mask + TEX_FLAGS)
-        .is_some_and(|flags| memory::write_word(mask + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY));
+    let linked = memory::call2(link_child, root, mask).is_some()
+        && memory::call2(link_child, mask, row.bar).is_some()
+        && memory::call2(link_sibling, row.bar, row.effect).is_some()
+        && memory::call2(link_sibling, row.effect, row.edge).is_some()
+        // One inbound chain per node, the invariant every native teardown walk relies on:
+        // the bar chain moved under the mask, so the root's sibling chain has to end.
+        && memory::write_word(root + NODE_SIBLING, 0)
+        // The dim blade sits on the root's chain as the mask's sibling, so it is drawn after the
+        // mask's subtree and outside the scissor. The parent's layout dirty bit is the badge's
+        // way of telling the walker a sibling chain changed under it.
+        && (dim == 0
+            || (memory::word(mask + TEX_FLAGS)
+                .is_some_and(|flags| memory::write_word(mask + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY))
+                && memory::call2(link_sibling, mask, dim).is_some()));
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);

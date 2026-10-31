@@ -1,6 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, draw_plan, is_sharp_animation, local_player,
+    basis_points, count_nodes, cache_layout, cut_box, dim_quad, draw_plan, is_sharp_animation, local_player,
     read_gauge, sample_controller, scan_walk, span_box,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
@@ -599,46 +599,71 @@ fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
 }
 
 #[test]
+fn the_shadow_quad_covers_the_blade_past_the_cut_in_the_bar_units() {
+    // The shadow runs from the cut's right edge to the tip, in the bar's band, in the units its
+    // +0x80/+0xb4 pair uses: the bar's authored 88.0 covers its rect's 128 px, and its position
+    // pair maps 1:1 onto the rect's corner (the r8 run read 284.0 / 224.0 at rect 110 / 38). The
+    // band is the bar's live window, [0, 280, 88, 304] in the top tier.
+    let bar = [110, 38, 238, 166];
+    let band = [0.0f32, 280.0, 88.0, 304.0];
+    let position = [284.0f32, 224.0];
+    let authored = [88.0f32, 24.0];
+    for (ratio, kept, width, column) in [
+        (0u32, 18.0f32, 49.5f32, 12.0f32),
+        (2_500, 36.0, 37.125, 24.0),
+        (5_000, 54.0, 24.75, 37.0),
+        (10_000, 90.0, 0.6875, 61.0),
+    ] {
+        let (pos, size, window) = dim_quad(bar, ratio, band, position, authored);
+        assert_eq!((pos[0], pos[1]), (284.0 + kept, 224.0), "ratio {ratio}: the position offset is the kept width 1:1");
+        assert_eq!((size[0], size[1]), (width, 24.0), "ratio {ratio}: the hidden length in authored units");
+        assert_eq!(
+            (window[0], window[1], window[2], window[3]),
+            (column, 280.0, 88.0, 304.0),
+            "ratio {ratio}: the column at the cut's edge, in the bar's own band"
+        );
+    }
+    // The same fractions on a narrower rect: 64 px wide, so the cut ends at 9 px and the tip at
+    // 45 px; the hidden 36 px is 49.5 authored units, the column at the edge is 12, and the
+    // position pair moves by the 9 px the cut keeps.
+    let half = [110, 38, 174, 166];
+    let (pos, size, window) = dim_quad(half, 0, band, position, authored);
+    assert_eq!((pos[0], pos[1]), (293.0, 224.0));
+    assert_eq!((size[0], size[1]), (49.5, 24.0));
+    assert_eq!(window[0], 12.0);
+}
+#[test]
 fn a_second_node_fits_the_grown_tree_exactly() {
-    // The shadow is walked first: the root's child, with the mask as its sibling. Its records are
-    // appended before the mask's enter record, and the mask's enter is where the scissor starts,
-    // so the row carries five nodes: the count main+0x5456e4 indexes with, the object array's
-    // length, and the walker's records.
+    // The dim blade is the mask's sibling on the root's chain, so the row carries five nodes:
+    // the count main+0x5456e4 indexes with, the object array's length, and the walker's records.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
     let (mask, dim) = (0x7500u32, 0x7600u32);
-    fake.put(dim + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
-    fake.put(dim + NODE_CHILD, 0);
-    fake.put(dim + NODE_SIBLING, mask);
-    fake.put(dim + NODE_PARENT, root);
     fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
     fake.put(mask + NODE_CHILD, sharp);
-    fake.put(mask + NODE_SIBLING, 0);
+    fake.put(mask + NODE_SIBLING, dim);
     fake.put(mask + NODE_PARENT, root);
+    fake.put(dim + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(dim + NODE_CHILD, 0);
+    fake.put(dim + NODE_SIBLING, 0);
+    fake.put(dim + NODE_PARENT, root);
     for node in [sharp, efx, edge] {
         fake.put(node + NODE_PARENT, mask);
     }
-    fake.put(root + NODE_CHILD, dim);
+    fake.put(root + NODE_CHILD, mask);
     fake.put(root + NODE_SIBLING, 0);
     // Five tree nodes, so main+0x5456e4 walks six entries and the map has to be six words.
     assert_eq!(count_nodes(&fake, root), (5, false));
     assert_eq!(5 + 1, 6, "the array length the pass indexes with");
-    // Records, from the walker port: shadow enter, shadow exit, mask enter, bar enter/exit, glow
-    // enter/exit, edge enter/exit, mask exit, terminator = 11, and the block sized for 5 objects
+    // Records, from the walker port: mask enter, bar enter/exit, glow enter/exit, edge
+    // enter/exit, mask exit, dim enter/exit, terminator = 11, and the block sized for 5 objects
     // is (5 << 4) | 8 = 88 bytes = 11 records, so they fit exactly.
     let plan = draw_plan(&fake, root);
     assert_eq!(
         plan.kinds[..plan.count as usize],
-        [0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 2]
+        [0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 2]
     );
     assert_eq!(plan.count, 11);
-    // The layering fact the link order is for: the shadow's pair is the walk's first two records,
-    // the mask's enter record - the one that applies the scissor - is the third, the bar, the glow
-    // and the edge sit inside that scope, and the mask's exit closes it with nothing after it.
-    assert_eq!((plan.kinds[0], plan.kinds[1]), (0, 1), "the shadow is drawn before the scissor");
-    assert_eq!(plan.kinds[2], 0);
-    assert_eq!(plan.kinds[9], 1);
-    assert_eq!(plan.kinds[10], 2);
     assert!(!plan.overflow && (plan.count as usize) <= ENTRIES);
     assert_eq!(cache_layout(5, 16).2, 88);
     assert_eq!(88 / 8, 11);

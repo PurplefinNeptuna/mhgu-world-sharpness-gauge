@@ -3,45 +3,39 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r54
+## What to check on r53
 
-r52 showed the copy: a magenta full-length blade under the sharpness gauge, steady through
-sharpness drops and recoveries and across areas. That proved the copy draws, and it proved the colour
-packing. r53 carved the copy down to the part past the cut, in the gauge's own band, drawn on top, in
-your `#202326`. r54 is the simpler idea: the full blade image sits **behind** the gauge.
+Run r53. It is r52's proven shape - the mask over the bar, the shadow as the mask's sibling, so the
+walker draws it last, outside the clip - with the shadow carved to the part of the blade past the cut,
+in your `#202326` (a dark grey-blue).
 
-The game's own row works that way. The walker emits its records in tree order and draws them in that
-order, with no sorting and no z value, and the gauge's three pictures are ordered by the `Priority`
-values in the GUI file (bar 0, glow 1, edge 2). So this build links the shadow as the walker's first
-node, before the mask: it draws first, under the gauge, outside the clip, at the bar's own place and
-size, in `#202326`. The cut does the rest - the bar's own ink covers its kept part, and past the cut
-the dark blade shows through. Nothing is written per frame for placement any more.
+r54 put the full blade image behind the gauge, which needs the shadow walked before the bar, and that
+insertion point broke the gauge row: the log shows the insertion, then 8 ms later the row's chain gone
+(`root.child=0x0`, `bar.parent=0x0`), 17104 links-lost lines, 17105 lines saying no gauge controller,
+and no cut lines at all - the mask was disabled every frame, so the blade stayed whole, which is what
+your photo showed. r54 is out; the layering research it produced is kept in DEVELOPMENT.md.
 
 What to look at:
 
-1. Past the cut: a dark grey-blue blade, the same shape as the gauge's blade, from the cut's edge to
-   the tip. Steady: no glow, no pulse.
-2. As the blade dulls, the dark part grows from the tip side; as you sharpen, it shrinks back. Full
-   sharpness: no dark part.
+1. Past the cut: a dark grey-blue blade, the shape of the gauge's blade, from the cut's edge to the
+   tip. Steady: no glow, no pulse.
+2. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
+   sharpen, it shrinks back to the tip. Full sharpness: no dark part. Empty sharpness: the dark part
+   runs from the hilt's cut edge to the tip.
 3. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
-4. **The kept side is the open question.** The shadow sits behind a semi-transparent picture, so a
-   dark rim along the blade's outline, or a dark shade under its bloom, is expected on this build. Say
-   plainly whether you see one, how wide it is, and along which edges. If it is unacceptable, r53 - the
-   carved copy, on top - is kept as the fallback and needs no new work.
-5. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue,
-   one frame behind.
-6. Across an area's loading screen and a weapon change, the shadow comes back with the new gauge.
-7. The log carries it: the insertion line ends with `dim=0x...`; `dim blade not added at stage
+4. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue.
+5. Across an area's loading screen and a weapon change, the shadow comes back with the new gauge.
+6. The log carries it: the insertion line ends with `dim=0x...`; `dim blade not added at stage
    50/51/52` means the copy is absent and the gauge is exactly the shipped look. Report the number.
+7. If the gauge stops clipping, stop and send the log. That is what r54 did, and the log names it.
 
-The log answers the placement by itself. At the mask's draw step the mod reads the copy's
-own state as the game's layout produced it, and prints `copy state ...`; the bar's same fields print
-as `bar state ...`. Each line carries the rectangle the game computed (`rect=`), the rectangle it
-draws inside (`eff=`), the 16-word matrix (`mat=`), the node's position pair (`pos=`) and its authored
-size (`size=`), the floats printed as numbers. On the gauge you measured, the copy should read the
-bar's own `pos=` and `size=88.0 24.0`, with `rect=` covering the bar's blade area in the same band,
-and `eff=` equal to `rect=` because nothing clips it. Send the log; the lines that matter start with
-`MSG r54`.
+The log answers the placement by itself. At the mask's draw step the mod reads the copy's own state as
+the game's layout produced it, and prints `copy state ...`; the bar's same fields print as `bar state
+...`: the rectangle the game computed (`rect=`), the rectangle it draws inside (`eff=`), the 16-word
+matrix (`mat=`), the position pair (`pos=`) and the authored size (`size=`), floats printed as
+numbers. On the gauge you measured, the copy's line should read `pos=302.0 224.0` and `size=49.5 24.0`
+at empty sharpness, `pos=338.0 224.0` and `size=24.75 24.0` at half, and a 1 unit width at full. Send
+the log; the lines that matter start with `MSG r53`.
 
 The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.

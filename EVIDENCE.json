@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r54",
+  "version": "r53",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -79,9 +79,9 @@
     },
     "r53": {
       "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
-      "runtime": "NOT RUN: the shadow follows the cut in the tester's colour; the run decides",
+      "runtime": "NOT RUN: the fallback candidate, r52's proven tree shape with the shadow carved to the part past the cut in #202326; rebuilt from source and the NRO hash matched byte for byte (bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e)",
       "adds": "the shadow colour #202326 (0xFF262320 in the alpha-blue-green-red order the r52 run proved), and the shadow quad written every frame from the accepted cut geometry in the units the node's +0x80/+0xb4 pair uses (core's dim_quad: the bar's authored 88 covers its rect's width, its position pair maps 1:1 onto the rect's corner)",
-      "archive_sha256": "fc877e2431d4dc25c0f2e79f2fbcc71a9d36bfacc75619e1e42a317dc7923312"
+      "archive_sha256": "3130d2c0e8a12fdc602a5f23b4b81adb65895aed14e1f7edfd01e866e5b982ab"
     },
     "r54": {
       "nro_sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db",
@@ -91,9 +91,9 @@
     }
   },
   "build": {
-    "version": "r54",
+    "version": "r53",
     "status": "BUILT",
-    "nro_sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db",
+    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -105,14 +105,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "03a7e8cf1542425b710a80753cbc08ec1823de1cd592229a2b022590994eca81",
+      "src/insert.rs": "7cd8d47ca801df77f40707be4db6029a5397229e6e16116eb5f0920f7bf479f2",
       "src/lib.rs": "f7589ae5f0f945db858dd7855786f4f9610f8131c3c621c07da9c613cbd9b390",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "8e8d59038ecff72444a4f68db4ed7fcc6a1dd485abb2cadc6b53bb87d2bfa0d2",
-      "core/tests/behavior.rs": "3f367b40f61eebe6a348f003fcf647cbaed9a9a70c52128bbbea03364b73e6c5",
+      "core/src/lib.rs": "ce178bbdbbc233f5e8e2cf205c94d4ca0b62ec6974f6b3286fba72dcd03cbb02",
+      "core/tests/behavior.rs": "01c36e649bd2e545cdf91b061753c039663da8fbee7ce6430d32a24ab08e3927",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -120,8 +120,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db",
-    "elf_sha256": "370bd67dea358e6e8e150c45aa001e951b9b1b0dc4d9650ae2cf5fe5022757a6",
+    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
+    "elf_sha256": "3955e8d748664c4e642d02e77199451533122b9843938ec9feda59a69fd9c913",
     "exports": [
       "fini",
       "forge_onInit",
@@ -203,7 +203,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 21,
+    "count": 22,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
@@ -229,7 +229,7 @@
     ],
     "words_per_sample": 11,
     "note": "21 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the 5-node tree with the shadow walked first (kinds 0,1,0,0,1,0,1,0,1,1,2, 11 records in the 88-byte block, the shadow's pair before the mask's enter record and the mask's exit closing the scissor scope), the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db"
+    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e"
   },
   "runs": [
     {
@@ -942,10 +942,30 @@
       "meaning": "The Phase 5 mechanism is proven on screen: a cGUIObjTexture built on Key Quest Markers' recipe, linked as the scissor mask's sibling, draws. The magenta test also settles the MT color word's byte order: the word written as 0xFFFF00FF (AABBGGRR) showed as magenta, so the packing is AABBGGRR. The read-back lines (copy state / bar state) print the layout's own rect, matrix, position and authored pair for calibration.",
       "log": "not retained in this workspace (the tester sent the photo and the report)",
       "fixed_in": "r53"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r54",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db",
+      "log": "work/modern-sharpness-gauge/runs/r54-eden-2026-10-31.txt",
+      "log_sha256": "26ae7bdb1e151959a7ba00534438460b07263dd12128baef8ee0e03827e8b87f",
+      "photo": "work/modern-sharpness-gauge/visual/r54/r54-gauge-uncut-photo.webp",
+      "photo_sha256": "76b7960e94acda8fcbae3f7c07519d75a0628b555efa7732f1ba4330b896a420",
+      "status": "REGRESSION_GAUGE_NEVER_CLIPS",
+      "observed": [
+        "one insertion, then nothing: 'MSG r54 scissor mask inserted: mask=0x48868af0 map=0x487db700 entries=6 cache=0x48868c10 records=11 dim=0x48872f70 dim_tex=0x517abab0 dim_flags=0x20a0001' at t=112.097788, 8 ms after the row's facts line",
+        "8 ms later the mask's links are gone: 'MSG r54 inserted mask's links lost (2 times): marker=0x4d534731 mask.parent=0x488466f0 mask.child=0x48857330 bar.parent=0x0 bar.sibling=0x0 root.child=0x0 instance hook fires=48212'. root.child is 0 and the bar's parent is 0: the row's own chain is gone",
+        "and it never comes back: that line prints 17104 times through to the log end (t=398 s), each time paired with 'no sharpness gauge controller seen in N walker calls (HUD absent?)' (17105 lines, N climbing from 48212 to 576683)",
+        "zero fill lines and zero state lines in the whole log: the mask's enter never reached the live-fill path, because every entry took the links-lost path, which disables the mask (Enable setter 0). So the bar is never clipped: the tester's photo shows the full uncut blade and no shadow"
+      ],
+      "root_cause": "r54's insertion point. The copy becomes the controller's first child (root.child = shadow, shadow.sibling = mask, mask.child = bar). The mask's enter/exit records are what the game's row machinery relies on, and the row is entered through the controller's child chain: with our node in front of the mask, the chain the game walks and tears down is no longer its own. In this run, 8 ms after the insertion the controller's child is 0 and the bar's parent is 0 - the row's chain was taken down - and no gauge controller is ever matched again, so the mod's own watchdog reports the HUD absent 17105 times while the mask's enter keeps firing and keeps disabling the mask. r44's accepted shape (mask as the controller's first child) and r52's (that mask, with the copy as the mask's sibling, drawn last) both ran clean and rebuilt across areas; this insertion point does not.",
+      "conclusion": "The behind-the-gauge idea needs the copy walked before the bar, and the only link position that does that is ahead of the mask on the controller's chain - the position this run shows is not safe. The shadow goes back to r52's proven shape: the mask's sibling, drawn last, carved to the part past the cut. That is r53, packaged and unchanged at build/modern-sharpness-gauge/candidates/r53/.",
+      "fixed_in": "r53 (the preserved fallback candidate; no code change)"
     }
   ],
   "not_proven": [
-    "the shadow's look behind the gauge: it shows through the bar art's semi-transparent pixels, so a dark rim along the blade's outline and under its bloom on the kept side is expected and unmeasured. r53 (the shadow carved to the hidden part, in the band, drawn on top) is preserved unchanged at build/modern-sharpness-gauge/candidates/r53/ as the fallback if the rim is unwanted",
+    "why the row's chain is gone 8 ms after r54's insertion: the log shows root.child = 0 and bar.parent = 0 and no gauge controller matched again, not the mechanism. Reading it needs the row's teardown path, which PHASE2 records as still unread",
     "the atlas band's one-frame lag: it is written at the mask's enter, which the walk visits after the shadow's own records. Removing it needs a hook at the shadow's enter (this class's vtable slot 0x38, main+0x85628), gated on the marker word; not built",
     "the read-back lines of the r52 run: they were not retained in this workspace, so the unit facts used here (authored 88 against the bar's 128 px rect, the bar's position pair 284.0 / 224.0 at rect 110 / 38 from the r8 run) come from the accepted runs' logs",
     "that the clip's width tracks sharpness on screen: r24's probe shows the authored width the scissor receives (written in the enter call), and the user's report is that the gauge drew, not that its width followed sharpness. The authored pair reads 0 between frames because the row's layout zeroes it, so the enter-call write is the only width that reaches the scissor.",

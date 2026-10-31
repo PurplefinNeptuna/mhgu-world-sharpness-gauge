@@ -1,3 +1,29 @@
+Current state: run **r53**, the preserved fallback at `build/modern-sharpness-gauge/candidates/r53/`
+(bytes unchanged, sha256 of its zip `3130d2c0e8a12fdc602a5f23b4b81adb65895aed14e1f7edfd01e866e5b982ab`).
+It is r52's proven tree shape - the mask as the controller's first child, the shadow as the mask's
+sibling, drawn last, outside the scissor - with the shadow carved to the part of the blade past the cut
+and coloured `#202326` (`0xFF262320`).
+
+r54 (the shadow behind the gauge) is recorded as a regression and is not the candidate. Its log
+(`work/modern-sharpness-gauge/runs/r54-eden-2026-10-31.txt`, sha256
+`26ae7bdb1e151959a7ba00534438460b07263dd12128baef8ee0e03827e8b87f`) has one insertion at t=112.097788
+(`entries=6 cache=0x48868c10 records=11 dim=0x48872f70 dim_tex=0x517abab0`), and 8 ms later the mask's
+links are gone: `mask.parent=0x488466f0 mask.child=0x48857330 bar.parent=0x0 bar.sibling=0x0
+root.child=0x0`. That line then repeats 17104 times to the end of the log, each time paired with
+`no sharpness gauge controller seen in N walker calls (HUD absent?)` (17105 lines, N from 48212 to
+576683), and the log has **zero** fill lines and zero state lines: the enter hook never reached the
+live-fill path, so every entry took the links-lost path, which disables the mask. The bar is never
+clipped, which is the tester's photo: the full uncut blade, no shadow.
+
+The insertion point is the difference. Putting the shadow ahead of the mask on the controller's chain
+is the only link position that draws it before the bar, and the row's own chain teardown followed 8 ms
+after that insertion. The shape that ran clean and rebuilt across areas is r52's: mask first, shadow as
+the mask's sibling. r54 stays in the history with the layering research it produced - paint order is
+walk order (main+0xa494a0 emits and consumes in visit order, no sort, no z value), and the GUI file's
+`Priority` (bar 0, glow 1, edge 2) ordered the chain at build time and is not read by the walker - and
+with this: the layer is reachable, the position is not safe.
+
+r54 DEVELOPMENT (2026-10-31), superseded by the r53 fallback after its run:
 Current state: r54 DEVELOPMENT candidate, the plan's Phase 5, the shadow behind the gauge. The tester
 asked why the shadow is not simply the full blade image behind the gauge, and the layering research
 says that is what the game does with its own row: main+0xa494a0 appends `(0,node)` on entry and
@@ -2164,6 +2190,43 @@ from the cut's edge to the tip, steady, no glow and no pulse, the kept part unch
 question is the kept side: the shadow shows through the bar art's semi-transparent pixels, so a dark
 rim along the blade's outline and under its bloom is expected on this build. If that is unwanted, r53
 is the fallback and needs no new code.
+
+## r54 run 2026-10-31 (Eden): the gauge stopped clipping, and the row's chain went 8 ms after the insertion
+
+The tester's photo (`work/modern-sharpness-gauge/visual/r54/r54-gauge-uncut-photo.webp`, sha256
+`76b7960e94acda8fcbae3f7c07519d75a0628b555efa7732f1ba4330b896a420`): the blade whole, no cut, no
+shadow. Log `work/modern-sharpness-gauge/runs/r54-eden-2026-10-31.txt` (sha256
+`26ae7bdb1e151959a7ba00534438460b07263dd12128baef8ee0e03827e8b87f`), quoted:
+
+```
+[ 112.097788] MSG r54 scissor mask inserted: mask=0x48868af0 map=0x487db700 entries=6 cache=0x48868c10 records=11 dim=0x48872f70 dim_tex=0x517abab0 dim_flags=0x20a0001
+[ 112.106043] MSG r54 inserted mask's links lost (2 times): marker=0x4d534731 mask.parent=0x488466f0 mask.child=0x48857330 bar.parent=0x0 bar.sibling=0x0 root.child=0x0 instance hook fires=48212
+[ 112.106087] MSG r54 no sharpness gauge controller seen in 48212 walker calls (HUD absent?)
+```
+
+The counts in the whole log: one insertion, 17104 links-lost lines to t=398 s, 17105 HUD-absent lines
+with N climbing to 576683, zero `fill` lines and zero `copy state` / `bar state` lines.
+
+So the mask's enter ran, found `root.child = 0` and `bar.parent = 0` eight milliseconds after the
+insertion, took the links-lost path, which calls `Enable(mask, 0)`, and did that every frame. The bar
+was never clipped. The gauge row never matched again.
+
+r54's only change over r52's proven shape is the insertion point: the shadow ahead of the mask on the
+controller's chain (`root.child = shadow`, `shadow.sibling = mask`) so the walk emits the shadow before
+the scissor's enter record. That is the position the layering research says is needed to draw behind the
+gauge, and it is the position this run shows is not safe: the row's own chain teardown followed within
+8 ms, and the row never came back. r44's accepted shape (mask first) and r52's (mask first, shadow as
+the mask's sibling, drawn last) both inserted, tore down at area changes and re-inserted cleanly.
+
+What the research stands, unchanged, and what it does not buy: paint order is walk order
+(main+0xa494a0, quoted in full above); the GUI file's `Priority` (bar 0, glow 1, edge 2) ordered the
+chain when the row was built and the walker never reads it (no `bl` site to main+0xa47a04 or
+main+0xa479fc); the scissor's scope is the mask's enter→exit pair. A node we insert gets its layer from
+its link, and the link that draws it under the bar is the one that breaks the row.
+
+Next: run r53, unchanged, which is r52's tree shape with the shadow carved to the part past the cut in
+`#202326`. Open question for the behind idea, if it is ever wanted: the row's teardown path (PHASE2
+records it as unread) would have to be read first, because that is what r54's chain change hit.
 
 ## Rules to keep
 
