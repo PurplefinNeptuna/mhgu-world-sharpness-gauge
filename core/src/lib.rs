@@ -197,43 +197,6 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
     ]
 }
 
-/// The blade sprite is 88 columns wide (`Txt_sharp` Size 88x24) and the blade's length runs
-/// along `u`; the `v` pair is the tier's colour band, which the row's animation slides.
-pub const SPRITE_COLUMNS: i32 = 88;
-
-/// r53's shadow quad, written every frame at the mask's enter: the blade from the cut's right edge
-/// to the tip, in the bar's own band. Its position pair, authored pair and atlas window come back
-/// in the units those fields actually use, from two conversions the logs fix:
-///
-/// - authored pair: the bar's authored 88.0 covers its rect's whole width (the accepted runs log
-///   `bar=110 38 238 166` with `bar_w=88`), so a length of `px` in the rect is
-///   `px * authored / rect width` in authored units;
-/// - position pair: the bar's live pair maps 1:1 onto its rect's corner (the r8 run read 284.0 /
-///   224.0 against rect 110 / 38), so a px offset is the same number of position units;
-/// - atlas: `u` is the sprite's columns, so the column at the cut's edge is
-///   `kept * 88 / rect width`, and `v` is the band the bar is drawing, taken live.
-pub fn dim_quad(
-    rect: [i32; 4],
-    ratio_bp: u32,
-    band: [f32; 4],
-    position: [f32; 2],
-    authored: [f32; 2],
-) -> ([f32; 2], [f32; 2], [f32; 4]) {
-    let measured = (rect[2] - rect[0]).max(1);
-    let kept = cut_box(rect, ratio_bp)[2];
-    let hidden = (cut_box(rect, FULL_SHARPNESS_BP)[2] - kept).max(1);
-    (
-        [position[0] + kept as f32, position[1]],
-        [hidden as f32 * authored[0] / measured as f32, authored[1]],
-        [
-            (kept * SPRITE_COLUMNS / measured) as f32,
-            band[1],
-            band[2],
-            band[3],
-        ],
-    )
-}
-
 /// The node count of main+0xa47d2c: every node in the child and sibling chains below
 /// `controller+0x68`, visibility ignored (that function tests neither bit). main+0xa38ffc
 /// returns it plus one, and main+0x5456e4 uses that sum as the length of the instance's

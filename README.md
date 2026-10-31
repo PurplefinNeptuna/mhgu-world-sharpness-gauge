@@ -9,10 +9,11 @@ takes the cut a little further from the tip toward the hilt, in a straight line,
 leaves the hilt. The colours, the pulse and the glow stay the game's own on the part you see. There
 is nothing to set up: the cut follows the sharpness the game reports.
 
-The part of the blade past the cut is drawn as a shadow in a dark grey-blue, the colour of the unlit
-side of the blade: it covers the space from the cut's edge to the tip, inside the gauge's own band.
-It has no glow and does not pulse, and it moves with the cut as the blade dulls and recovers. At full
-sharpness nothing is left to shade, so the gauge shows the whole blade as the game draws it.
+The blade has a shadow behind it, in a dark grey-blue, the colour of the unlit side of the blade. It
+is the same blade picture, drawn under the gauge, so what you see of it is the part the gauge's own
+colour no longer covers: from the cut's edge to the tip. It has no glow and does not pulse, and it
+grows and shrinks with the cut as the blade dulls and recovers. At full sharpness the gauge covers the
+whole blade, so no shadow shows.
 
 The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
 the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
@@ -26,14 +27,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r53-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r54-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r53`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r54`
 should be listed.
 
 ## Usage

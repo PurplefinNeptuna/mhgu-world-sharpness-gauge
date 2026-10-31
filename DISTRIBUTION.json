@@ -2,16 +2,16 @@
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "Plan Phase 5. r52 proved the copy draws: the tester's photo shows a full-length magenta blade under the sharpness gauge, steady through sharpness drops and recoveries and across areas, and the colour it came out in settles the MT color word's byte order as alpha, blue, green, red. r53 uses that. The shadow colour is the tester's #202326 (0xFF262320), written once at the build. The quad is written every frame at the mask's enter, after the read-back, from core's dim_quad: the position pair is the bar's own pair moved by the width the cut keeps (the bar's position pair maps 1:1 onto its rect's corner, the r8 log: 284.0 / 224.0 at rect 110 / 38), and the authored pair is the hidden length in the bar's authored units, px * authored / rect width (the accepted runs log authored 88 with a 128 px rect), at the bar's authored height. The atlas u1 is the column at the cut's edge in the band the bar is drawing. At 0% on the measured bar: 18 units along, 49.5 authored units, column 12; at 50%: 54 units, 24.75, column 37; at 100%: 1 unit, the sprite's empty tail past the tip; with no gauge: width 0, the accepted appearance. The shadow is the mask's sibling on the root's chain, so it draws after the mask's subtree and outside the scissor, and it has no animation entry, so nothing keyframes it: steady, no glow, the gauge's own colours and pulse on the kept part. The copy's and the bar's own rect, effective rect, 16-word matrix, position pair and authored pair are read at the mask's enter before each write and printed as copy state / bar state, on change, at most every 30 update ticks, floats as floats. r44's accepted cut and its 128 px-at-0% / 200 px-at-100% endpoints are unchanged. 22 host fixtures pass; verify PASSED with 33 signature windows.",
+  "reason": "Plan Phase 5, the shadow behind the gauge. The layering research: main+0xa494a0 appends (0,node) on entry and (1,node) on exit in visit order and consumes that list in order (vtable 0x38/0x3c on kind 0, 0x40 on kind 1, return on kind 2), with no sort and no z value - paint order is walk order. The GUI resource's Priority property (hud0: Txt_sharp 0, Txt_sharpefx 1, Txt_sharpEdge 2; setter main+0xa47a04, getter main+0xa479fc, the word pair +0x5c/+0x60 propagated to the parent) ordered that chain when the row was built; the walker never reads it, so a node inserted at runtime gets its layer from its link. So r54 links root.child = shadow with shadow.sibling = mask: the walker emits the shadow's pair before the mask's enter record, the shadow draws under the gauge and outside the scissor, the bar's ink covers its kept part and the sprite's own shape shows past the cut. The shadow keeps the bar's own position pair and authored 88 x 24 from the build, so the per-frame quad writes and the authored/position unit conversion (core's dim_quad) are deleted; the only per-frame write left is the atlas band at +0x10c following the bar's live tier band, which lands one frame late. Colour #202326 = 0xFF262320 (alpha, blue, green, red, proven by the r52 run). Storage unchanged: 5 tree nodes, 6-word array, 88 bytes = 11 records; the tree fixture pins kinds 0,1,0,0,1,0,1,0,1,1,2 with the shadow's pair first and the mask's exit closing the scissor scope. r44's accepted cut is unchanged. **r53 - the shadow carved to the hidden part in the gauge's band, drawn on top - is kept unchanged at build/modern-sharpness-gauge/candidates/r53/ as the fallback if the behind version shows a dark rim on the kept side.** 21 host fixtures pass; verify PASSED with 33 signature windows.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r53",
+  "version": "r54",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r53-candidate.zip",
-  "runtime_test": "The accepted cut is r44's, accepted on its Eden run of 2026-10-30. r52 ran on Eden 2026-10-31: the copy is on screen as a full-length magenta blade under the sharpness gauge, and it stays in place as sharpness decreases and increases and across areas (the tester's photo work/modern-sharpness-gauge/visual/r52/r52-magenta-photo.webp, sha256 a6fc2f82b722d66c76642666b4e47e1b17c76841148d993f10bce31453e4e638; the log was not retained). Earlier Phase 5 attempts on Eden 2026-10-31: r45 froze the game; r46 refused its copy at stage 52; r47, r48 and r50 ran clean with the copy in the tree and none of it visible, their dim_flags=0x20a0001 being the constructor's default. r53 has not been run.",
+  "archive": "modern-sharpness-gauge-r54-candidate.zip",
+  "runtime_test": "The accepted cut is r44's, accepted on its Eden run of 2026-10-30. r52 ran on Eden 2026-10-31: the copy is on screen as a full-length magenta blade under the sharpness gauge, and it stays in place as sharpness decreases and increases and across areas (the tester's photo work/modern-sharpness-gauge/visual/r52/r52-magenta-photo.webp, sha256 a6fc2f82b722d66c76642666b4e47e1b17c76841148d993f10bce31453e4e638; the log was not retained). Earlier Phase 5 attempts on Eden 2026-10-31: r45 froze the game; r46 refused its copy at stage 52; r47, r48 and r50 ran clean with the copy in the tree and none of it visible, their dim_flags=0x20a0001 being the constructor's default. r53 and r54 have not been run.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -60,6 +60,8 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
+    "the shadow's look behind the gauge, unmeasured: it shows through the bar art's semi-transparent pixels, so a dark rim along the blade's outline and under its bloom on the kept side is expected. r53 (the shadow carved to the hidden part, in the band, on top) is preserved at build/modern-sharpness-gauge/candidates/r53/ as the fallback if that is unwanted",
+    "the atlas band follows the bar's tier one frame late, because it is written at the mask's enter, which the walk visits after the shadow's records; the fix is a hook at the shadow's own enter (this class's vtable slot 0x38, main+0x85628), gated on the marker word, and it is not built",
     "r4 has no runtime test; its lines, the 320-sample budget and the absence of any drawing change are static results.",
     "r2 was built and never run; r3 was run once on Eden and is recorded.",
     "r14 was run once on Eden and failed as reported: the gauge was clipped away from the insertion and the game crashed at the quest end. Its log is the evidence, and the insertion is removed in r15.",
@@ -73,7 +75,6 @@
     "r42 has not been run. Its fill comes from the player fields Phase 1 verified and the r41 run's accepted geometry; the per-frame fill has not been seen on screen.",
     "r43 has not been run. 128 px at 0% is proven by the r42 log (the tester dragged the start there); 200 px at 100% is the tester's measurement, and that run's box ended at 201.",
     "The thread that runs the draw walker at main+0xa494a0 is unproven, and the run did not change that: no bl site, stored word or DTI property in main names that entry.",
-    "the shadow's place and size in the gauge's band: r52 proves the copy draws (a full-length blade, 32 units under the gauge, steady), and r53 moves it to the cut with the conversion the logs fix (authored 88 covers the 128 px rect; the position pair maps 1:1 onto the rect's corner). The placement r53 produces has no runtime evidence, and r52's read-back lines were not retained, so the conversion is not measured from them yet.",
     "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference. The facts line now prints the bar's four corner colours, so a run pins it next to the colour on screen.",
     "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 through r52 are superseded, r52 with its copy seen on screen; r53 is a new candidate and carries no distribution approval."
   ],
@@ -96,8 +97,8 @@
     "manual": [
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r53: pinned toolchain build; 22 host fixtures passed; verify.py PASSED with 33 NSO signature windows (the twelve style-setter windows Key Quest Markers verifies are included), a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The construction recipe, the texture resolve and the read-back fields are read from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
-    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, three insertions, three links-lost teardowns, no guest exception; the tester reported the cut where r43 put it with the HD Project on, which closed the HD Project question. r45's run (2026-10-31) froze the game: no insertion line on any path, then a guest null read at the gauge's first draw. r46's run (2026-10-31) had no fault and the accepted cut on screen; its line shows the copy was refused: 'records=9 dim=0x0' and 'dim blade not added at stage 52'. r47/r48/r50 ran clean with the copy in the tree and none of it visible in the sharpness gauge; r50's quad line proves the placement (rect 157..200, authored 43 at about 44%) with the window on the tier band axis. r52 ran on Eden 2026-10-31 and its magenta copy is on screen and steady (photo, log not retained); r53 has not been run. See EVIDENCE.json and backups/accepted/."
+    "static_summary": "r54: pinned toolchain build; 21 host fixtures passed; verify.py PASSED with 33 NSO signature windows (the twelve style-setter windows Key Quest Markers verifies are included), a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The construction recipe, the texture resolve and the read-back fields are read from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
+    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, three insertions, three links-lost teardowns, no guest exception; the tester reported the cut where r43 put it with the HD Project on, which closed the HD Project question. r45's run (2026-10-31) froze the game: no insertion line on any path, then a guest null read at the gauge's first draw. r46's run (2026-10-31) had no fault and the accepted cut on screen; its line shows the copy was refused: 'records=9 dim=0x0' and 'dim blade not added at stage 52'. r47/r48/r50 ran clean with the copy in the tree and none of it visible in the sharpness gauge; r50's quad line proves the placement (rect 157..200, authored 43 at about 44%) with the window on the tier band axis. r52 ran on Eden 2026-10-31 and its magenta copy is on screen and steady (photo, log not retained); r53 and r54 have not been run. See EVIDENCE.json and backups/accepted/."
   },
   "dependencies": [
     {
@@ -112,10 +113,10 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r53/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e"
+      "source": "build/modern-sharpness-gauge/candidates/r54/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db"
     }
   },
-  "candidate": "build/modern-sharpness-gauge/candidates/r53/delivery",
+  "candidate": "build/modern-sharpness-gauge/candidates/r54/delivery",
   "candidate_builder": "scripts/build.py"
 }

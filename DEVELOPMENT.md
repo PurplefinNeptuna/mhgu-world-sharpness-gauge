@@ -1,3 +1,33 @@
+Current state: r54 DEVELOPMENT candidate, the plan's Phase 5, the shadow behind the gauge. The tester
+asked why the shadow is not simply the full blade image behind the gauge, and the layering research
+says that is what the game does with its own row: main+0xa494a0 appends `(0,node)` on entry and
+`(1,node)` on exit in the order it visits nodes and then consumes that list in order - vtable 0x38 and
+0x3c on kind 0, 0x40 on kind 1, return on kind 2 - with no sort and no z value anywhere in it. Paint
+order is walk order. The row's `Priority` values in the resource (hud0: `Txt_sharp` 0, `Txt_sharpefx`
+1, `Txt_sharpEdge` 2, and the runs walk bar → glow → edge) are what ordered that chain when the row
+was built; the walker never reads the property, and `xref.py` finds no `bl` site for its accessor
+(main+0xa47a04 / main+0xa479fc, the field pair `+0x5c/+0x60`, propagated to the parent), so it is
+build-time ordering. A node inserted at runtime gets its layer from where it is linked.
+
+So r54 links the shadow first: `root.child = shadow`, `shadow.sibling = mask`, mask over the bar,
+glow and edge as before. The walker emits the shadow's pair before the mask's enter record, where the
+scissor starts, so the shadow draws under the gauge and outside the clip. Its quad is the bar's own
+pair and the bar's authored 88 x 24, written once at the build; nothing is written per frame for
+placement, and the cut does the work - the bar's ink covers its kept part and the sprite's own shape
+shows past the cut. The colour is the tester's `#202326` (`0xFF262320`, the alpha, blue, green, red
+order the r52 run proved). The only per-frame write left is the atlas band: the four words at
+`+0x10c` follow the bar's live tier band, so the dim blade changes colour with the tier. The mask's
+enter is visited after the shadow's records, so a tier change shows on the shadow one frame late;
+writing it in the shadow's own enter (this class's vtable slot 0x38, main+0x85628) needs a hook on a
+shared class function, gated on the marker word, and nothing measured asks for it yet. Storage is
+unchanged: 5 tree nodes, the 6-word array, 88 bytes = 11 records, and the fixture now pins the shadow
+pair as the walk's first two records with the mask's enter third and the mask's exit closing the
+scope. 21 host fixtures pass; verify PASSED with the same 33 signature windows. Gameplay NOT RUN.
+**r53, the shadow carved to the hidden part in the gauge's band, is kept as the fallback candidate at
+`build/modern-sharpness-gauge/candidates/r53/` - its bytes are unchanged. If the behind version shows
+a dark rim on the kept side, r53 is the version to run.**
+
+r53 DEVELOPMENT (2026-10-31), superseded by r54:
 Current state: r53 DEVELOPMENT candidate, the plan's Phase 5. r52 answered its question: the copy is
 on screen. The tester's photo shows a full-length magenta blade under the sharpness gauge, and it
 stays in place as sharpness drops and recovers and across areas. Two things that run settled: the
@@ -2097,6 +2127,43 @@ the gauge's own band, from the cut's edge to the tip, steady, with no glow and n
 kept part stays the game's own. The read-back that confirms it: the copy's `pos=` is the bar's pair
 plus the kept width (18 at 0%, 54 at 50%), its `size=` is 49.5 / 24.0 at 0% and 24.75 / 24.0 at 50%,
 and its `rect=` spans the blade's hidden part in the bar's band.
+
+## r54, built 2026-10-31: the shadow behind the gauge
+
+The tester's question - why not put the full blade image behind the gauge - is the layering answer,
+and the code says the game does exactly that with its own row.
+
+- main+0xa494a0 (`FUN_014124a0`) builds a flat record list by walking the tree, `(0,node)` on entry,
+  `(1,node)` on exit, `(2,…)` as the terminator, and then consumes that list in order in the same
+  function: kind 0 calls vtable slots 0x38 and 0x3c, kind 1 calls 0x40 and clears the layout bit,
+  kind 2 returns. No sort, no z value. Paint order is walk order.
+- The GUI resource carries the layer key: `Txt_sharp` Priority 0, `Txt_sharpefx` 1, `Txt_sharpEdge` 2
+  (`work/modern-sharpness-gauge/hud0-sharpness.json`), and the runs walk bar → glow → edge. The
+  property is `cGUIObject::Priority`, setter main+0xa47a04, getter main+0xa479fc, a word pair at
+  `+0x5c/+0x60` propagated up the parent chain. The walker never reads it, and no `bl` site reaches
+  either accessor, so it orders the chain when the row is built. A node we insert at runtime gets its
+  layer from its link, not from that word.
+- The scissor's scope is the mask's enter→exit pair: enter (main+0xa4ba94) saves the live clip into
+  `mask+0xc0..0xcc`, intersects and applies; exit (main+0xa4bcdc) restores it. A node walked before
+  the mask is never inside the clip.
+
+So: `root.child = shadow`, `shadow.sibling = mask`, `mask.child = bar`, `bar.sibling = glow`,
+`glow.sibling = edge`. The shadow is the walk's first node, drawn under the gauge and outside the
+scissor; the bar's ink covers its kept part and the sprite's own shape shows past the cut. The
+placement writes per frame are gone - `dim_quad`, the authored/position conversion and its fixture
+with it - because the node keeps the bar's own quad from the build. The colour is `0xFF262320`. The
+per-frame write left is the band: the four words at `+0x10c` follow the bar's live tier band, so the
+dim blade follows the tier colour, one frame late.
+
+The tree fixture now pins the shadow's enter/exit as the walk's first pair with the mask's enter
+third and the mask's exit closing the scope: kinds `[0,1,0,0,1,0,1,0,1,1,2]`, 11 records, the 88-byte
+block exactly.
+
+What the run has to answer: the shadow behind the gauge, dark grey-blue, the sprite's own blade shape,
+from the cut's edge to the tip, steady, no glow and no pulse, the kept part unchanged. The open visual
+question is the kept side: the shadow shows through the bar art's semi-transparent pixels, so a dark
+rim along the blade's outline and under its bloom is expected on this build. If that is unwanted, r53
+is the fallback and needs no new code.
 
 ## Rules to keep
 
