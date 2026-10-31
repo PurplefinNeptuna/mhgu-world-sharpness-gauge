@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r52",
+  "version": "r53",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -76,12 +76,18 @@
       "runtime": "NOT RUN: the forced-visibility candidate; the user's run decides it",
       "adds": "Key Quest Markers' complete cGUIObjTexture recipe on the copy (its twelve style setters in its order and values, the texture id last, then mTextureRect main+0xa4fb58 given a pointer to the bar's live four floats), one forced quad written once (the bar's position pair with 32.0 on y, the bar's authored 88x24, opaque magenta 0xFFFF00FF at the four corners), no per-frame writes, and a read-back of the copy's and the bar's rect, effective rect, 16-word matrix, position pair and authored pair at the mask's enter before any write",
       "archive_sha256": "b11fde29ab4434c1b03ad117bf9c038b4549ec2e56e638d7fb30ba75336ccf96"
+    },
+    "r53": {
+      "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
+      "runtime": "NOT RUN: the shadow follows the cut in the tester's colour; the run decides",
+      "adds": "the shadow colour #202326 (0xFF262320 in the alpha-blue-green-red order the r52 run proved), and the shadow quad written every frame from the accepted cut geometry in the units the node's +0x80/+0xb4 pair uses (core's dim_quad: the bar's authored 88 covers its rect's width, its position pair maps 1:1 onto the rect's corner)",
+      "archive_sha256": "fc877e2431d4dc25c0f2e79f2fbcc71a9d36bfacc75619e1e42a317dc7923312"
     }
   },
   "build": {
-    "version": "r52",
+    "version": "r53",
     "status": "BUILT",
-    "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
+    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -93,14 +99,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "9575238e2ef1e4def6c30877007184f5175f709fe42985cfb3b70a0bb525e6f1",
+      "src/insert.rs": "7cd8d47ca801df77f40707be4db6029a5397229e6e16116eb5f0920f7bf479f2",
       "src/lib.rs": "f7589ae5f0f945db858dd7855786f4f9610f8131c3c621c07da9c613cbd9b390",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "94e0823daade27218e00e1e8ef317d37668ff7835e0b97ed917d0152e5a9696f",
-      "core/tests/behavior.rs": "89f098436cd64b4183c570e56dfc305feee1038e6aac8fbe8b6d1734cf28bc17",
+      "core/src/lib.rs": "ce178bbdbbc233f5e8e2cf205c94d4ca0b62ec6974f6b3286fba72dcd03cbb02",
+      "core/tests/behavior.rs": "01c36e649bd2e545cdf91b061753c039663da8fbee7ce6430d32a24ab08e3927",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -108,8 +114,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
-    "elf_sha256": "b6c953309174fbccfcb263eda7f5d3040c2f4333626f68e0652f053329e33155",
+    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
+    "elf_sha256": "3955e8d748664c4e642d02e77199451533122b9843938ec9feda59a69fd9c913",
     "exports": [
       "fini",
       "forge_onInit",
@@ -191,7 +197,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 23,
+    "count": 22,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
@@ -214,12 +220,12 @@
       "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right",
       "the dim blade (Phase 5): its rect from the cut's right edge to the bar rect's right edge and its atlas u as the same fraction of the authored 88 columns, at 0 / 25 / 50 / 100% on the measured bar and on a 64 px rect",
       "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in",
-      "the dim blade's forced quad: the bar's live position pair with DIM_DROP 32.0 on y (284.0/224.0 -> 284.0/256.0) and the bar's authored 88x24 passing through",
-      "the dim blade's atlas window: the bar's live band [0, 280, 88, 304] with the columns past the cut, at 0 / 25 / 50 / 100% and on a 64 px rect"
+      "the shadow quad in the bar's own units: the position offset is the kept width 1:1, the authored width is the hidden px * authored / rect width (49.5 at 0% and 24.75 at 50% on the measured bar, 49.5 on a 64 px rect), and u1 is the column at the cut's edge in the bar's band",
+      "the shadow quad at 100%: 1 authored unit, the sprite's empty tail past the tip"
     ],
     "words_per_sample": 11,
-    "note": "23 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, its forced quad's drop and size, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef"
+    "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the shadow quad's units at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
+    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e"
   },
   "runs": [
     {
@@ -919,9 +925,24 @@
       "observed": "119 lines, no fault, no teardown. 'records=11 dim=0x4800eec0 dim_tex=0x5190bab0 dim_flags=0x20a0001' (the flag word is the class constructor's default, main+0xa4d0d8 writing 0x020a0001 at +0x54). The new quad line reads 'fill copy rect=157 38 200 166 pos=47 authored=43' at ratio_bp=4133 and 'fill copy rect=200 38 200 166 pos=90 authored=1' at ratio_bp=10000, each paired with its cut line, whose tex= words are 1133248512/1118830592/1134034944 = [0, 280, 88, 304] and 1134034944/1118830592/1134821376 = [0, 304, 88, 328]: the copy is placed from the cut's right edge to the tip, exactly where the accepted geometry says, and the tester sees none of it in the sharpness gauge.",
       "root_cause": "The sprite's length is the u axis and v carries the tier colour bands: Txt_sharp is 88x24 with the bands 0,280,88,304 / 0,304,88,328 / 0,328,88,352 (PHASE0), which is what the bar's live window reads as. r48's window was [u1, tip_v, u2, v1] with tip_v the smallest v1 seen (280), i.e. the band above the bar's own at mid sharpness and zero width at full sharpness. The earlier 'window of v 156..156 samples no rows' reading in this record came from invented tex numbers and is replaced; with the real band the open question is where the node's own layout lands its quad, which is what r49's placement change and r52's read-back measure.",
       "fixed_in": "r51"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r52",
+      "emulator": "Eden Development (user run)",
+      "status": "PHASE5_COPY_SEEN_ON_SCREEN",
+      "binary_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
+      "photo": "work/modern-sharpness-gauge/visual/r52/r52-magenta-photo.webp",
+      "photo_sha256": "a6fc2f82b722d66c76642666b4e47e1b17c76841148d993f10bce31453e4e638",
+      "observed": "The tester's report and photo: the copy is on screen as a full-length magenta blade under the sharpness gauge, and it stays in place as sharpness decreases and increases and across areas. r52's forced values were a magenta full sprite-size quad written once, so the node is drawn by the game and the placement holds.",
+      "meaning": "The Phase 5 mechanism is proven on screen: a cGUIObjTexture built on Key Quest Markers' recipe, linked as the scissor mask's sibling, draws. The magenta test also settles the MT color word's byte order: the word written as 0xFFFF00FF (AABBGGRR) showed as magenta, so the packing is AABBGGRR. The read-back lines (copy state / bar state) print the layout's own rect, matrix, position and authored pair for calibration.",
+      "log": "not retained in this workspace (the tester sent the photo and the report)",
+      "fixed_in": "r53"
     }
   ],
   "not_proven": [
+    "the shadow's place and size in the gauge's band on screen: r52 proves the copy draws (full-length magenta blade under the gauge, steady through sharpness changes and across areas), and r53 moves it to the cut using the conversion the logs fix - authored 88 covers the bar's 128 px rect, and the bar's position pair maps 1:1 onto its rect's corner. r53's own placement has no runtime evidence",
+    "the read-back lines of the r52 run: they were not retained in this workspace, so the conversion factors are taken from the accepted runs' bar numbers (bar_w=88 against bar=110 38 238 166, and the r8 position pair 284.0 / 224.0 at rect 110 / 38), not measured from r52's copy state line",
     "that the clip's width tracks sharpness on screen: r24's probe shows the authored width the scissor receives (written in the enter call), and the user's report is that the gauge drew, not that its width followed sharpness. The authored pair reads 0 between frames because the row's layout zeroes it, so the enter-call write is the only width that reaches the scissor.",
     "exact binary gameplay acceptance: the r16 run reports the bar visible, and no user has accepted a specific binary as the mod's gauge change (there is none in r16).",
     "who allocates the gauge row's object array at instance+0xd8: Key Quest Markers' accepted pattern allocates GUI blocks through the owning class's DTI MT allocator (main+0x7aa47c), which r17/r18 use to grow the array from 4 words to 5; the game's own destructor is assumed to free the published block, and that has not been observed.",
@@ -950,18 +971,17 @@
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
     "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too.",
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
-    "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
     "that the copy reads correctly under the glow's edge",
     "that the copy draws at all. The insertion line's dim_flags=0x20a0001 is the class constructor's own default (main+0xa4d0d8 writes 0x020a0001 at +0x54), so the log proves construction and not drawing. That the noisy dark block in the r47 photo is this mod's copy is inference from r47's own writes, not a log fact.",
-    "the dim blade appearing in the sharpness gauge: r48 and r50 sampled real sprite rows and the gauge showed none of it, r51 has not been run, and the copy's game-computed rect, effective rect, matrix, position and authored pair have never been read back - r52 reads them at the mask's enter, before any write"
+    "the dim blade's placement in the gauge's own band and its width following the cut: r52 proves the node draws as a full-length blade 32 units under the gauge, and the next step (r53) moves it to the cut with the accepted geometry. The unit conversion for +0x80/+0xb4 comes from the read-back lines, which this workspace has not read yet: the r52 log was not retained"
   ],
   "runtime": {
-    "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",
-    "date": "2026-10-30",
+    "status": "RUN ONCE, EDEN 2026-10-31 (r44 accepted on its own bytes); r52 ran on Eden 2026-10-31 and the copy is seen on screen (photo, log not retained)",
+    "date": "2026-10-31",
     "binary_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
-    "previous_runs": "r42 ran twice on Eden 2026-10-30 (three quests, bowgun, non-English, HD off); r41 ran 2026-10-29; r14-r35 as recorded in the runs list."
+    "previous_runs": "r52 (photo: magenta blade under the gauge, steady); r42 twice, r41, r44 as recorded; r45-r50 as recorded in the runs list."
   },
   "sharpness_chain_research": {
     "writer": "uPlayerQuest::adjustSharpness main+0x2ad288: applies the amount as a short, clamps to 0 and mMaxSharpness, recomputes the tier, stores mSharpnessType, fires events 0x1c/0x1d/0x1e through vft+0x3ac",

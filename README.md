@@ -9,12 +9,10 @@ takes the cut a little further from the tip toward the hilt, in a straight line,
 leaves the hilt. The colours, the pulse and the glow stay the game's own on the part you see. There
 is nothing to set up: the cut follows the sharpness the game reports.
 
-The dulled blade behind the cut, from the plan for this mod, is not showing in the game yet. This
-build tests it. The copy of the blade is drawn at a fixed size under the gauge in magenta, a colour
-the sharpness gauge never uses, and it is never moved after the gauge is built, so a run answers one
-question: does the game draw this copy at all. If you see a magenta blade under the sharpness gauge,
-that is the test working, and the report of it is what the mod needs. If you see nothing there, the
-gauge looks exactly as the released build.
+The part of the blade past the cut is drawn as a shadow in a dark grey-blue, the colour of the unlit
+side of the blade: it covers the space from the cut's edge to the tip, inside the gauge's own band.
+It has no glow and does not pulse, and it moves with the cut as the blade dulls and recovers. At full
+sharpness nothing is left to shade, so the gauge shows the whole blade as the game draws it.
 
 The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
 the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
@@ -28,14 +26,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r52-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r53-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r52`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r53`
 should be listed.
 
 ## Usage

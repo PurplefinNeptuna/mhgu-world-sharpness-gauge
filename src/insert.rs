@@ -25,7 +25,7 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_position, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT,
+    basis_points, cut_box, dim_quad, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT,
     NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -59,10 +59,11 @@ const ROW_SIZING: u32 = 0x08;
 // The field offsets are from the DTI record and the setter decompiles, recorded in
 // work/modern-sharpness-gauge/PHASE5_RESEARCH.md.
 pub const DIM_MARKER: u32 = 0x4d534732;
-/// Opaque magenta at all four corners, in the AABBGGRR order the bar's own `0xff5efaff` decodes
-/// as yellow in. The MT `color` word's byte order is unproven, so a copy that comes out cyan with
-/// magenta channels is this constant, not the mechanism.
-const DIM_COLOUR: u32 = 0xFFFF_00FF;
+/// The shadow colour at all four corners: the `#202326` the tester asked for. The r52 run proved
+/// the byte order - it wrote `0xFFFF00FF` and the copy came out magenta - so the word is alpha,
+/// blue, green, red: `#202326` is `0xFF262320`. The bar's own `0xff5efaff` decodes as yellow in the
+/// same order.
+const DIM_COLOUR: u32 = 0xFF26_2320;
 /// The style setters Key Quest Markers' badge runs on this class, in its order and with its
 /// values, each through the two-integer ABI `(object, value)`. `Mask = 0` is the one that draws
 /// the corner colours: `Mask = 1` enters the native mask-writing pass.
@@ -456,11 +457,10 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         return Err(52);
     }
     // The bar's live quad, in floats: its authored pair (88.0 x 24.0 on the measured bar) and its
-    // position pair. The copy takes the bar's own size, and the bar's position with core's drop on
-    // y, so it sits under the blade in the units the bar's own quad uses.
+    // position pair. The shadow starts as the bar's own quad; the per-frame write in `enter` sizes
+    // it to the part past the cut.
     let (authored, bar_position) = (window_at(bar, TEX_AUTHORED), window_at(bar, TEX_POSITION));
-    let (copy_position, copy_size) =
-        dim_position([bar_position[0], bar_position[1]], [authored[0], authored[1]]);
+    let (copy_position, copy_size) = ([bar_position[0], bar_position[1]], [authored[0], authored[1]]);
     let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
     let node = match allocator.alloc_text(TEXTURE_SIZE, dti.id()) {
         Some(pointer) if pointer & 15 == 0 => pointer,
@@ -519,6 +519,41 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         return Err(52);
     }
     Ok(node)
+}
+
+/// Write the shadow's quad and atlas for this frame's cut. `dim_quad` sizes it in the units the
+/// node's own `+0x80/+0xb4` pair uses - the bar's authored 88.0 covers its rect's whole width, and
+/// its position pair maps 1:1 onto the rect's corner - because the layout reads those fields, not
+/// the rectangle, and it reads them on the node's own visit, after this callback. So the quad is
+/// written every frame and the layout dirty bit goes with it. With no gauge to cut by, the width
+/// goes to 0, which is the accepted appearance.
+fn write_dim(dim: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
+    let (band, position, authored) = (
+        window_at(bar, NODE_TEXTURE_RECT),
+        window_at(bar, TEX_POSITION),
+        window_at(bar, TEX_AUTHORED),
+    );
+    let (position, authored, window) = if ratio_bp == u32::MAX {
+        ([position[0], position[1]], [0.0f32, authored[1]], band)
+    } else {
+        dim_quad(
+            rect,
+            ratio_bp,
+            band,
+            [position[0], position[1]],
+            [authored[0], authored[1]],
+        )
+    };
+    for edge in 0..4usize {
+        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + edge as u32 * 4, window[edge].to_bits());
+    }
+    let _ = memory::write_word(dim + TEX_POSITION, position[0].to_bits());
+    let _ = memory::write_word(dim + TEX_POSITION + 4, position[1].to_bits());
+    let _ = memory::write_word(dim + TEX_AUTHORED, authored[0].to_bits());
+    let _ = memory::write_word(dim + TEX_AUTHORED + 4, authored[1].to_bits());
+    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
+        let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
+    }
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
@@ -580,6 +615,10 @@ pub fn enter(mask: u32) {
         Some(bp) => bp,
         None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
+            // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
+            if dim != 0 {
+                write_dim(dim, bar, rect_at(bar, NODE_RECT), u32::MAX);
+            }
             return;
         }
     };
@@ -654,9 +693,12 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
-    // The copy is not written here. r52 gives it its forced quad once, at the build, and reads the
-    // game's own state for it back at the enter above: writing it per frame is what every earlier
-    // build measured, and none of them placed the copy.
+    // The shadow follows the cut from here: `write_dim` sizes it to the part of the blade past the
+    // cut, in the units its own quad uses, and the read-back above measures what the game did with
+    // the quad of the previous frame.
+    if dim != 0 {
+        write_dim(dim, bar, rect, ratio);
+    }
 }
 
 /// Insert the mask under the row root, over the bar, glow and edge, after the row's map and

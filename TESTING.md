@@ -3,44 +3,44 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r52
+## What to check on r53
 
-r52 is a visibility test, not a finished look. The dulled part of the blade is drawn as a copy of
-the sprite in opaque magenta - a colour the sharpness gauge never uses - at the sprite's full 88x24
-size, 32 units under the sharpness gauge, written once when the gauge row is built and never moved
-after that. Watch the strip below the sharpness gauge, at any sharpness level. The expected picture
-is a magenta full-length blade under the gauge, steady, no glow and no pulse. Say plainly whether
-you see it at all: "nothing", "a magenta blade under the gauge", "a magenta block somewhere else",
-and where. If you see it, say how wide it is relative to the red blade and whether it moves.
+r52 showed the copy: a magenta full-length blade under the sharpness gauge, steady through
+sharpness drops and recoveries and across areas. That proved the copy draws, and it proved the colour
+packing, so r53 uses it as the design asks: the shadow is the colour you named, `#202326` (a dark
+grey-blue), and it sits in the gauge's own band covering the part of the blade past the cut, from the
+cut's edge to the tip. It is written from the accepted cut geometry every frame, so it moves with
+your sharpness.
 
-r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47, r48 and r50 all
-log the copy built with its texture resolved (`dim=`, `dim_tex=`) with nothing of it visible in the
-sharpness gauge. Their `dim_flags=0x20a0001` is the class constructor's own default, so it says the
-copy was constructed and nothing about whether it drew. The grey band above the red cropped blade in
-the r48 photo is the Dual Blade's demon gauge, a row this mod does not touch; the noisy dark block in
-the r47 photo is read as this mod's copy, which is an inference.
+What to look at:
 
-What the log now answers on its own. The mask's enter reads the copy's own state, as the game's
-layout produced it on the previous frame, and prints `copy state ...`; the same fields on the bar print
+1. The space past the cut is a dark grey-blue shadow, the shape of the blade, from the cut's edge to
+   the tip. It is steady: it does not glow and does not pulse.
+2. As the blade dulls, the shadow grows from the tip side and keeps touching the cut's edge. As you
+   sharpen, it shrinks back to the tip.
+3. Full sharpness: no shadow. Empty sharpness: the shadow runs from the hilt's cut edge to the tip.
+4. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
+5. Across an area's loading screen and a weapon change, the shadow comes back with the new gauge.
+6. The log carries it: the insertion line ends with `dim=0x...`; `dim blade not added at stage
+   50/51/52` means the copy is absent and the gauge is exactly the shipped look. Report the number.
+
+The log answers the placement question by itself. At the mask's draw step the mod reads the copy's
+own state as the game's layout produced it, and prints `copy state ...`; the bar's same fields print
 as `bar state ...`. Each line carries the rectangle the game computed (`rect=`), the rectangle it
 draws inside (`eff=`), the 16-word matrix (`mat=`), the node's position pair (`pos=`) and its authored
-size (`size=`), with the floats printed as numbers. On the gauge you measured, the copy's line should
-read `pos=284.0 256.0`, `size=88.0 24.0`, a rectangle 88 wide and 24 tall, the matrix's first row
-1.0, and `eff=` equal to `rect=`. Send the log; the lines that matter start with `MSG r52`.
+size (`size=`), the floats printed as numbers. With the gauge you measured, the copy's line should
+read `pos=302.0 224.0` and `size=49.5 24.0` at empty sharpness, `pos=338.0 224.0` and `size=24.75 24.0`
+at half, and a 1 unit width at full. Send the log; the lines that matter start with `MSG r53`.
 
 The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
-110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to
-look at:
+110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
 
-1. The magenta blade under the gauge: its length, its position relative to the red blade, and
-   whether it is steady.
-2. On the kept part nothing changed: the native colour, the pulse, the glow and the edge glyph
-   are the same as r44.
-3. The log carries the copy: the insertion line ends with `dim=0x...`. If it says
-   `dim blade not added at stage 50/51/52`, the copy is absent and the gauge looks exactly like
-   r44. Report the number.
-4. Mid-quest weapon change and an area change: the copy and its state lines go with the row and
-   come back on the new row.
+Earlier runs, for the record: r45 froze the game five seconds into a quest, r46 refused to add the
+copy, and r47, r48 and r50 all log the copy built with its texture resolved (`dim=`, `dim_tex=`) with
+nothing of it visible in the sharpness gauge. Their `dim_flags=0x20a0001` is the class constructor's
+own default, so it says the copy was constructed and nothing about whether it drew. The grey band
+above the red cropped blade in the r48 photo is the Dual Blade's demon gauge, a row this mod does not
+touch; the noisy dark block in the r47 photo is read as this mod's copy, which is an inference.
 
 1. One melee quest: full sharpness, a few hits down to a low level, empty, then
    sharpen back. The cut should land where r43 landed at the same sharpness. Take

@@ -201,41 +201,35 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
 /// along `u`; the `v` pair is the tier's colour band, which the row's animation slides.
 pub const SPRITE_COLUMNS: i32 = 88;
 
-/// r52's forced drop: the copy's position pair is the bar's own pair with this much added to y, so
-/// it sits below the real blade. The bar's pair is a float offset in its parent's space (the r8 run
-/// read 284.0 / 224.0 live) with transform scale 1.0 (the r33 run's `mat=0x3f800000`), so these are
-/// the units the layout draws in, not screen pixels.
-pub const DIM_DROP: f32 = 32.0;
-
-/// r52's forced quad, written once at the build and never touched again: the bar's position pair
-/// with the drop on y, and the bar's authored pair as the copy's size.
-pub fn dim_position(position: [f32; 2], authored: [f32; 2]) -> ([f32; 2], [f32; 2]) {
-    ([position[0], position[1] + DIM_DROP], authored)
-}
-
-/// The dim blade of the plan's Phase 5: the sprite's columns past the cut, drawn where they
-/// would be uncut. Returns its screen rect and its atlas window.
+/// r53's shadow quad, written every frame at the mask's enter: the blade from the cut's right edge
+/// to the tip, in the bar's own band. Its position pair, authored pair and atlas window come back
+/// in the units those fields actually use, from two conversions the logs fix:
 ///
-/// `atlas` is the bar's live window `[u1, v1, u2, v2]` in float pixels: `u` is the sprite's
-/// columns and `v` its tier band, so the copy keeps the bar's own band (same sprite, same tier
-/// colour) and takes the columns the cut hides. Its rect starts where the kept part ends and
-/// ends at the tip's screen position - the 100% cut box's width, 90 px on the measured bar -
-/// so it covers the blade's missing length and the sprite's empty tail past the tip, not the
-/// whole bar rect. At 100% nothing is left to draw.
-pub fn dim_shape(rect: [i32; 4], ratio_bp: u32, atlas: [f32; 4]) -> ([i32; 4], [f32; 4]) {
+/// - authored pair: the bar's authored 88.0 covers its rect's whole width (the accepted runs log
+///   `bar=110 38 238 166` with `bar_w=88`), so a length of `px` in the rect is
+///   `px * authored / rect width` in authored units;
+/// - position pair: the bar's live pair maps 1:1 onto its rect's corner (the r8 run read 284.0 /
+///   224.0 against rect 110 / 38), so a px offset is the same number of position units;
+/// - atlas: `u` is the sprite's columns, so the column at the cut's edge is
+///   `kept * 88 / rect width`, and `v` is the band the bar is drawing, taken live.
+pub fn dim_quad(
+    rect: [i32; 4],
+    ratio_bp: u32,
+    band: [f32; 4],
+    position: [f32; 2],
+    authored: [f32; 2],
+) -> ([f32; 2], [f32; 2], [f32; 4]) {
     let measured = (rect[2] - rect[0]).max(1);
     let kept = cut_box(rect, ratio_bp)[2];
-    let tip = cut_box(rect, FULL_SHARPNESS_BP)[2];
-    let left = rect[0] + kept;
-    let right = rect[0] + tip;
-    let columns = (kept * SPRITE_COLUMNS / measured) as f32;
+    let hidden = (cut_box(rect, FULL_SHARPNESS_BP)[2] - kept).max(1);
     (
-        [left, rect[1], right.max(left), rect[3]],
+        [position[0] + kept as f32, position[1]],
+        [hidden as f32 * authored[0] / measured as f32, authored[1]],
         [
-            if right > left { columns } else { atlas[0] },
-            atlas[1],
-            atlas[2],
-            atlas[3],
+            (kept * SPRITE_COLUMNS / measured) as f32,
+            band[1],
+            band[2],
+            band[3],
         ],
     )
 }

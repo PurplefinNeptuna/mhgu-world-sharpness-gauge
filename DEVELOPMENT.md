@@ -1,3 +1,24 @@
+Current state: r53 DEVELOPMENT candidate, the plan's Phase 5. r52 answered its question: the copy is
+on screen. The tester's photo shows a full-length magenta blade under the sharpness gauge, and it
+stays in place as sharpness drops and recovers and across areas. Two things that run settled: the
+node type, recipe and link draw, and the `MT color` word's byte order - the constant written as
+`0xFFFF00FF` came out magenta, so the bytes are alpha, blue, green, red, and the shadow colour the
+tester asked for, `#202326`, is `0xFF262320`.
+
+r53 puts the shadow where the plan wants it: in the gauge's own band, covering the part of the blade
+past the cut. It is written every frame from the accepted cut geometry, in the units the node's own
+`+0x80/+0xb4` pair uses. The bar's authored 88.0 covers its rect's whole width (the accepted runs log
+`bar=110 38 238 166` with `bar_w=88`), so a length of `px` in the rect is `px * 88 / rect width` in
+authored units, and its position pair maps 1:1 onto the rect's corner (the r8 run read 284.0 / 224.0
+at rect 110 / 38). Core's `dim_quad` does that conversion and the new fixture pins it: at 0% on the
+measured bar the shadow starts 18 units along, is 49.5 authored units wide and samples from column 12
+of the band the bar is drawing; at 50% it starts at 54 and is 24.75 wide from column 37; at 100% the
+hidden width is 1 px, the sprite's empty tail past the tip. With no gauge to cut by it goes to width
+0, the accepted appearance. The mask's enter reads the copy's and the bar's own state back before
+each write, so the run measures what the layout made of the quad. 22 host fixtures pass; verify
+PASSED with the same 33 signature windows. Gameplay NOT RUN.
+
+r52 DEVELOPMENT (2026-10-31), superseded by r53 after its run:
 Current state: r52 DEVELOPMENT candidate, the plan's Phase 5, a forced-visibility candidate. The copy
 has never been seen where it was put, so r52 stops tuning geometry. The copy gets Key Quest Markers'
 complete badge recipe: the allocator slot and constructor it uses, the bar's `+0x50`/`+0x64`/`+0x74`/
@@ -2017,6 +2038,65 @@ read-back that confirms it on the measured bar: `pos=284.0 256.0`, `size=88.0 24
 24, the matrix's x row 1.0, and the effective rect equal to the rect. If those land and the blade is
 not on screen, the node is laid out and the gap is in the draw path: back to the walker
 main+0xa494a0 for why a sibling of the scissor mask is not emitted, not a new candidate.
+
+## r52 run 2026-10-31 (Eden): the magenta blade is on screen, and it holds
+
+The tester's photo (`work/modern-sharpness-gauge/visual/r52/r52-magenta-photo.webp`, sha256
+`a6fc2f82b722d66c76642666b4e47e1b17c76841148d993f10bce31453e4e638`) shows the gauge's own yellow
+blade and, under it, a full-length magenta blade. Their report: "its working well, and it stays there
+when my sharpness changed (decrease and increase) also between areas". The log was not retained in
+this workspace, so the read-back lines are unread here.
+
+Four records follow from that:
+
+- The node type, recipe and link draw. A `cGUIObjTexture` built on Key Quest Markers' recipe and
+  linked as the scissor mask's sibling is emitted and drawn. Five builds of placement geometry were
+  never seen; the colour and the size, not the geometry, were what made it visible.
+- The `MT color` word's byte order is alpha, blue, green, red. The constant written as `0xFFFF00FF`
+  came out magenta, and the bar's own `0xff5efaff` is yellow in the same order. The inference about
+  the alpha byte's position is closed.
+- `#202326`, the colour the tester asked for the shadow to be, is `0xFF262320` in that order.
+- The prediction of the read-back is unverified here: the copy is 88 x 24 authored units and 32
+  units under the bar, so its `pos=` should read the bar's pair with +32 on y and its `size=`
+  88.0 / 24.0. That is the calibration r53's conversion assumes, and its own run will print it.
+
+## r52 run 2026-10-31 (Eden): the magenta blade is on screen, and it holds
+
+The tester's photo (`work/modern-sharpness-gauge/visual/r52/r52-magenta-photo.webp`, sha256
+`a6fc2f82b722d66c76642666b4e47e1b17c76841148d993f10bce31453e4e638`) shows the gauge's own yellow
+blade and, under it, a full-length magenta blade. Their report: "its working well, and it stays there
+when my sharpness changed (decrease and increase) also between areas". The log was not retained in
+this workspace, so the read-back lines are unread here.
+
+That settles four things:
+
+- A `cGUIObjTexture` built on Key Quest Markers' recipe and linked as the scissor mask's sibling is
+  emitted and drawn. Five builds of placement geometry were never seen; the colour and the size, not
+  the geometry, are what made it visible.
+- The `MT color` word's bytes are alpha, blue, green, red: the constant written as `0xFFFF00FF` came
+  out magenta, and the bar's own `0xff5efaff` is yellow in the same order. The alpha-byte inference
+  is closed.
+- The shadow colour the tester wants, `#202326`, is `0xFF262320` in that order.
+- The copy holds its place through sharpness drops and recoveries and across areas, so the per-frame
+  write is the right mechanism and the node survives the row's own rebuild the way the mask does.
+
+## r53, built 2026-10-31: the shadow colour, and the shadow following the cut
+
+The colour is the tester's `#202326` (`0xFF262320`), written once at the build.
+
+The quad is written every frame at the mask's enter, after the read-back, from `dim_quad`: the
+position pair is the bar's own pair moved by the width the cut keeps, and the authored pair is the
+hidden length in the bar's authored units (`px * authored / rect width`) at the bar's authored
+height. The `u1` is the column at the cut's edge in the band the bar is drawing. At 0% on the
+measured bar that is 18 units along, 49.5 authored units wide, from column 12; at 50% 54 units,
+24.75 wide, column 37; at 100% a 1 px width in the sprite's empty tail past the tip; with no gauge,
+width 0. The r52 drop of 32.0 is gone: the shadow sits in the gauge's band, where the plan wants it.
+
+What the run has to answer: the part of the blade past the cut reads as a dark grey-blue shadow in
+the gauge's own band, from the cut's edge to the tip, steady, with no glow and no pulse, while the
+kept part stays the game's own. The read-back that confirms it: the copy's `pos=` is the bar's pair
+plus the kept width (18 at 0%, 54 at 50%), its `size=` is 49.5 / 24.0 at 0% and 24.75 / 24.0 at 50%,
+and its `rect=` spans the blade's hidden part in the bar's band.
 
 ## Rules to keep
 
