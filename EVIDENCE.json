@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r55",
+  "version": "r59",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -93,19 +93,38 @@
       "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
       "archive_sha256": "63020ca53e4f15b467e73971a22c84a65396abd3153dfcf75c1a7b8bd1a58e7d",
       "runtime": "RAN 2026-10-31, REGRESSION_SHADOW_OVER_GAUGE: the rect writes land (the copy's rect reads 200 38 200 166 at full sharpness) and the copy paints over the gauge, so a node's rect does not gate its drawing",
-      "adds": "core::dim_box, and the per-frame writes of the copy's rect at +0xe0, its effective rect at +0xf0, the atlas band and its flags with the layout dirty pair clear"
+      "adds": "core::dim_box, and the per-frame writes of the copy's rect at +0xe0, its effective rect at +0xf0, the atlas band and its flags with bits 17|19 clear (then called the layout dirty pair; bit 17 is the transform bit main+0xa4969c gates on, and clearing it on the clip mask is what r57's run showed the shade needs)"
     },
     "r56": {
       "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
       "archive_sha256": "dd17da1e927b303adf9bf0ade02e44fc7e69d76c134813df4135330d01a9fc65",
       "runtime": "NOT RUN: the shadow inside its own scissor scope - the anchor node carrying the corner, the clip mask carrying the box, the copy drawn inside it",
       "adds": "build_clip_nodes: an anchor cGUIObjScissorMask with MASK_FLAGS 0 (its enter applies no scissor and its rectangle is ours to write, marker 0x4d534733) and a clip mask with the accepted rebuild-and-apply pair (marker 0x4d534734), built through the class factory main+0xa4b6cc; links mask.sibling = anchor, anchor.child = clip, clip.child = copy, one inbound chain each; write_shade writes the anchor's rect to the shade box, the clip mask's authored pair to the box's width, its x scale 1.0, its anchor modes 0, the rebuild-and-apply pair, and the copy's atlas band, leaving the copy's quad, rect and flags alone. 7 tree nodes, 8-word array, (7 << 4) | 8 = 120 bytes = 15 records"
+    },
+    "r57": {
+      "nro_sha256": "c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3",
+      "archive_sha256": "5c91239b14d19eec46b26286d1d3002bedb8852db6767fb997bc2200125a2adb",
+      "runtime": "RAN 2026-10-31 on Eden in two sessions as SHADE_RIGHT_SIDE_SHRUNK_AND_LATE: the shade sits on the blade's right end from the cut to the tip, which is where the plan puts it, with the whole blade shape squeezed into it and no dark part at quest start",
+      "adds": "write_shade writes the clip mask's own translation (the corner main+0xa4b390 reads), its x scale 1.0, its anchor modes 0, its authored pair from core::dim_box and the rebuild-and-apply pair, plus the copy's atlas band from the bar's live tier band; the anchor node of r56 is gone. 6 tree nodes, 7-word array, 13 records"
+    },
+    "r58": {
+      "nro_sha256": "5a90ab09cf405daddecf23f014596951e9d63bb0b96ba6e8d19cdf6924ef6d48",
+      "archive_sha256": "8cd42010fce660274f240287c26b741c74b4b95866f7dec493fce3af7a3f7614",
+      "runtime": "WITHDRAWN, never installed and never run. Built, packaged and committed (f0f117f) on 2026-10-31 and superseded by r59 the same day",
+      "adds": "core::shade_quad, the per-frame writes of the copy's atlas window, position pair, authored pair and flags, and a clip box running from the cut to the bar rect's right edge; dim_box and its fixture were deleted",
+      "refuted": "the premise 'a texture node's draw is scaled into the rectangle its draw is clipped to' is false - a scissor clips (accepted r44 cuts the bar's notches at native size, and the r57 photos show the dark part clipped, not scaled). Its per-frame dirty-bit write never runs, because the class constructor already writes 0x020a0001 at +0x54. Its +0x80/+0xb4 quad writes are of the kind measured inert in r53. The shade_box= read-back is kept in r59"
+    },
+    "r59": {
+      "nro_sha256": "6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3",
+      "archive_sha256": "426b24e7b15cebe0c63f52b994e7d9b1123d55516b54c724ceb8c77f0a17fc34",
+      "runtime": "NOT RUN: r57's shade geometry with the clip mask's transform bit set and the copy given the bar's sampler",
+      "adds": "TRANSFORM_DIRTY 0x0002_0000: build_clip_node writes word | NODE_DRAWABLE | 1 | TRANSFORM_DIRTY where r57 cleared bits 17|19, so the walk main+0xa4964c composes the clip mask with the root (main+0xa4969c gates on that bit) and pushes the bit to the copy. build_dim reads the bar's sampler with memory::word(bar + 0x108) & 0xf and passes it to 0xa4fa5c in place of Key Quest Markers' 0, the other eleven setters unchanged. The insertion line ends with bar_sampler= and dim_sampler=. write_shade and core::dim_box are r57's again; shade_quad is gone. The DRAWABLE_AND_DIRTY doc now reads bit 17 transform dirty (main+0xa4964c) and bit 19 child Priority re-sort (main+0xa4915c). 6 tree nodes, 7-word array, 13 records; 23 host fixtures, 33 signature windows"
     }
   },
   "build": {
-    "version": "r56",
+    "version": "r59",
     "status": "BUILT",
-    "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
+    "nro_sha256": "6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -117,14 +136,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "cc374568bd450ebc85b8401882720df4df41dc7b7ce42875081c55cd0fb08d59",
-      "src/lib.rs": "5a4e934b94a26b7aa032b0060bfc02a087254dfd468e2a0f9a23634d627cfce2",
+      "src/insert.rs": "6a800439d9bea26d8c5b9014781d82ee51a13295a7c49d294c8a05b6914de7b2",
+      "src/lib.rs": "a2e2ec4de48698ceacd6c2bcb292f9711b2be79e845e605f774ae7ede0515372",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "0e8479a7f5d5e8ff9536228e4b1d706a5231d8a78f5b2b221f616f7bb547e4e6",
-      "core/tests/behavior.rs": "1658b3ec337a308d847041b78a550b9ef26c1eeb861d3786ab9c3c2344dc11c2",
+      "core/src/lib.rs": "3fffdd7223a2eacbab78f7b1d6aa2afc6f346cdc763003e41435248f65b20523",
+      "core/tests/behavior.rs": "5e1d2b475f57d6058b5073cbabcce1a6b6ae151c253581459ffa3c5bcabb6c4f",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -132,8 +151,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
-    "elf_sha256": "348197e25525070cd6dcbc09ccfd02a883e767313470be0b3f1aaf997a348522",
+    "nro_sha256": "6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3",
+    "elf_sha256": "a86891f498e3b6717ce65a6f72b027499b456fa355bd8efa9035a21172e17a5d",
     "exports": [
       "fini",
       "forge_onInit",
@@ -215,7 +234,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 22,
+    "count": 23,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
@@ -241,7 +260,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and scaling, the box's linearity and bounds, the sample's named slots, the 5-node tree with the mask as the controller's first child and the shadow as its sibling, the walker plan, the cache and object-array sizing, the shadow's rect, and the gauge reading.",
-    "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37"
+    "nro_sha256": "6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3"
   },
   "runs": [
     {
@@ -1132,7 +1151,10 @@
     "that the copy draws at all. The insertion line's dim_flags=0x20a0001 is the class constructor's own default (main+0xa4d0d8 writes 0x020a0001 at +0x54), so the log proves construction and not drawing. That the noisy dark block in the r47 photo is this mod's copy is inference from r47's own writes, not a log fact.",
     "the dim blade's placement in the gauge's own band and its width following the cut: r52 proves the node draws as a full-length blade 32 units under the gauge, and the next step (r53) moves it to the cut with the accepted geometry. The unit conversion for +0x80/+0xb4 comes from the read-back lines, which this workspace has not read yet: the r52 log was not retained",
     "the shade chain's runtime behaviour: the anchor with its scissor off, the clip mask reading a corner we wrote into its parent's rectangle, and the copy coming out clipped to the shade box. The read-back lines (the copy's eff, rect and matrix) are built to show exactly that",
-    "the bar's eff=0 0 0 0 in the r53 and r55 runs against accepted r44's non-zero eff: accepted r44 logged the bar's effective rect at its own prepaint, these runs read it at the mask's enter. r56 stops writing the copy's flags every frame, which is the test for that thread"
+    "the bar's eff=0 0 0 0 in the r53 and r55 runs against accepted r44's non-zero eff: accepted r44 logged the bar's effective rect at its own prepaint, these runs read it at the mask's enter. r56 stops writing the copy's flags every frame, which is the test for that thread",
+    "that setting bit 17 on the shade's clip mask puts the copy on the gauge from the first hit: the bit is the walk's gate in main+0xa4969c and the r57 copy state lines show the uncomposed matrix, which is a static reading and the screen result is unproven until r59 runs",
+    "that the copy's sampler equals the bar's on screen: bar_sampler= and dim_sampler= read the style byte at +0x108, and filtering is a screenshot question",
+    "whether the dark part needs a dark copy of the glow Txt_sharpefx (PosX 6, PosY -6, 88x32, alpha 120): the halo is a Phase 5 design decision, recorded as the user's question, and unchanged"
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-31 (r44 accepted on its own bytes); r52 ran on Eden 2026-10-31 and the copy is seen on screen (photo, log not retained)",
@@ -1174,5 +1196,5 @@
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   },
-  "static_summary": "r58: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. core's shade_quad folds the copy's columns past the cut and the shade box, and a fixture asserts both the r56 boxes (starting at the bar's left corner, the malformation that run showed) and the r58 boxes (from the cut to the bar rect's right edge); mask_box ports main+0xa4b390's fold over the node's own transform. The construction recipes and read-back fields come from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
+  "static_summary": "r59: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. core::dim_box and its fixtures return from r57 (the shade box from the accepted cut, and mask_box porting main+0xa4b390's fold over the node's own transform); the shade_quad of the withdrawn r58 is gone. The clip mask's flags now carry bit 17, the transform gate main+0xa4969c, and the copy's SamplerState comes from the bar's own style byte at +0x108. The construction recipes and read-back fields come from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
 }

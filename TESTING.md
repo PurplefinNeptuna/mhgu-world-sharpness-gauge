@@ -3,37 +3,43 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r58
+## What to check on r59
 
-Run r58. The gauge's own cut is exactly as accepted (r44). The dark part is now the blade's own
-columns past the cut, drawn at the blade's own size: the sawtooth row, the tip slant and the outline
-should match the bright part they sit next to, with no squeezed blade inside the dark part.
+Run r59. The gauge's own cut is exactly as accepted (r44), and the shade is built the way r57 built
+it. Two writes changed, one for each of your two photos.
 
-Your photos of r57 decided this. In them the dark part is on the right, where it belongs, and it shows
-the whole blade shape squeezed into it - the spiral and the notches smaller than the bar's own - and at
-quest start there is no dark part at all. r57 kept the bar's full 88 px window inside a box that is
-narrower than that, and the game scales a texture node's sprite into its clipped rectangle. r58 gives
-the copy the window, the size and the position of the columns past the cut, so the dark part is the
-blade at 1:1.
+1. The shade's clip mask now carries the flag bit the draw walk uses to compose a node with its
+   parent. r57 cleared that bit on this node, so the clip mask and the copy inside it kept the matrix
+   their constructors left - the log's `mat ... 0.0 0.0 0.0 1.0` - and only a tier change, which
+   dirties the tree, pulled them onto the gauge. That is "for every quest start, the shadow does not
+   shown until first color change".
+2. The copy gets the bar's own sampler state, not the badge's 0. Your hud0 record authors the bar's
+   sprite with SamplerState 2, and the setter stores the value in the copy's own style byte, so the
+   two parts of one blade are now filtered by the same sampler.
 
 What to look at:
 
-1. Past the cut: a dark grey-blue blade from the cut's edge to the tip, at the same size as the
-   coloured part, its notch row and tip matching. Steady: no glow, no pulse.
-2. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
+1. Quest start at full sharpness, then a few hits: a dark tip at the blade's end at the first hit,
+   before any colour change.
+2. Past the cut: a dark grey-blue blade from the cut's edge to the tip, with its notch row and tip
+   matching the coloured part, and its edges filtered the same way that part's are.
+3. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
    sharpen, it shrinks back. Full sharpness: no dark part.
-3. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
-4. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue.
-5. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
-6. If the game faults, send the log.
-7. The log carries it: the insertion line ends with `clip=0x...`; `dim blade not added at stage
-   50/51/52` means the shade was not built and the gauge is exactly the shipped look.
-   `entries=7 records=13` on that line is the tree r57 and r58 share.
+4. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
+5. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue.
+6. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
+7. If the game faults, send the log.
 
-The new fact on the cut line is the last field: `shade_box=x0 y0 x1 y1`, the box the game folded for
-the shade's own clip mask. On the bar you measured, expect the left number to move with the cut
-(128 at empty sharpness, 198 at full) and the right number to stay 238. Report the line beside the
-screenshot; the lines that matter start with `MSG r58`.
+The insertion line now ends with `bar_sampler=2 dim_sampler=2` on the bar you measured; report the two
+numbers if they differ. The first `copy state` line after the insertion should read
+`mat ... 110.0 38.0 3.0 1.0` and `rect=110 38 238 166` right away, with no tier change needed.
+`entries=7 records=13` on that line is the tree r57, r58 and r59 share. The fill line ends with
+`shade_box=x0 y0 x1 y1`, the box the game folded for the shade's own clip mask: on your bar the left
+number moves with the cut (128 at empty sharpness, 198 at full) and the right stays 238. Report the
+line beside the screenshot; the lines that matter start with `MSG r59`.
+
+By design the coloured part keeps the glow's halo - about 3 px above the blade, 2 px below it and 4 px
+past the tip - and the dark part has no glow. Say whether the dark part's missing halo bothers you.
 
 The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
@@ -90,7 +96,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-Lines that matter start with `MSG r52`.
+Lines that matter start with `MSG r59`.
 
 ## The log lines
 

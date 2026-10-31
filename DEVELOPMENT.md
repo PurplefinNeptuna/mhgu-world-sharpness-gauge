@@ -1,41 +1,70 @@
-Current state: r58 DEVELOPMENT candidate, the plan's Phase 5: the shadow drawn from the blade's own
-columns past the cut. The accepted shape is untouched - mask as the controller's first child over bar,
-glow and edge, the accepted box per frame, the shade as the mask's sibling (one clip mask, the copy as
-its child) - and the colour is `#202326` = `0xFF262320`.
+Current state: r59 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope,
+now composed with the gauge row's transform and drawn with the bar's own sampler. The accepted shape is
+untouched - mask as the controller's first child over bar, glow and edge, the accepted box per frame,
+the shade as the mask's sibling (one clip mask, the copy as its child) - the shade's geometry is r57's
+(`core::dim_box`, its per-frame writes), and the colour is `#202326` = `0xFF262320`.
 
 r57 ran 2026-10-31 in two Eden sessions (installed NRO `c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3`
 = r57's packaged payload; `work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-a.txt` with 104 MSG
 lines, 1 insertion `entries=7 records=13`, 91 fill lines, `r57-eden-2026-10-31-b.txt` with 35, 26 fill
 lines; no guest exception). The photos put the shade on the blade's right end, from the cut to the tip,
-with the tier colour on its left: the corner write is right. Two faults, both in the copy's quad:
+with the tier colour on its left: the corner write is right. The tester reported two faults, and both
+are the clip mask's own transform:
 
-- the dark part carries the whole blade shape, squeezed: the spiral and the notch row appear inside it
-  at a smaller scale than the bar's own part beside it (`visual/r57/r57-2-half.webp`). A texture node's
-  draw maps its atlas window into the rectangle its draw is clipped to, and the copy kept the bar's
-  authored `88x24` window inside a box of `(90 - kept)` px: squeezed by 0.41 at half sharpness on the
-  measured bar, while the bar's own sprite is squeezed by `kept/88` in the same frame. Two scales on one
-  blade, which is the tester's "slight shadow image size mismatch ... noticeable with aliasing".
-- at quest start there is no dark part at all (`visual/r57/r57-4-start-before-colorchange.webp`). At
-  10000 bp the accepted endpoints put the cut at 90 px of the 128 px rect and the blade's sprite is 88
-  columns, so the shade box was 1 px. The fill line's growth says the rest: `box=110 32 89 32` at
-  ratio_bp=9866, `75 32` at 8000, `61 32` at 6000, and the box only reaches the sizes the tester calls
-  visible after the tier band steps (`tex=0.0 280.0 88.0 304.0` to `0.0 304.0 88.0 328.0` at
-  ratio_bp=5800), which is the report's "the shadow does not shown until first color change".
+- "for every quest start, the shadow does not shown until first color change". The copy's state line
+  reads `mat 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0` from the insertion
+  (`836.06 copy state` is the first line whose matrix is composed: `... 0.0 110.0 38.0 3.0 1.0`, and
+  the `rect=110 38 238 166` follows at `836.56`). Run b never changed tier and never left
+  `rect=0 0 128 128`. Cause: main+0xa39c40 starts the transform walk main+0xa4964c when root+0x8c bit 1
+  is set (we set it at insertion), that walk calls a node's setMatrix (vtable slot 0x44, main+0xa4e604
+  for a texture, world = parent matrix x own position and `Reference` flags) **only** on a node whose
+  `+0x54` has bit 17 `0x20000` set (main+0xa4969c), and it passes those bits to the children only of a
+  node that is dirty itself (main+0xa496e0..0xa496f0). `build_clip_node` wrote its flags with
+  `& !DRAWABLE_AND_DIRTY`, clearing bit 17, so the clip was never composed with the root and the copy
+  under it never got the gauge's transform. The accepted mask works because `run()` sets the same bit on
+  it (`mask+0x54 | DRAWABLE_AND_DIRTY`).
+- "slight shadow image size mismatch ... the difference is only minimal but can be noticeable with
+  aliasing". Two parts. The copy was built with Key Quest Markers' `SamplerState 0` while
+  `work/modern-sharpness-gauge/hud0-sharpness.json` authors `Txt_sharp` with SamplerState 2, and the
+  setter main+0xa4fa5c stores the value in the low nibble of `+0x108`: two samplers, two filters, on the
+  two halves of one blade. The other part is the glow `Txt_sharpefx` (PosX 6, PosY -6, 88x32, alpha
+  120), which gives the coloured part a halo of about 3 px above the blade, 2 px below and 4 px past the
+  tip, and the shade has no glow - a Phase 5 design decision, left as designed.
 
-r58 gives the copy the quad of the columns past the cut, so it draws them 1:1: its atlas window runs
-`kept..88`, its authored pair is `(88-kept, band height)`, its position is the bar's position plus the
-kept width, and the layout dirty bit is set every frame so the layout rebuilds its rect from them. The
-clip mask's box runs from the cut to the bar rect's right edge (`110+kept .. 238`), so the scissor cuts
-the shade at the blade's right end and never touches the kept part; at full sharpness the authored
-width is 0 and the copy draws nothing. core's new `shade_quad` folds kept, the columns past the cut and
-the box, and `dim_box` is gone. The fill line now ends with `shade_box=`, the clip mask's own
-`+0xb0..+0xbc` read at the bar mask's enter, so a run reports the box the game folded next to the box
-the bar was cut by.
+r59 changes exactly the two writes: `build_clip_node` now writes `word | NODE_DRAWABLE | 1 |
+TRANSFORM_DIRTY` (`TRANSFORM_DIRTY` = `0x0002_0000`), so the walk composes the clip mask with the root
+and pushes the bit to the copy; and `build_dim` reads the bar's sampler (`memory::word(bar + 0x108) &
+0xf`) and passes it to 0xa4fa5c in place of the badge's 0, keeping the other eleven setters as they
+are. The insertion line ends with `bar_sampler=` and `dim_sampler=`. Bit 19 is not a layout bit:
+main+0xa4915c uses it to re-sort a node's children by Priority (`+0x60`) and then clears it, so the
+name "layout dirty pair" for bits 17|19 is replaced by transform dirty (17) and child Priority re-sort
+(19) in the source, core and this file.
+
+r58 was built, packaged and committed (`f0f117f`) and is withdrawn: never installed, never run, and its
+premises are refuted. "The scissor scales the blade" is false - a scissor clips, which is what accepted
+r44 does to the bar's notches at native size. Its per-frame dirty-bit write never runs, because the
+class constructor already writes `0x020a0001` at `+0x54` (`dim_flags=0x20a0001` in the r47, r48 and r50
+insertion lines). And the `+0x80`/`+0xb4` quad writes were inert in r53. Its code is reverted to r57's
+(`write_shade`, `core::dim_box` and its fixture); the `shade_box=` read-back on the fill line, the
+clip mask's own `+0xb0..+0xbc`, stays.
 
 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits
-exactly 13. 23 host fixtures pass; verify PASSED with 33 signature windows. Gameplay NOT RUN.
+exactly 13. 23 host fixtures pass; verify PASSED with 33 signature windows; distribution check PASS.
+r59 Gameplay NOT RUN. Candidate `build/modern-sharpness-gauge/candidates/r59/delivery/modern-sharpness-gauge-r59-candidate.zip`
+sha256 `426b24e7b15cebe0c63f52b994e7d9b1123d55516b54c724ceb8c77f0a17fc34`, payload NRO
+`6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3`.
 
-r57 DEVELOPMENT (2026-10-31), superseded by r58 after its runs: the shadow inside its own scissor
+r58 DEVELOPMENT (2026-10-31), WITHDRAWN the same day: never installed and never run. It rewrote the
+copy's quad every frame to the columns of the blade past the cut (atlas window `kept..88`, authored
+`(88-kept, band height)`, position = the bar's plus the kept width, dirty bit set per frame) and ran the
+clip box from the cut to the bar rect's right edge, on the premise that a texture node's draw is scaled
+into the rectangle its draw is clipped to. That premise is refuted (a scissor clips), its dirty-bit write
+never runs (the constructor sets `0x020a0001`), and its quad writes are of the kind that were inert in
+r53. core's `shade_quad` replaced `dim_box` and is reverted here; the `shade_box=` read-back is kept.
+Candidate `build/modern-sharpness-gauge/candidates/r58/delivery/modern-sharpness-gauge-r58-candidate.zip`
+sha256 `8cd42010fce660274f240287c26b741c74b4b95866f7dec493fce3af7a3f7614`, superseded by r59.
+
+r57 DEVELOPMENT (2026-10-31), superseded by r59 after its runs: the shadow inside its own scissor
 scope, with that scope's corner written on the mask that owns it. Its box was on the blade's right end,
 as designed; the copy kept the bar's whole authored quad inside that box, which drew the whole blade
 shrunk into it, and at full sharpness the box was 1 px.
@@ -288,7 +317,8 @@ position pair (+0x80/+0x84) and authored pair (+0xb4/+0xb8) when the walker visi
 plugin's callback at the mask's enter, so r48's per-frame rectangle writes lose to that layout, and
 r48's position pair held screen pixels (110, 38) written into parent-space offsets. r49 moves the quad
 in the bar's own space: position = the bar's position plus the kept part's width, authored width =
-the hidden blade's width, the bar's y and band height, layout dirty bit set. r50 prints that quad on
+the hidden blade's width, the bar's y and band height, bit 17 set (then called the layout dirty bit).
+r50 prints that quad on
 the log (`fill copy rect=x y x2 y2 pos=... authored=...` under each cut line), so the next run reports
 the placement from the log instead of from a photograph. 22 host fixtures pass; verify PASSED with
 the same 21 signature windows. Gameplay NOT RUN. The MT `color` word's byte order is unproven, so the
@@ -2158,8 +2188,8 @@ build shows the gauge clean, so nothing of it appeared there.
 
 `write_dim` reads the bar's live position pair, and writes the copy's as **the bar's position plus
 the kept part's width**, with its authored width as **the hidden blade's width** (tip width minus kept
-width), keeping the bar's y and band height, and sets the layout dirty bit so the layout applies
-them. The rectangle and the atlas window are still written in the same call, and the sprite rows are
+width), keeping the bar's y and band height, and sets bit 17 (then read as the layout dirty bit; r58's
+run never exercised that reading) so the layout applies them. The rectangle and the atlas window are still written in the same call, and the sprite rows are
 unchanged from r48. The geometry the fixtures pin (lefts 200/164/146/128, tip 200, the `v` windows
 156..156 / 156..298 / 156..369 / 156..512 - the fixtures' own inputs, from the invented `tex` reading,
 not log values - and the 64 px bar at 119..155) is the widths this writes; the
@@ -2410,7 +2440,8 @@ r55 does, with the clipping taken from the node's own path.
 - r55 writes the shadow's `+0xe0` and `+0xf0` per frame to `core::dim_rect(rect, ratio)` - the bar's
   screen pixels from the cut's right edge to the full-sharpness right edge, the bar's rect rows:
   on the measured bar `[128,38,200,166]` at 0%, `[164,38,200,166]` at 50%, `[200,38,200,166]` (zero
-  width) at 100%. The layout dirty pair stays clear so the layout leaves that rect alone.
+  width) at 100%. The bits 17|19 pair stayed clear so the layout left that rect alone; bit 17 is the
+  transform bit, and clearing it on the clip mask is the write r57's run later blamed.
 - Everything else is r52's shape and r53's colour: mask as the controller's first child, shadow as the
   mask's sibling, its quad the bar's own pair from the build, the atlas window following the bar's live
   tier band, `#202326`.
@@ -2480,8 +2511,12 @@ is given one, at the accepted chain position (as the mask's sibling, which r52 p
   main+0xa4e628 copies the context's live scissor into `+0xf0`, intersects `+0xe0`, and main+0xa37c1c
   writes the render state's clip box. The quad at `+0x80/+0xb4` is not that knob (the r53 log:
   `pos=90.0 0.0 size=0.7 24.0` with `rect=110 38 238 166` unchanged).
-- Keep the layout dirty pair (bits 17 and 19, 0x000a_0000) clear on a node whose rectangle we write
-  per frame; that pair is what makes the layout recompute the rect from the quad.
+- Bit 17 of the flags word (0x20000) is transform dirty: the walk main+0xa4964c calls a node's
+  setMatrix, composing it with the parent's `+0x10` matrix, only while that bit is set (main+0xa4969c),
+  and pushes the bit to the children only of a node dirty itself (main+0xa496e0..0xa496f0). Every node
+  this mod links into the row needs it, the shade's clip mask included: without it the node keeps the
+  matrix its constructor left. Bit 19 (0x80000) is not a layout bit - main+0xa4915c uses it to re-sort
+  a node's children by Priority (+0x60) and clears it - and neither bit recomputes a rect from the quad.
 
 `DISTRIBUTION.json` is authoritative; runtime changes need a new version.
 Rust plus vendored forge-rs, PIC target JSON, `-nostartfiles -Wl,-z,text`. No

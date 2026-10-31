@@ -25,8 +25,8 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, shade_quad, FULL_SHARPNESS_BP, NODE_AUTHORED_WIDTH, NODE_CHILD,
-    NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
+    basis_points, cut_box, dim_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
+    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -79,7 +79,8 @@ const CLIP_MARKER: u32 = 0x4d53_4734;
 const MASK_FACTORY: u32 = 0xa4b6cc;
 /// The style setters Key Quest Markers' badge runs on this class, in its order and with its
 /// values, each through the two-integer ABI `(object, value)`. `Mask = 0` is the one that draws
-/// the corner colours: `Mask = 1` enters the native mask-writing pass.
+/// the corner colours: `Mask = 1` enters the native mask-writing pass. The last one, SamplerState,
+/// takes the bar's own value, not the badge's 0: see `build_dim`.
 const STYLE_SETTERS: [(u32, u32); 12] = [
     (0xa4dc24, 1), // BlendState
     (0xa4a9f4, 0), // ControlPoint
@@ -92,7 +93,7 @@ const STYLE_SETTERS: [(u32, u32); 12] = [
     (0xa4aac8, 3), // ReferenceScaleY
     (0xa4aafc, 3), // ReferenceScaleZ
     (0xa4dc54, 0), // Reverse
-    (0xa4fa5c, 0), // SamplerState
+    (0xa4fa5c, 0), // SamplerState, replaced by the bar's live low nibble in build_dim
 ];
 /// The `mTextureRect` setter (main+0xa4fb58): `(object, *const f32[4])`. It returns at once when
 /// the four words already match, and otherwise copies the four floats in and, when the flag byte
@@ -107,12 +108,20 @@ const TEX_MID: u32 = 0x50;
 /// scans `*(obj+0x64) + 0xe8` for `count` entries of 16 bytes at `+0x70`. The class's base
 /// constructor zeroes this word, so a standalone copy has to be given the bar's.
 const TEX_GUI: u32 = 0x64;
-/// bit 17 drawable and bit 19 layout dirty: the badge's flag writes, seen live as
-/// `bar_flags=41943045` on the bar.
+/// The flag word the draw walk reads: bit 17 and bit 19 below, seen live as
+/// `bar_flags=41943045` on the bar. Neither one is the drawable bit; that is bit 25, core's
+/// `NODE_DRAWABLE`.
 const TEX_FLAGS: u32 = 0x54;
-/// Bits 17 and 19 of the flags word: the layout dirty pair. Set on a node whose rectangle the layout
-/// has to recompute from its quad (the mask, with the rebuild bit of `MASK_FLAGS`, and the copy at the
-/// build); clear on the shadow, whose rectangle we write every frame and which must keep it.
+/// Bit 17, transform dirty. The transform walk (main+0xa4964c, started by root+0x8c bit 1) calls a
+/// node's setMatrix - vtable slot 0x44, main+0xa4e604 for a texture, which composes the parent's
+/// `+0x10` matrix with the node's own position and `Reference` flags - only on a node with this bit
+/// set (main+0xa4969c), and it passes the bit to the children only of a node that has it itself
+/// (main+0xa496e0..0xa496f0). A node without it keeps the matrix its constructor left, so it is
+/// never composed with its parent and its subtree keeps the bar's transform, not the gauge row's.
+const TRANSFORM_DIRTY: u32 = 0x0002_0000;
+/// Bits 17 and 19: transform dirty, and the child re-sort bit - main+0xa4915c uses bit 19 to re-sort
+/// a node's children by Priority (`+0x60`) and then clears it, so it is not a layout bit. Set on the
+/// nodes the walk has to compose with their parent: the accepted mask and the copy at the build.
 const DRAWABLE_AND_DIRTY: u32 = 0x000a_0000;
 const TEX_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
 const TEX_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
@@ -121,6 +130,9 @@ const TEX_AUTHORED: u32 = 0xb4; // authored width/height, float pixels
 const TEX_COLOURS: u32 = 0xa4; // four corner words: LT, RT, LB, RB
 const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
 const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
+/// The style byte the `SamplerState` setter (main+0xa4fa5c) writes its value into, low nibble, and
+/// whose bits 4/5 the `mTextureRect` setter tests. The bar's own value is what its draw filters with.
+const TEX_SAMPLER: u32 = 0x108;
 static DIM: AtomicU32 = AtomicU32::new(0);
 /// The shade's clip mask node, 0 when the shade has no clip.
 static CLIP: AtomicU32 = AtomicU32::new(0);
@@ -234,8 +246,6 @@ pub fn tick_clock() {
 /// The cut line queued by `enter`: ratio_bp, the box written, the bar's own rect at
 /// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
 /// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the rect
-/// width the box was built from. The ratio is always the player's own sharpness and the
-/// endpoints are core's accepted offsets, so neither is repeated on the line.
 /// width the box was built from, and the shade's clip box read from the clip mask's
 /// `+0xb0..+0xbc` at the bar mask's enter - the box the game folded on the clip mask's previous
 /// enter, which is what the copy's draw is clipped to.
@@ -320,6 +330,10 @@ pub struct Outcome {
     /// missing copy apart from a copy that is present and not drawn.
     pub dim_texture: u32,
     pub dim_flags: u32,
+    /// The sampler state the bar draws with and the one the copy ended with, each the low nibble of
+    /// `+0x108`: the log line shows whether the copy filters its edges like the bar.
+    pub bar_sampler: u32,
+    pub dim_sampler: u32,
 }
 
 /// The row is going away: the game owns the mask, the map and the cache. Called from the root
@@ -394,7 +408,10 @@ impl Allocator {
 /// the accepted mask's enter hook ignores it.
 ///
 /// It gets the accepted rebuild-and-apply pair, so its box is rebuilt from its translation and
-/// authored pair every frame, and its scope clips whatever is drawn inside it.
+/// authored pair every frame, and its scope clips whatever is drawn inside it. Its flags carry bit 17
+/// (main+0xa4964c / main+0xa4969c): the transform walk composes a node with its parent's matrix only
+/// while that bit is set, and passes it down, so without it the clip node and the copy under it keep
+/// the identity matrix their constructors left and never take the gauge row's transform.
 fn build_clip_node(owner: u32, resource: u32) -> Result<u32, u32> {
     let dti = MtDti::find("cGUIObjScissorMask").ok_or(53u32)?;
     let node = memory::call0(base() + MASK_FACTORY).ok_or(53u32)?;
@@ -405,10 +422,12 @@ fn build_clip_node(owner: u32, resource: u32) -> Result<u32, u32> {
     let ready = memory::write_word(node + MASK_ID, CLIP_MARKER)
         && memory::write_word(node + MASK_OWNER, owner)
         && memory::write_word(node + MASK_RESOURCE, resource)
-        // The node's own flags have to stay visible and drawable, or the walker skips the
-        // subtree under it; the scissor is a separate word at +0xa4.
+        // The node has to stay drawable, or the walker skips the subtree under it; the scissor is a
+        // separate word at +0xa4. Bit 17 is the walk's own gate (main+0xa4964c / main+0xa4969c): with
+        // it the walk calls this node's setMatrix with the root's matrix and pushes it down to the
+        // copy; without it this node and the copy keep their constructor's matrix.
         && memory::word(node + TEX_FLAGS).is_some_and(|word| {
-            memory::write_word(node + TEX_FLAGS, (word | NODE_DRAWABLE | 1) & !DRAWABLE_AND_DIRTY)
+            memory::write_word(node + TEX_FLAGS, word | NODE_DRAWABLE | 1 | TRANSFORM_DIRTY)
         })
         && memory::write_word(node + MASK_FLAGS, REBUILD_AND_APPLY);
     if !ready {
@@ -498,9 +517,9 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
 
 /// Build the dim blade: a `cGUIObjTexture` allocated through its own DTI's MT allocator (slot
 /// 0x20 with the DTI id) and constructed by the class's standalone constructor on a zeroed block,
-/// then given the bar's owner, resource, texture id, authored size, position and flat colours.
-/// Nothing is linked and no field is copied from the bar: the node has no animation entry, so no
-/// keyframe writes to it, which is what keeps it constant and non-pulsing and leaves `Txt_sharp`'s
+/// then given the bar's owner, resource, texture id, sampler state, authored size, position and flat
+/// colours. Nothing is linked and no field is copied from the bar: the node has no animation entry, so
+/// no keyframe writes to it, which is what keeps it constant and non-pulsing and leaves `Txt_sharp`'s
 /// own keyframes untouched. Stages 50..52.
 fn build_dim(bar: u32) -> Result<u32, u32> {
     let dti = MtDti::find("cGUIObjTexture").ok_or(50u32)?;
@@ -523,6 +542,10 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     // it to the part past the cut.
     let (authored, bar_position) = (window_at(bar, TEX_AUTHORED), window_at(bar, TEX_POSITION));
     let (copy_position, copy_size) = ([bar_position[0], bar_position[1]], [authored[0], authored[1]]);
+    // The bar's own sampler state, the low nibble of the style byte at +0x108 where main+0xa4fa5c
+    // stores it. `hud0-sharpness.json` authors Txt_sharp with SamplerState 2; on the badge's 0 the
+    // copy's edges are filtered by a different sampler than the blade part it sits beside.
+    let sampler = memory::word(bar + TEX_SAMPLER).ok_or(50u32)? & 0xf;
     let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
     let node = match allocator.alloc_text(TEXTURE_SIZE, dti.id()) {
         Some(pointer) if pointer & 15 == 0 => pointer,
@@ -567,7 +590,16 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         })
         && STYLE_SETTERS
             .iter()
-            .all(|(setter, value)| memory::call2(base() + setter, node, *value).is_some())
+            .enumerate()
+            .all(|(index, (setter, value))| {
+                // The last setter is SamplerState, and it takes the bar's own state.
+                let value = if index + 1 == STYLE_SETTERS.len() {
+                    sampler
+                } else {
+                    *value
+                };
+                memory::call2(base() + setter, node, value).is_some()
+            })
         && (0..4usize).all(|corner| {
             memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR)
         })
@@ -583,56 +615,30 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the shade for this frame's cut. A texture node's draw maps its atlas window into the
-/// rectangle its draw is clipped to, so a copy that keeps the bar's whole authored quad inside a
-/// narrower box is drawn *shrunk into that box* - the r57 photos: the blade with its spiral and its
-/// notches, squeezed, and 1 px of nothing at full sharpness. This writes the copy's quad to the
-/// columns of the blade past the cut at the bar's own scale, so the dark part is the blade's own
-/// tip part at 1:1.
-///
-/// The bar's atlas window is its authored quad in texture columns (`0..88` on the measured bar), the
-/// same units the cut's width is measured in. The copy's window starts at the kept column and ends
-/// at the bar's, its authored pair is that many columns and the band's height, and its position is
-/// the bar's position plus the kept width. The layout builds its rect from that pair on its visit,
-/// so the layout dirty bit is set every frame.
-///
-/// The clip mask's translation (`+0x40/+0x44`) is the box's left edge and the rect's top, its
-/// authored pair (`+0xa8/+0xac`) spans to the bar's rect's right edge, so the scissor cuts the shade
-/// at the blade's right end and never touches the kept part.
+/// Write the shade for this frame's cut. The clip mask's translation (`+0x40/+0x44`) is the shade
+/// box's left edge and the bar rect's top, and its authored pair (`+0xa8/+0xac`) is the box's width
+/// and height, so the box it builds spans the part of the blade past the cut, and the copy drawn
+/// inside it is clipped to that. The copy's atlas window follows the bar's live tier band so the
+/// shade changes colour with the tier. The copy's own quad, rect and flags are not touched: its rect
+/// is the bar's layout's output, and a node's rect does not gate its drawing - the scissor box is.
 fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
     let band = window_at(bar, NODE_TEXTURE_RECT);
-    let position = window_at(bar, TEX_POSITION);
-    let columns = (band[2] - band[0]).max(0.0) as i32;
-    let height = (band[3] - band[1]).max(0.0) as i32;
-    let (kept, past, left, right) = shade_quad(
-        rect,
-        columns,
-        if ratio_bp == u32::MAX {
-            // No gauge to cut by: the shade goes to width 0, the accepted appearance.
-            FULL_SHARPNESS_BP
-        } else {
-            ratio_bp
-        },
-    );
-    let uv = [kept as f32, band[1], band[2], band[3]];
+    let box_words = if ratio_bp == u32::MAX {
+        [rect[2], rect[1], rect[2], rect[3]]
+    } else {
+        dim_box(rect, ratio_bp)
+    };
     for edge in 0..4usize {
         let offset = edge as u32 * 4;
-        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, uv[edge].to_bits());
+        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, band[edge].to_bits());
     }
-    let _ = memory::write_word(dim + TEX_POSITION, (position[0] + kept as f32).to_bits());
-    let _ = memory::write_word(dim + TEX_POSITION + 4, position[1].to_bits());
-    let _ = memory::write_word(dim + TEX_AUTHORED, (past as f32).to_bits());
-    let _ = memory::write_word(dim + TEX_AUTHORED + 4, (height as f32).to_bits());
-    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
-        if flags & DRAWABLE_AND_DIRTY != DRAWABLE_AND_DIRTY {
-            let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
-        }
-    }
+    let width = (box_words[2] - box_words[0]).max(1) as u32;
+    let height = (rect[3] - rect[1]).max(1) as u32;
     // The box's corner is the mask node's own matrix translation: main+0xa4b390 reads the node's
     // transform and nothing else, so this is the only lever that moves the shade along the blade.
     // The authored width spans forward from it, so the translation is the box's left edge.
-    let _ = memory::write_word(clip + MASK_TRANSLATION, (left as f32).to_bits());
-    let _ = memory::write_word(clip + MASK_TRANSLATION + 4, (rect[1] as f32).to_bits());
+    let _ = memory::write_word(clip + MASK_TRANSLATION, (box_words[0] as f32).to_bits());
+    let _ = memory::write_word(clip + MASK_TRANSLATION + 4, (box_words[1] as f32).to_bits());
     if let Some(anchors) = memory::word(clip + MASK_ANCHORS) {
         if anchors & 0xf != 0 {
             let _ = memory::write_word(clip + MASK_ANCHORS, anchors & !0xf);
@@ -640,8 +646,8 @@ fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
     }
     let _ = memory::write_word(clip + MASK_X_SCALE, 1.0f32.to_bits());
     let _ = memory::write_word(clip + MASK_X_SCALE + 4, 0f32.to_bits());
-    let _ = memory::write_word(clip + MASK_SIZE, (right - left).max(1) as u32);
-    let _ = memory::write_word(clip + MASK_SIZE + 4, (rect[3] - rect[1]).max(1) as u32);
+    let _ = memory::write_word(clip + MASK_SIZE, width);
+    let _ = memory::write_word(clip + MASK_SIZE + 4, height);
     let _ = memory::write_word(clip + MASK_FLAGS, REBUILD_AND_APPLY);
 }
 
@@ -908,8 +914,9 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         && memory::write_word(root + NODE_SIBLING, 0)
         // The shade hangs off the root's chain as the mask's sibling, so it is walked after the
         // mask's subtree and outside the accepted scissor: the clip mask, then the copy inside that
-        // clip. The parent's layout dirty bit is the badge's way of telling the walker a sibling
-        // chain changed under it.
+        // clip. The accepted mask carries the two flag bits because the accepted badge's live flags
+        // carry them: bit 17 is the transform gate, and bit 19 asks main+0xa4915c to re-sort the
+        // mask's children by Priority once, on the next walk.
         && (shade == 0
             || (memory::word(mask + TEX_FLAGS)
                 .is_some_and(|flags| memory::write_word(mask + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY))
@@ -946,6 +953,12 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         } else {
             memory::word(dim + TEX_FLAGS).unwrap_or(0)
         },
+        dim_sampler: if dim == 0 {
+            0
+        } else {
+            memory::word(dim + TEX_SAMPLER).unwrap_or(0) & 0xf
+        },
+        bar_sampler: memory::word(row.bar + TEX_SAMPLER).unwrap_or(0) & 0xf,
     })
 }
 

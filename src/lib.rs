@@ -170,7 +170,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
                 log::error!(concat!(
                     "MSG ",
                     env!("MSG_VERSION"),
-                    " scissor mask inserted: mask={mask:#x} map={map:#x} entries={entries} cache={cache:#x} records={records} dim={dim:#x} dim_tex={tex:#x} dim_flags={flags:#x} clip={clip:#x}"
+                    " scissor mask inserted: mask={mask:#x} map={map:#x} entries={entries} cache={cache:#x} records={records} dim={dim:#x} dim_tex={tex:#x} dim_flags={flags:#x} clip={clip:#x} bar_sampler={bar_sampler} dim_sampler={dim_sampler}"
                 ),
                 mask = done.mask,
                 map = done.map,
@@ -180,7 +180,9 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
                 dim = done.dim,
                 tex = done.dim_texture,
                 flags = done.dim_flags,
-                clip = done.clip);
+                clip = done.clip,
+                bar_sampler = done.bar_sampler,
+                dim_sampler = done.dim_sampler);
                 // The dim blade is additive: its failure leaves the accepted cut as it is, so it
                 // is reported on its own line, once per row.
                 if done.dim_stage != 0 {
