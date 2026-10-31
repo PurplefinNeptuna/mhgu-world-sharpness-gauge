@@ -3,57 +3,49 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r59
+## What to check on r60
 
-Run r59. The gauge's own cut is exactly as accepted (r44), and the shade is built the way r57 built
-it. Two writes changed, one for each of your two photos.
+Run r60. The cut is accepted r44's and the shade's placement, colour and sampler are accepted r59's.
+One thing changed: the shade always draws the unworn blade.
 
-1. The shade's clip mask now carries the flag bit the draw walk uses to compose a node with its
-   parent. r57 cleared that bit on this node, so the clip mask and the copy inside it kept the matrix
-   their constructors left - the log's `mat ... 0.0 0.0 0.0 1.0` - and only a tier change, which
-   dirties the tree, pulled them onto the gauge. That is "for every quest start, the shadow does not
-   shown until first color change".
-2. The copy gets the bar's own sampler state, not the badge's 0. Your hud0 record authors the bar's
-   sprite with SamplerState 2, and the setter stores the value in the copy's own style byte, so the
-   two parts of one blade are now filtered by the same sampler.
+The copy copied the bar's live atlas band every frame, so at orange `[0,304,88,328]` and red
+`[0,328,88,352]` it drew those tiers' notched frames, which is what the r59 crops show. It now draws
+`Txt_sharp`'s authored window `[0,280,88,304]` - the frame the game shows at yellow and above - at
+every tier, and the bar keeps its own frames. The u pair is the same 0..88 columns, so nothing about
+the geometry changes.
 
 What to look at:
 
-1. Quest start at full sharpness, then a few hits: a dark tip at the blade's end at the first hit,
-   before any colour change.
-2. Past the cut: a dark grey-blue blade from the cut's edge to the tip, with its notch row and tip
-   matching the coloured part, and its edges filtered the same way that part's are.
+1. At orange and at red: the dark part from the cut to the tip is the smooth unworn blade, with no
+   notches. The coloured part keeps its notches, so the notches stop at the cut.
+2. The dark part's tip and outline match the blade you see at full sharpness, in dark grey-blue.
+   Steady: no glow, no pulse.
 3. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
    sharpen, it shrinks back. Full sharpness: no dark part.
-4. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
-5. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue.
-6. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
-7. If the game faults, send the log.
+4. The kept part is untouched: the game's own colour, pulse, glow and edge glyph.
+5. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
+6. If the game faults, send the log.
 
-The insertion line now ends with `bar_sampler=2 dim_sampler=2` on the bar you measured; report the two
-numbers if they differ. The first `copy state` line after the insertion is read in the same draw
-pass, before the game's next transform update, so it can still show `rect=0 0 0 0` and the identity
-matrix. The second one, about half a second later, should read `mat ... 110.0 38.0 3.0 1.0` and
-`rect=110 38 238 166`, with no tier change needed. If that second line still reads
-`mat ... 0.0 0.0 0.0 1.0`, the fix did not work: report it.
-`entries=7 records=13` on that line is the tree r57, r58 and r59 share. The fill line ends with
-`shade_box=x0 y0 x1 y1`, the box the game folded for the shade's own clip mask: on your bar it reads
-`128 38 200 166` at empty sharpness, the left number moves right with the cut, and the right number
-stays 200 (201 at full sharpness, where the box is 1 px wide). Report the line beside the screenshot;
-the lines that matter start with `MSG r59`.
+Crops wanted: one at orange, one at red, and one across a sharpening from red to yellow.
+
+The log changed in one place: the `copy state` and `bar state` lines are gone, because the accepted run
+answered the question they asked. The fill line gained `shade_tex=`, the window the copy drew with:
+expect `shade_tex=0.0 280.0 88.0 304.0` at every tier, beside the bar's own
+`tex=0.0 304.0 88.0 328.0` (orange) and `tex=0.0 328.0 88.0 352.0` (red). `shade_box=`, `bar_sampler=`
+and `dim_sampler=` stay as in the accepted run, and `entries=7 records=13` is the same tree. The lines
+that matter start with `MSG r60`.
+
+For reference, the static check on `visual/hud00.png`: over columns 12..87 the three frames' alpha
+silhouettes differ only in the bottom outline - orange at columns 46,47,58,59 and red at
+32,33,44,45,46,47,58,59,60,61,62,63 (60,61 by 4 px) - and their top outlines are identical there. The
+unworn frame is taller at those columns, so the difference can only appear where the two parts meet,
+at the cut seam.
 
 By design the coloured part keeps the glow's halo - about 3 px above the blade, 2 px below it and 4 px
 past the tip - and the dark part has no glow. Say whether the dark part's missing halo bothers you.
 
 The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
-
-Earlier runs, for the record: r45 froze the game five seconds into a quest, r46 refused to add the
-copy, and r47, r48 and r50 all log the copy built with its texture resolved (`dim=`, `dim_tex=`) with
-nothing of it visible in the sharpness gauge. Their `dim_flags=0x20a0001` is the class constructor's
-own default, so it says the copy was constructed and nothing about whether it drew. The grey band
-above the red cropped blade in the r48 photo is the Dual Blade's demon gauge, a row this mod does not
-touch; the noisy dark block in the r47 photo is read as this mod's copy, which is an inference.
 
 1. One melee quest: full sharpness, a few hits down to a low level, empty, then
    sharpen back. The cut should land where r43 landed at the same sharpness. Take
@@ -76,20 +68,6 @@ Tell me if any of these happen:
 Say which weapon the quest started with (MHGU changes weapons at the box between
 quests, not during one) and whether it ended on the results screen.
 
-Two log-wording changes, for when you read the file: the startup line reads
-`loaded (clips the sharpness gauge to the player's sharpness)`, and a row check
-after a gauge row's teardown reports stage 34 where it used to report 21.
-
-## Accepted earlier, not the point of this run
-
-The r44 run covered the melee steps at full, low and empty sharpness, the HD
-Project mod on, an area change and a quest end, and reported the cut where r43
-put it. A ranged weapon with no sharpness gauge, the hub, a non-English game and
-the other HUD gauges are accepted on r42's bytes and unchanged in code, so they
-are not the point of this run. The Phase 5 geometry is new, so the strip past the
-tip at full sharpness (the 38 px where the sprite has no ink) and the copy's
-scale at the mid ratios are the things to look at.
-
 ## Which log to send
 
 Send the whole log file from the emulator you played on, and the Forge log if you
@@ -100,7 +78,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-Lines that matter start with `MSG r59`.
+Lines that matter start with `MSG r60`.
 
 ## The log lines
 
@@ -114,12 +92,8 @@ line reads `tex=0.0 280.0 88.0 304.0` in the top band and steps to `304.0 328.0`
 with the tiers. Match your screenshot to the line
 with the ratio you had at that moment.
 
-`copy state` and `bar state` are the copy and the bar as the game's own layout left them: the
-rectangle it computed (`rect=`), the rectangle it draws inside (`eff=`), the 16 numbers of the node's
-matrix (`mat=`), the node's position pair (`pos=`) and its authored size (`size=`). They are read at
-the mask's draw step, before the mod writes anything, so they are the game's answer to "where is this
-node, and how big does the game think it is". The copy's line is the one that says where the magenta
-blade landed; the bar's line beside it is the reference to compare it with.
+`shade_tex=` is the atlas window the copy - the dark part - drew with, read at the mask's draw step
+before the mod writes. It is the unworn frame, `0.0 280.0 88.0 304.0`, at every tier.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published, the record count, and for the copy: `dim=0x...` its node, `dim_tex=0x...` the sprite it
@@ -158,11 +132,3 @@ game draws no gauge HUD at all: the hub, a finished quest, a weapon without
 sharpness. `gauge row root destroyed (N times)` is the game's own teardown of the
 gauge row; it has been seen zero times, which is why the mod relies on its own
 link check.
-
-## What earlier runs measured
-
-The two last runs showed the gauge surviving sharpness changes, area changes and quest
-changes, the 0% step drawing nothing, and the 100% step showing the whole blade. Their 25%
-and 50% steps landed at 27% and 63% of the blade, because the cut's range ran 25 px past the
-blade's tip. The range now ends at the tip, so the four steps are the whole measured gauge
-in four linear parts.

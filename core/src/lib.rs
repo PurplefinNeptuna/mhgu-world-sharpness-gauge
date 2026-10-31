@@ -162,6 +162,14 @@ pub struct Node {
 pub const CLIP_TOP: i32 = -6;
 pub const CLIP_HEIGHT: i32 = 32;
 
+/// The blade at 100%: `Txt_sharp`'s own authored atlas window, the `mTextureRect` (0,280,88,304) the
+/// record in `work/modern-sharpness-gauge/hud0-sharpness.json` gives it and the frame the yellow tier
+/// and above draw. The tier keyframes `sharp_2..6` and `sharp_2a..6a` replace it with the notched
+/// frames (0,304,88,328) and (0,328,88,352): their bottom outline is cut in by 2 px at columns
+/// 32-33, 44-47 and 58-69 (4 px at 60-61), measured on `visual/hud00.png`; their top outline is the
+/// same in columns 12..87.
+pub const UNWORN_TEXTURE_RECT: [f32; 4] = [0.0, 280.0, 88.0, 304.0];
+
 /// The accepted cut endpoints as pixels from the bar rect's left, measured on that rect's own
 /// 128 px width: 18 at 0% and 90 at 100%, i.e. screen 128 and 200 px on the 110..238 bar.
 const CUT_START: i32 = 18;

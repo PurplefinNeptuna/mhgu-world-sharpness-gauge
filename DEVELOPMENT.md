@@ -1,58 +1,67 @@
-Current state: r59 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope,
-now composed with the gauge row's transform and drawn with the bar's own sampler. The accepted shape is
-untouched - mask as the controller's first child over bar, glow and edge, the accepted box per frame,
-the shade as the mask's sibling (one clip mask, the copy as its child) - the shade's geometry is r57's
-(`core::dim_box`, its per-frame writes), and the colour is `#202326` = `0xFF262320`.
+Current state: r60 DEVELOPMENT candidate, the plan's Phase 5. r59's behaviour is accepted (the user's
+"r59 works well", from its Eden run of 2026-11-01), so the shade's placement, colour, transform and
+sampler are the accepted shape: mask as the controller's first child over bar, glow and edge, the
+accepted box per frame, the shade as the mask's sibling (one clip mask with the copy as its child),
+`core::dim_box` for the box, `#202326` = `0xFF262320`, the clip mask carrying bit 17 and the copy
+carrying the bar's sampler. r60 changes one write: the shade draws the unworn blade at every tier.
 
-r57 ran 2026-10-31 in two Eden sessions (installed NRO `c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3`
-= r57's packaged payload; `work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-a.txt` with 104 MSG
-lines, 1 insertion `entries=7 records=13`, 91 fill lines, `r57-eden-2026-10-31-b.txt` with 35, 26 fill
-lines; no guest exception). The photos put the shade on the blade's right end, from the cut to the tip,
-with the tier colour on its left: the corner write is right. The tester reported two faults, and both
-are the clip mask's own transform:
+`write_shade` used to copy the bar's live atlas band per frame, so at orange `[0,304,88,328]` and red
+`[0,328,88,352]` the copy drew those tiers' notched frames - the tester's crops of 2026-11-01. It now
+writes core's `UNWORN_TEXTURE_RECT` = `[0.0, 280.0, 88.0, 304.0]`, `Txt_sharp`'s authored
+`mTextureRect` in `work/modern-sharpness-gauge/hud0-sharpness.json`, the frame the yellow tier and
+above draw, at every tier, and `build_dim` points the `mTextureRect` setter (main+0xa4fb58) at the same
+four floats in static storage (`SHADE_TEXTURE_RECT`) so the first frame is right. The u pair is
+unchanged (0..88), so the columns line up 1:1 with the bar's and no geometry moves. The bar keeps its
+own tier frames: the coloured part keeps its notches, and the notches stop at the cut. The per-frame
+write path is r59's, which the accepted run proved lands.
 
-- "for every quest start, the shadow does not shown until first color change". The copy's state line
-  reads `mat 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0` from the insertion
-  (`836.06 copy state` is the first line whose matrix is composed: `... 0.0 110.0 38.0 3.0 1.0`, and
-  the `rect=110 38 238 166` follows at `836.56`). Run b never changed tier and never left
-  `rect=0 0 128 128`. Cause: main+0xa39c40 starts the transform walk main+0xa4964c when root+0x8c bit 1
-  is set (we set it at insertion), that walk calls a node's setMatrix (vtable slot 0x44, main+0xa4e604
-  for a texture, world = parent matrix x own position and `Reference` flags) **only** on a node whose
-  `+0x54` has bit 17 `0x20000` set (main+0xa4969c), and it passes those bits to the children only of a
-  node that is dirty itself (main+0xa496e0..0xa496f0). `build_clip_node` wrote its flags with
-  `& !DRAWABLE_AND_DIRTY`, clearing bit 17, so the clip was never composed with the root and the copy
-  under it never got the gauge's transform. The accepted mask works because `run()` sets the same bit on
-  it (`mask+0x54 | DRAWABLE_AND_DIRTY`).
-- "slight shadow image size mismatch ... the difference is only minimal but can be noticeable with
-  aliasing". Two parts. The copy was built with Key Quest Markers' `SamplerState 0` while
-  `work/modern-sharpness-gauge/hud0-sharpness.json` authors `Txt_sharp` with SamplerState 2, and the
-  setter main+0xa4fa5c stores the value in the low nibble of `+0x108`: two samplers, two filters, on the
-  two halves of one blade. The other part is the glow `Txt_sharpefx` (PosX 6, PosY -6, 88x32, alpha
-  120), which gives the coloured part a halo of about 3 px above the blade, 2 px below and 4 px past the
-  tip, and the shade has no glow - a Phase 5 design decision, left as designed.
-
-r59 changes exactly the two writes: `build_clip_node` now writes `word | NODE_DRAWABLE | 1 |
-TRANSFORM_DIRTY` (`TRANSFORM_DIRTY` = `0x0002_0000`), so the walk composes the clip mask with the root
-and pushes the bit to the copy; and `build_dim` reads the bar's sampler (`memory::word(bar + 0x108) &
-0xf`) and passes it to 0xa4fa5c in place of the badge's 0, keeping the other eleven setters as they
-are. The insertion line ends with `bar_sampler=` and `dim_sampler=`. Bit 19 is not a layout bit:
-main+0xa4915c uses it to re-sort a node's children by Priority (`+0x60`) and then clears it, so the
-name "layout dirty pair" for bits 17|19 is replaced by transform dirty (17) and child Priority re-sort
-(19) in the source, core and this file.
-
-r58 was built, packaged and committed (`f0f117f`) and is withdrawn: never installed, never run, and its
-premises are refuted. "The scissor scales the blade" is false - a scissor clips, which is what accepted
-r44 does to the bar's notches at native size. Its per-frame dirty-bit write never runs, because the
-class constructor already writes `0x020a0001` at `+0x54` (`dim_flags=0x20a0001` in the r47, r48 and r50
-insertion lines). And the `+0x80`/`+0xb4` quad writes were inert in r53. Its code is reverted to r57's
-(`write_shade`, `core::dim_box` and its fixture); the `shade_box=` read-back on the fill line, the
-clip mask's own `+0xb0..+0xbc`, stays.
+Static check on `work/modern-sharpness-gauge/visual/hud00.png`, the alpha silhouettes of the three
+frames over columns 12..87 (the shade box never starts left of 128 px on the 128 px bar at 110, which
+is column 12): the top outlines are identical in all three, and the bottom outline is where they
+differ - the unworn frame's bottom edge is 2 px lower at orange's columns 46,47,58,59 and at red's
+32,33,44,45,46,47,58,59,60,61,62,63 (4 px at 60,61). Only the cut seam can show that, because the
+shade and the bar never overlap.
 
 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits
-exactly 13. 23 host fixtures pass; verify PASSED with 33 signature windows; distribution check PASS.
-r59 Gameplay NOT RUN. Candidate `build/modern-sharpness-gauge/candidates/r59/delivery/modern-sharpness-gauge-r59-candidate.zip`
-sha256 `426b24e7b15cebe0c63f52b994e7d9b1123d55516b54c724ceb8c77f0a17fc34`, payload NRO
-`6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3`.
+exactly 13. 24 host fixtures pass; verify PASSED with 33 signature windows; distribution check PASS.
+The fill line keeps `tex=`, `shade_box=` and gains `shade_tex=` (the copy's `+0x10c`); the `copy
+state`/`bar state` read-back lines are removed, with their queue and rate limiter: their question -
+where the copy lands and whether the walk composes it - is answered by the accepted run, and
+`shade_tex=` keeps the copy's own window on the accepted line. r60 Gameplay NOT RUN. Candidate
+`build/modern-sharpness-gauge/candidates/r60/delivery/modern-sharpness-gauge-r60-candidate.zip`
+sha256 `2c51ae62dfdd9cba3669c1465abceb18d0e0385ae4f9ca7fa06a64165cc48c50`, payload NRO
+`8094f8f534440a0bc27be547770f7a506da56f944b944445e59614e035afd3f2`.
+
+r59 DEVELOPMENT (2026-10-31), ACCEPTED by the user on 2026-11-01 ("r59 works well") from its Eden run:
+the shadow composed with the gauge row's transform and drawn with the bar's own sampler. Its Eden log
+`work/modern-sharpness-gauge/runs/r59-eden-2026-11-01.txt` sha256
+`bbb0f6eafcd1fb3777c061f1754f75edaa5a495150c74c6edb505c7700ca2341` has 80 `MSG r59` lines, 71 of them
+fill lines, and one insertion `MSG r59 scissor mask inserted: mask=0x441a8320 map=0x4872b670
+entries=7 cache=0x48918630 records=13 dim=0x486544c0 dim_tex=0x52c8bab0 dim_flags=0x20a0001
+clip=0x48654640 bar_sampler=2 dim_sampler=2` - the installed NRO
+`6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3` is r59's packaged payload. The
+first copy state after the insertion, 30 ms later, already carries the composed matrix
+`mat 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 110.0 38.0 3.0 1.0` and the next line reads
+`rect=110 38 238 166`: no tier change needed, where r57 reached it only at 836 s. All three bands were
+played (`tex=0.0 280.0 88.0 304.0` 38 lines, `0.0 304.0 88.0 328.0` 11, `0.0 328.0 88.0 352.0` 22).
+`shade_box=128 38 200 166` at `ratio_bp=0` and `129 38 200 166` at `ratio_bp=133`. The log's only
+PANIC (847.765) is 7 ms after `ForceStop: Force stopping EmuThread` with `nn::hid::VibrationNode::Update()`
+in the backtrace: the emulator stopping, not the mod. The tester's crops
+`work/modern-sharpness-gauge/visual/r59/r59-1.webp`, `r59-2.webp`, `r59-3.webp` show the shade from the
+cut to the tip, drawn with the notched tier frames - the fault r60 fixes.
+
+The r57 faults r59 fixed, kept for the record: bit 17 of `+0x54` is transform dirty - the walk
+main+0xa4964c (started by main+0xa39c40 when root+0x8c bit 1 is set) calls a node's setMatrix (vtable
+slot 0x44, main+0xa4e604 for a texture, world = the parent's `+0x10` matrix x the node's own position
+and `Reference` flags) only on a node with that bit (main+0xa4969c), and pushes the bits to the
+children only of a node dirty itself (main+0xa496e0..0xa496f0); clearing it on the clip mask left the
+clip and the copy on their constructors' matrices. Bit 19 is main+0xa4915c's one-shot child Priority
+re-sort, not a layout bit. The sampler half: `Txt_sharp` is authored with SamplerState 2 and the setter
+main+0xa4fa5c stores the value in the low nibble of `+0x108`, so the badge's 0 filtered the copy's
+edges differently from the bar's. Facts and addresses: `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`.
+r59 shipped 23 host fixtures; verify PASSED with 33 signature windows; candidate
+`build/modern-sharpness-gauge/candidates/r59/delivery/modern-sharpness-gauge-r59-candidate.zip`
+sha256 `426b24e7b15cebe0c63f52b994e7d9b1123d55516b54c724ceb8c77f0a17fc34`.
 
 r58 DEVELOPMENT (2026-10-31), WITHDRAWN the same day: never installed and never run. It rewrote the
 copy's quad every frame to the columns of the blade past the cut (atlas window `kept..88`, authored

@@ -7,7 +7,7 @@ use sharpness_gauge_core::{
     MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
     NODE_KIND, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE,
     PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS, SHARPNESS_TYPE,
-    SHARP_OBJECTS, SPLAYER_CELL,
+    SHARP_OBJECTS, SPLAYER_CELL, UNWORN_TEXTURE_RECT,
 };
 use std::collections::BTreeMap;
 
@@ -632,6 +632,32 @@ fn the_shade_box_and_its_clip_width_follow_the_cut() {
     assert_eq!(dim_box(wide, 10_000)[2], 218);
     assert_eq!(dim_box(wide, 10_000)[0], 218);
     assert!(dim_box(wide, 10_000)[2] <= wide[2]);
+}
+
+#[test]
+fn the_shade_window_is_the_top_band_for_every_bar_band() {
+    // The three bands the bar draws, the `tex=` words of the accepted runs. The shade is written
+    // with one window at every tier, the frame the hud0 record authors for Txt_sharp, so the dark
+    // part never shows a lower tier's notched frame.
+    let bands = [
+        [0.0f32, 280.0, 88.0, 304.0], // yellow and above
+        [0.0, 304.0, 88.0, 328.0],    // orange
+        [0.0, 328.0, 88.0, 352.0],    // red
+    ];
+    for band in bands {
+        assert_eq!(UNWORN_TEXTURE_RECT, bands[0], "the unworn frame is the top band");
+        assert_eq!(UNWORN_TEXTURE_RECT, [0.0, 280.0, 88.0, 304.0], "the record's mTextureRect");
+        assert_eq!(
+            [UNWORN_TEXTURE_RECT[0], UNWORN_TEXTURE_RECT[2]],
+            [band[0], band[2]],
+            "the u pair stays the bar's own 0..88 columns at {band:?}"
+        );
+        assert_eq!(
+            UNWORN_TEXTURE_RECT[3] - UNWORN_TEXTURE_RECT[1],
+            band[3] - band[1],
+            "one 24-row band at {band:?}"
+        );
+    }
 }
 
 #[test]
