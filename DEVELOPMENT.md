@@ -1,3 +1,21 @@
+Current state: r47 DEVELOPMENT candidate. The plan's Phase 5 copy did not appear on screen in the
+r46 run because the build refused it: stage 52, with the cut, the mask, the storage growth and the
+teardowns all behaving exactly as shipped. The reason is pinned in the decompile: the `Texture`
+setter resolves an id by scanning `*(obj+0x64) + 0xe8`, the `cGUI` the sprite belongs to, and the
+class's own constructor zeroes that word, so a standalone copy has no list to resolve in and its
+texture object at +0x104 stays 0. r47 gives the copy the bar's `+0x64` and reports the resolved
+texture object and the copy's flag word on the insertion line, so a run tells a missing copy apart
+from a copy that is present and not drawn. Everything else is the r46 build: allocation through the
+DTI allocator's slot 0x20 with the DTI id, a zeroed 304-byte block, the standalone constructor
+main+0xa4f60c, the fields the shipped Key Quest Markers badge sets, placement as the mask's sibling,
+per-frame rect and atlas writes from core's `dim_shape`, no animation entry so nothing keyframes it,
+additive stages 50..52. The accepted r44 cut, mask, storage and link code is untouched. 22 host
+fixtures pass; verify PASSED with the same 21 signature windows. Gameplay NOT RUN. The MT `color`
+word's byte order is unproven, so the flat dark grey's alpha byte position stays an inference.
+
+## Superseded current-state paragraphs
+
+r46 DEVELOPMENT (2026-10-31), superseded by r47 after its run:
 Current state: r46 DEVELOPMENT candidate. r45 froze the game about five seconds into a quest, on
 both launches, and the log says why: the copy was built by calling the class's vtable slot 0x00 as
 its constructor, which on this class is not one, and the game faulted on a null read inside that
@@ -16,8 +34,6 @@ untouched. 22 host fixtures pass; verify PASSED with the same 21 signature windo
 RUN. The MT `color` word's byte order is still unproven, so the flat dark constant stays
 byte-symmetric grey with the alpha byte written high, labelled as an inference. The research is
 `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`.
-
-## Superseded current-state paragraphs
 
 r45 DEVELOPMENT (2026-10-30), superseded by r46 after its run froze the game:
 Current state: r45 DEVELOPMENT candidate, the plan's Phase 5 (the dimmed empty blade). r44 is
@@ -1684,6 +1700,53 @@ No field is copied from the bar any more, and no transform row is touched.
 Core, geometry, the mask, the map and cache growth, the links and the cut are untouched, so the 22
 host fixtures are the same fixtures. The open questions are unchanged: the MT `color` word's byte
 order, how the copy reads under the glow's edge, and the draw walker's thread.
+## r46 run 2026-10-31 (Eden): the cut is normal, the copy refused itself at stage 52
+
+No freeze, no fault: 76 lines from this mod, 68 cut lines with the accepted endpoints (`box=110 32
+90 32` at 10000 bp down to `box=110 32 18 32` at 0), one insertion, one links-lost teardown at an
+area change followed by the watchdog line. The insertion line says what the tester saw:
+
+```
+MSG r46 scissor mask inserted: mask=0x48081c80 map=0x47ffb570 entries=5 cache=0x48081da0 records=9 dim=0x0
+MSG r46 dim blade not added at stage 52
+```
+
+So nothing was drawn behind the shorter gauge because no node existed: the additive path hid it and
+the gauge looked exactly as r44. Stage 52 is the field step, and of its writes only one can fail on
+a writable block: the texture resolve. Log:
+`work/modern-sharpness-gauge/runs/r46-eden-2026-10-31.txt` (sha256
+`4e6662865a982833eb18e9ac2702240242da2650efe50145b215cc0369669758`).
+
+Read with sources, the setter is the gate (`work/research-tooling/ghidra-export/function_00a4faf0.c`):
+it returns early when the object's resource at +0x78 is 0, and otherwise resolves the id through
+main+0xb80fd0, which scans `*(obj + 0x64) + 0xe8` for `count` 16-byte entries at `+0x70`, then
+zeroes the result when the found entry's +0x28 is 0. The class's base constructor (main+0xa4d0d8,
+reached from main+0xa4f60c) writes 0 at +0x64, and r46 wrote +0x74/+0x78, the position, the authored
+pair, the flags, the atlas rectangle and the colours, but never +0x64. A lookup through 0 finds
+nothing, so +0x104 stayed 0 and stage 52 dropped the node.
+
+## r47, built 2026-10-31: give the copy the cGUI its texture resolves through
+
+`build_dim` reads the bar's `+0x64` (the `cGUI` that owns the gauge sprite's texture list), refuses
+with stage 52 when the bar has none, and writes it into the copy before calling the `Texture`
+setter. The insertion line now also carries `dim_tex=`, the texture object the copy resolved, and
+`dim_flags=`, its flag word, so a run separates "no copy" from "copy present, not drawn".
+
+Not proven, in the order a run can prove it: that the resolved texture draws at all (the copy's
+flag word comes from the class constructor plus the badge's drawable and layout-dirty bits, not from
+the bar's own flags, which read `41943045` = bits 0, 2, 23, 25 live), where it lands, its scale, and
+the colour packing. Plan's fallback stays recorded: if the copy reads wrong, keep the empty side
+clear as r44 ships it.
+
+## r47, built 2026-10-31: resolve the texture after the fields
+
+Reading the setter (`work/research-tooling/ghidra-export/function_00a4faf0.c`) against the code
+shows the order was wrong as well as the missing word: its first test is the object's resource at
+`+0x78`, and on a freshly zeroed block it returns at once with `+0x100 = -1` and `+0x104 = 0`. r46
+called it as the first thing after the constructor, so every copy it built was refused by its own
+`+0x104` check. r47 writes the marker, `+0x64`, owner, resource, position, authored pair, flags,
+atlas rectangle and colours first, and resolves the texture last. The insertion line gained
+`dim_tex=` (the texture object the copy resolved) and `dim_flags=` (its flag word).
 
 ## Rules to keep
 

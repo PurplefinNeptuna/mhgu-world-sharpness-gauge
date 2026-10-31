@@ -69,6 +69,10 @@ const TEXTURE_CTOR: u32 = 0xa4f60c;
 const TEXTURE_ALLOC_SLOT: u32 = 0x20;
 const TEXTURE_SETTER: u32 = 0xa4faf0;
 const TEX_MID: u32 = 0x50;
+/// The `cGUI` whose texture list the `Texture` setter resolves an id through: main+0xb80fd0
+/// scans `*(obj+0x64) + 0xe8` for `count` entries of 16 bytes at `+0x70`. The class's base
+/// constructor zeroes this word, so a standalone copy has to be given the bar's.
+const TEX_GUI: u32 = 0x64;
 /// bit 17 drawable and bit 19 layout dirty: the badge's flag writes, seen live as
 /// `bar_flags=41943045` on the bar.
 const TEX_FLAGS: u32 = 0x54;
@@ -177,6 +181,10 @@ pub struct Outcome {
     /// The stage its build stopped at, 0 when it was built: 50 the allocation, 51 the
     /// constructor and class test, 52 the fields. A failed build leaves the accepted cut alone.
     pub dim_stage: u32,
+    /// The texture object the copy resolved, and its flag word: what the log needs to tell a
+    /// missing copy apart from a copy that is present and not drawn.
+    pub dim_texture: u32,
+    pub dim_flags: u32,
 }
 
 /// The row is going away: the game owns the mask, the map and the cache. Called from the root
@@ -324,13 +332,19 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
 /// own keyframes untouched. Stages 50..52.
 fn build_dim(bar: u32) -> Result<u32, u32> {
     let dti = MtDti::find("cGUIObjTexture").ok_or(50u32)?;
-    let (owner, resource, texture) = (
+    let (owner, resource, gui, texture) = (
         memory::word(bar + TEX_OWNER).ok_or(50u32)?,
         memory::word(bar + TEX_RESOURCE).ok_or(50u32)?,
+        memory::word(bar + TEX_GUI).ok_or(50u32)?,
         memory::word(bar + TEX_TEXTURE_ID).ok_or(50u32)?,
     );
     if owner == 0 || resource == 0 || texture == 0 {
         return Err(50);
+    }
+    // No cGUI to resolve a texture id through: the setter would leave the texture object 0, so
+    // say so at the stage that reports it instead of building a node that cannot draw.
+    if gui == 0 {
+        return Err(52);
     }
     // The bar's own geometry as float bits, read raw: the authored pair and the atlas rectangle.
     let (authored, atlas, rect) = (
@@ -365,9 +379,11 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     // Constructed: the native destructor owns the block from here. A failure calls the
     // destructor and never the allocator's free - the destructor frees through this allocator.
     let owned = memory::method(node, 0x04);
-    let texture = memory::call2(base() + TEXTURE_SETTER, node, texture)
-        .is_some_and(|_| memory::word(node + TEX_TEXTURE_OBJECT).is_some_and(|p| p != 0));
+    // Order matters: the setter's first test is the object's resource at +0x78, and with the block
+    // still zeroed it returns early, leaving the texture object 0. The fields come first, the
+    // resolve last.
     let ready = memory::write_word(node + TEX_MID, DIM_MARKER)
+        && memory::write_word(node + TEX_GUI, gui)
         && memory::write_word(node + TEX_OWNER, owner)
         && memory::write_word(node + TEX_RESOURCE, resource)
         && memory::write_word(node + TEX_POSITION, (rect[0] as f32).to_bits())
@@ -386,7 +402,8 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         && (0..4usize).all(|corner| {
             memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR)
         })
-        && texture;
+        && memory::call2(base() + TEXTURE_SETTER, node, texture)
+            .is_some_and(|_| memory::word(node + TEX_TEXTURE_OBJECT).is_some_and(|p| p != 0));
     if !ready {
         if let Some(destructor) = owned {
             let _ = memory::call1(destructor, node);
@@ -670,6 +687,16 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         records: cache.1,
         dim,
         dim_stage,
+        dim_texture: if dim == 0 {
+            0
+        } else {
+            memory::word(dim + TEX_TEXTURE_OBJECT).unwrap_or(0)
+        },
+        dim_flags: if dim == 0 {
+            0
+        } else {
+            memory::word(dim + TEX_FLAGS).unwrap_or(0)
+        },
     })
 }
 

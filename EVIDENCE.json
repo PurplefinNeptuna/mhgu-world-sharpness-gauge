@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r46",
+  "version": "r47",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r46",
+    "version": "r47",
     "status": "BUILT",
-    "nro_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989",
+    "nro_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,8 +87,8 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "e051f76e8f1a39315528a3ae485aeaaa374e68fec9984c9f42cae02a3a774b5e",
-      "src/lib.rs": "9fa085a75f7a936596c8b3a0d82b4793684d532110ffec4a667f77b5782a686c",
+      "src/insert.rs": "ad85516664a16cff8f2738ed05db89436027259e001c5d6d71c648f29fe05b42",
+      "src/lib.rs": "3834e5487ce76e52748ead46a80bf164de9167939dfbb4a18d8f496f5167a1b4",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989",
-    "elf_sha256": "c8f387f5a50b96f2cf72f2d90d0b2b6395bf8f4ec18bc9d294866b317aaa0e33",
+    "nro_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
+    "elf_sha256": "f2c46a9ce641234684889ecbd5727df1f92fc3c9b83304fbc470a11d495a487c",
     "exports": [
       "fini",
       "forge_onInit",
@@ -199,7 +199,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989"
+    "nro_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0"
   },
   "runs": [
     {
@@ -850,6 +850,18 @@
       "observed": "Two quest launches. The installed NRO matched the packaged payload. The mod started (stage 21 at the title, the watchdog line, then 'gauge controller observed' at t=250.36, and the same pattern in the first attempt at t=123.70). The insertion printed nothing on any path: no 'scissor mask inserted', no 'mask insertion failed at stage', no 'dim blade not added at stage'. At the gauge HUD's first draw the guest faulted: Unmapped Read32 @ 0x00000000000000 and Unmapped Read8 @ 0x00000000005ce4, after three maxwell_3d asserts. 6 'MSG r45' lines in the whole log, none from the insertion. The tester stopped the session; the game was unresponsive about five seconds into the quest both times.",
       "root_cause": "build_dim called the class's vtable slot 0x00 (main+0x866a4) as a constructor on a block straight from the recycled pool. cGUIObjTexture's DTI has three virtual slots, vtable+0x0c is null, and slot 0x00 is not the constructor. The verified construction on this class is the DTI allocator's slot 0x20 with (bytes, align, dti id), a zeroed 304-byte block, and main+0xa4f60c taking the storage in r0: Key Quest Markers, shipped and played on this class. The log's null read is inside that call.",
       "fixed_in": "r46"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r46",
+      "emulator": "Eden Development (user run)",
+      "status": "PASSED_WITH_ADDITIVE_FAILURE",
+      "binary_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989",
+      "log": "work/modern-sharpness-gauge/runs/r46-eden-2026-10-31.txt",
+      "log_sha256": "4e6662865a982833eb18e9ac2702240242da2650efe50145b215cc0369669758",
+      "observed": "76 lines from this mod, no freeze and no guest fault. 68 cut lines with the accepted endpoints (box=110 32 90 32 at 10000 bp down to box=110 32 18 32 at 0, bar rect 110 38 238 166, feed=128), one insertion 'records=9 dim=0x0', one 'dim blade not added at stage 52', one links-lost teardown at an area change. The tester saw no second copy behind the shorter gauge: the additive path hides the copy, so the gauge is exactly the accepted look.",
+      "root_cause": "The texture resolve ran before the fields. main+0xa4faf0 returns early with +0x100 = -1 and +0x104 = 0 when the object's resource at +0x78 is 0, and the block was freshly zeroed, so the check on +0x104 failed and stage 52 dropped the node. The resolve also needs *(obj+0x64)+0xe8 (main+0xb80fd0): the class constructor zeroes +0x64, so the copy has to be given the bar's.",
+      "fixed_in": "r47"
     }
   ],
   "not_proven": [
@@ -881,7 +893,7 @@
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
     "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too.",
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
-    "the dim blade on screen: r45 froze the game five seconds into the quest and r46 has not been run",
+    "the dim blade on screen: r45 froze the game, r46 refused the copy at stage 52, r47 has not been run",
     "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
     "that the copy reads correctly under the glow's edge"
   ],
