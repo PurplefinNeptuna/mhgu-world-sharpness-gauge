@@ -1,8 +1,43 @@
-Current state: run **r53**, the preserved fallback at `build/modern-sharpness-gauge/candidates/r53/`
-(bytes unchanged, sha256 of its zip `3130d2c0e8a12fdc602a5f23b4b81adb65895aed14e1f7edfd01e866e5b982ab`).
-It is r52's proven tree shape - the mask as the controller's first child, the shadow as the mask's
-sibling, drawn last, outside the scissor - with the shadow carved to the part of the blade past the cut
-and coloured `#202326` (`0xFF262320`).
+Current state: r55 DEVELOPMENT candidate, the plan's Phase 5: the shadow at the gauge's real position,
+clipped to the part of the blade past the cut by its own rectangle. The tree is r52's proven shape -
+mask as the controller's first child, bar, glow and edge under it, the shadow as the mask's sibling so
+the walker draws it last, outside the scissor. Its quad is the bar's own pair written at the build, so
+it lands on the gauge exactly (r53's read-back proves it: `copy state: rect=110 38 238 166 ...
+size=88.0 24.0` against `bar state: rect=110 38 238 166 ... size=88.0 24.0`). Colour `#202326` =
+`0xFF262320`.
+
+The clip is the node's own, which is what the code says is available. main+0xa4e628, the texture
+class's enter, copies the live scissor from the context (`+0xd0..0xdc`) into the node's effective rect
+at `+0xf0`, intersects it with the node's own rect at `+0xe0`, and hands that to main+0xa37c1c, which
+writes the render state's clip box. So the rectangle is the knob: writing the shadow's `+0xe0` and
+`+0xf0` to the part of the blade past the cut - in the bar's screen pixels, from `core::dim_rect`, the
+accepted endpoints' right edge to the full-sharpness right edge - clips its drawing. The atlas window
+follows the bar's live tier band, so the shadow changes tier colour. The layout dirty pair (bits 17 and
+19) is left clear on this node, because that pair is what makes the layout recompute the rect from the
+quad, and r53 proved the quad writes (`+0x80`/`+0xb4`) never move this node's rect: it logged
+`pos=90.0 0.0 size=0.7 24.0` with `rect=110 38 238 166` unchanged, which is why r53 covered the whole
+blade. Per-frame writes: 12 words on the shadow (rect 4, effective rect 4, band 4).
+
+The two other clip routes are closed by the code, and both are recorded so they are not retried. The
+mask's rectangle builder main+0xa4b390 places the box from the parent's rect corner with the anchor
+modes at `+0xa0` bits 0-3 (0 spans 0..size, 1 centres, 2 spans -size..0, 3 collapses), so a second
+mask hanging off the root can only produce boxes anchored at the gauge's left corner (110), its centre
+(174) or its right corner (238) - never one starting at `110 + kept`. The per-node `ScissorSize`
+(setter main+0xa4dcc4, writes `+0xd8/+0xdc` and sets bit 0 of `+0xd0`) leads to the texture class's
+vtable slot 0x74 at main+0x86420, which opens `ldr r1,[r0,#0x88]; mov r0,r9; blx r1` - a call through
+the node's `+0x88`, the field Key Quest Markers' recipe writes as 0. Not safe to arm.
+
+22 host fixtures pass - `the_shadow_rect_covers_the_blade_past_the_cut` replaces the quad fixture:
+lefts 128/146/164/182/200 with rights all 200 on the measured 110..238 bar, and 123/218 on a 168 px
+bar. verify PASSED with 33 signature windows. Gameplay NOT RUN. r53 stays the recorded fallback at
+`build/modern-sharpness-gauge/candidates/r53/`.
+
+r53 DEVELOPMENT (2026-10-31), superseded by its run and by r55: run **r53**, the preserved fallback at
+`build/modern-sharpness-gauge/candidates/r53/` (bytes unchanged, sha256 of its zip
+`3130d2c0e8a12fdc602a5f23b4b81adb65895aed14e1f7edfd01e866e5b982ab`). It is r52's proven tree shape -
+the mask as the controller's first child, the shadow as the mask's sibling, drawn last, outside the
+scissor - with the shadow carved to the part of the blade past the cut and coloured `#202326`
+(`0xFF262320`).
 
 r54 (the shadow behind the gauge) is recorded as a regression and is not the candidate. Its log
 (`work/modern-sharpness-gauge/runs/r54-eden-2026-10-31.txt`, sha256
@@ -2228,7 +2263,62 @@ Next: run r53, unchanged, which is r52's tree shape with the shadow carved to th
 `#202326`. Open question for the behind idea, if it is ever wanted: the row's teardown path (PHASE2
 records it as unread) would have to be read first, because that is what r54's chain change hit.
 
+## r53 run 2026-10-31 (Eden): the quad writes are inert, and the game faulted
+
+The tester's report: "worse", and the game crashed. The log has ten mod lines, no links-lost line and
+no teardown line, then a guest CPU dump. Quoted:
+
+```
+[  13.610469] MSG r53 scissor mask inserted: mask=0x47f4bbf0 map=0x4869b3f0 entries=6 cache=0x47f4bd10 records=11 dim=0x47f3e8d0 dim_tex=0x532abab0 dim_flags=0x20a0001
+[  13.614281] MSG r53 fill ratio_bp=10000 box=110 32 90 32 bar=110 38 238 166 eff=0 0 0 0 tex=0.0 280.0 88.0 304.0 bar_w=88 feed=128
+[  13.614297] MSG r53 copy state: rect=0 0 0 0 eff=0 0 0 0 mat ... 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0
+[  13.631266] MSG r53 copy state: rect=110 38 238 166 eff=0 0 0 0 mat ... pos=90.0 0.0 size=0.7 24.0
+[  13.631272] MSG r53 bar state:  rect=110 38 238 166 eff=0 0 0 0 mat ... pos=0.0 0.0 size=88.0 24.0
+```
+
+Then the crash dump: `strb r1, [r4, #0xcb00]` at main+0x1014604 (the function at main+0x10145d8),
+called from main+0xf28238, i.e. a byte store through a null pointer (`r4 = 0`) at 0xcb00. No GUI class
+has a field near 3248, so it is a unit-scale object (~52 KB) in the game's own update path, not the GUI
+tree code. The mechanism is unread and is not claimed here; the only r53-only changes were the
+per-frame quad writes and the colour.
+
+Two things the lines settle. The quad writes do not move the rect: we wrote `pos=90.0 0.0
+size=0.7 24.0` and the copy's `rect` stayed `110 38 238 166`, the bar's own, full length. That is why
+the shadow covered the whole blade, and it is why r49, r51, r53 and r54's placement maths produced
+nothing - the layout never rebuilds this node's rectangle from its quad. And the copy's position pair is
+`0.0 0.0` while the matrix's translation row is `110.0 38.0`, so the r8 pair (284.0 / 224.0) was not
+the screen corner: the conversion assumption r51's `dim_quad` was built on does not hold.
+
+## r55, built 2026-10-31: the shadow's own rectangle clips it, at the gauge's position
+
+The tester's own framing - use r52's shape and move the blade to the real gauge position - is what
+r55 does, with the clipping taken from the node's own path.
+
+- main+0xa4e628 (the texture class's enter, the copy's vtable slot 0x38 is main+0x85628 and does the
+  same work) copies the context's live scissor (`+0xd0..0xdc`) into the node's effective rect `+0xf0`,
+  intersects it with the node's own rect `+0xe0`, and hands the result to main+0xa37c1c, which writes
+  the render state's clip box. So the node's rectangle clips its drawing.
+- r55 writes the shadow's `+0xe0` and `+0xf0` per frame to `core::dim_rect(rect, ratio)` - the bar's
+  screen pixels from the cut's right edge to the full-sharpness right edge, the bar's rect rows:
+  on the measured bar `[128,38,200,166]` at 0%, `[164,38,200,166]` at 50%, `[200,38,200,166]` (zero
+  width) at 100%. The layout dirty pair stays clear so the layout leaves that rect alone.
+- Everything else is r52's shape and r53's colour: mask as the controller's first child, shadow as the
+  mask's sibling, its quad the bar's own pair from the build, the atlas window following the bar's live
+  tier band, `#202326`.
+- The read-back stays, so the log shows the copy's rect, effective rect, matrix, position pair and
+  authored pair against the bar's, and `eff=` is where the applied clip lands.
+
+Closed routes recorded above (the mask builder's anchors, the `ScissorSize` slot 0x74 tail). 22 host
+fixtures pass; verify PASSED with 33 signature windows. Gameplay NOT RUN.
+
 ## Rules to keep
+
+- The node's own rectangle (`+0xe0`, with the effective rect `+0xf0`) is what clips its drawing:
+  main+0xa4e628 copies the context's live scissor into `+0xf0`, intersects `+0xe0`, and main+0xa37c1c
+  writes the render state's clip box. The quad at `+0x80/+0xb4` is not that knob (the r53 log:
+  `pos=90.0 0.0 size=0.7 24.0` with `rect=110 38 238 166` unchanged).
+- Keep the layout dirty pair (bits 17 and 19, 0x000a_0000) clear on a node whose rectangle we write
+  per frame; that pair is what makes the layout recompute the rect from the quad.
 
 `DISTRIBUTION.json` is authoritative; runtime changes need a new version.
 Rust plus vendored forge-rs, PIC target JSON, `-nostartfiles -Wl,-z,text`. No

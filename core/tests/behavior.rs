@@ -1,6 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, dim_quad, draw_plan, is_sharp_animation, local_player,
+    basis_points, count_nodes, cache_layout, cut_box, dim_rect, draw_plan, is_sharp_animation, local_player,
     read_gauge, sample_controller, scan_walk, span_box,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
@@ -599,39 +599,32 @@ fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
 }
 
 #[test]
-fn the_shadow_quad_covers_the_blade_past_the_cut_in_the_bar_units() {
-    // The shadow runs from the cut's right edge to the tip, in the bar's band, in the units its
-    // +0x80/+0xb4 pair uses: the bar's authored 88.0 covers its rect's 128 px, and its position
-    // pair maps 1:1 onto the rect's corner (the r8 run read 284.0 / 224.0 at rect 110 / 38). The
-    // band is the bar's live window, [0, 280, 88, 304] in the top tier.
-    let bar = [110, 38, 238, 166];
-    let band = [0.0f32, 280.0, 88.0, 304.0];
-    let position = [284.0f32, 224.0];
-    let authored = [88.0f32, 24.0];
-    for (ratio, kept, width, column) in [
-        (0u32, 18.0f32, 49.5f32, 12.0f32),
-        (2_500, 36.0, 37.125, 24.0),
-        (5_000, 54.0, 24.75, 37.0),
-        (10_000, 90.0, 0.6875, 61.0),
-    ] {
-        let (pos, size, window) = dim_quad(bar, ratio, band, position, authored);
-        assert_eq!((pos[0], pos[1]), (284.0 + kept, 224.0), "ratio {ratio}: the position offset is the kept width 1:1");
-        assert_eq!((size[0], size[1]), (width, 24.0), "ratio {ratio}: the hidden length in authored units");
-        assert_eq!(
-            (window[0], window[1], window[2], window[3]),
-            (column, 280.0, 88.0, 304.0),
-            "ratio {ratio}: the column at the cut's edge, in the bar's own band"
-        );
-    }
-    // The same fractions on a narrower rect: 64 px wide, so the cut ends at 9 px and the tip at
-    // 45 px; the hidden 36 px is 49.5 authored units, the column at the edge is 12, and the
-    // position pair moves by the 9 px the cut keeps.
-    let half = [110, 38, 174, 166];
-    let (pos, size, window) = dim_quad(half, 0, band, position, authored);
-    assert_eq!((pos[0], pos[1]), (293.0, 224.0));
-    assert_eq!((size[0], size[1]), (49.5, 24.0));
-    assert_eq!(window[0], 12.0);
+fn the_shadow_rect_covers_the_blade_past_the_cut() {
+    // The bar's measured rect (110..238, 128 px) with the accepted endpoints (18 px at 0%, 90 px
+    // at 100%): the shadow starts at the cut's right edge and its right edge is the full-sharpness
+    // right edge, so at empty sharpness it covers 128..200 px and at full sharpness its width is 0.
+    let rect = [110, 38, 238, 166];
+    let ratios = [0u32, 2500, 5000, 7500, 10_000];
+    let lefts: Vec<i32> = ratios.iter().map(|bp| dim_rect(rect, *bp)[0]).collect();
+    let rights: Vec<i32> = ratios.iter().map(|bp| dim_rect(rect, *bp)[2]).collect();
+    assert_eq!(lefts, [128, 146, 164, 182, 200]);
+    assert_eq!(rights, [200, 200, 200, 200, 200]);
+    assert_eq!(
+        dim_rect(rect, 10_000)[2] - dim_rect(rect, 10_000)[0],
+        0,
+        "full sharpness: nothing left to shade"
+    );
+    assert_eq!(dim_rect(rect, 0)[1], 38, "the bar's own rect rows");
+    assert_eq!(dim_rect(rect, 0)[3], 166);
+    // A bar laid out wider than the measured one cuts the same fraction of its blade, and the
+    // shadow never runs past the bar's rect.
+    let wide = [100, 40, 268, 168];
+    assert_eq!(dim_rect(wide, 0)[0], 123, "18 * 168 / 128 = 23 px in from the rect's left");
+    assert_eq!(dim_rect(wide, 10_000)[2], 218);
+    assert_eq!(dim_rect(wide, 10_000)[0], 218);
+    assert!(dim_rect(wide, 10_000)[2] <= wide[2]);
 }
+
 #[test]
 fn a_second_node_fits_the_grown_tree_exactly() {
     // The dim blade is the mask's sibling on the root's chain, so the row carries five nodes:

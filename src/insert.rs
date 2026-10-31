@@ -25,7 +25,7 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_quad, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT,
+    basis_points, cut_box, dim_rect, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
     NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -97,6 +97,9 @@ const TEX_GUI: u32 = 0x64;
 /// bit 17 drawable and bit 19 layout dirty: the badge's flag writes, seen live as
 /// `bar_flags=41943045` on the bar.
 const TEX_FLAGS: u32 = 0x54;
+/// Bits 17 and 19 of the flags word: the layout dirty pair. Set on a node whose rectangle the layout
+/// has to recompute from its quad (the mask, with the rebuild bit of `MASK_FLAGS`, and the copy at the
+/// build); clear on the shadow, whose rectangle we write every frame and which must keep it.
 const DRAWABLE_AND_DIRTY: u32 = 0x000a_0000;
 const TEX_OWNER: u32 = 0x74; // the owning cGUI, taken from the bar
 const TEX_RESOURCE: u32 = 0x78; // the borrowed rGUI resource, taken from the bar
@@ -521,38 +524,31 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the shadow's quad and atlas for this frame's cut. `dim_quad` sizes it in the units the
-/// node's own `+0x80/+0xb4` pair uses - the bar's authored 88.0 covers its rect's whole width, and
-/// its position pair maps 1:1 onto the rect's corner - because the layout reads those fields, not
-/// the rectangle, and it reads them on the node's own visit, after this callback. So the quad is
-/// written every frame and the layout dirty bit goes with it. With no gauge to cut by, the width
-/// goes to 0, which is the accepted appearance.
+/// Write the shadow's own rectangle for this frame's cut: the part of the blade past the cut, in
+/// the bar's screen pixels, into its rect at `+0xe0` and its effective rect at `+0xf0`. The draw is
+/// clipped to the intersection of the live scissor and the node's own rect - main+0xa4e628, the
+/// texture enter, copies the live scissor into `+0xf0`, intersects `+0xe0` and hands the result to
+/// main+0xa37c1c - so writing the rect is what clips the shadow. No mask node and no quad units: the
+/// r53 run settled that the quad writes (`+0x80`/`+0xb4`) leave this node's rect where the bar's
+/// layout put it, so the shadow sat over the whole blade. The node keeps the bar's own quad from the
+/// build, so the blade's shape, size and place are the gauge's, and the layout dirty bits stay clear
+/// because that is what recomputes the rect from the quad. The atlas window follows the bar's live
+/// tier band, so the shadow changes colour with the tier.
 fn write_dim(dim: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
-    let (band, position, authored) = (
-        window_at(bar, NODE_TEXTURE_RECT),
-        window_at(bar, TEX_POSITION),
-        window_at(bar, TEX_AUTHORED),
-    );
-    let (position, authored, window) = if ratio_bp == u32::MAX {
-        ([position[0], position[1]], [0.0f32, authored[1]], band)
+    let band = window_at(bar, NODE_TEXTURE_RECT);
+    let box_words = if ratio_bp == u32::MAX {
+        [rect[2], rect[1], rect[2], rect[3]]
     } else {
-        dim_quad(
-            rect,
-            ratio_bp,
-            band,
-            [position[0], position[1]],
-            [authored[0], authored[1]],
-        )
+        dim_rect(rect, ratio_bp)
     };
     for edge in 0..4usize {
-        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + edge as u32 * 4, window[edge].to_bits());
+        let offset = edge as u32 * 4;
+        let _ = memory::write_word(dim + NODE_RECT + offset, box_words[edge] as u32);
+        let _ = memory::write_word(dim + NODE_EFFECTIVE_RECT + offset, box_words[edge] as u32);
+        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, band[edge].to_bits());
     }
-    let _ = memory::write_word(dim + TEX_POSITION, position[0].to_bits());
-    let _ = memory::write_word(dim + TEX_POSITION + 4, position[1].to_bits());
-    let _ = memory::write_word(dim + TEX_AUTHORED, authored[0].to_bits());
-    let _ = memory::write_word(dim + TEX_AUTHORED + 4, authored[1].to_bits());
     if let Some(flags) = memory::word(dim + TEX_FLAGS) {
-        let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
+        let _ = memory::write_word(dim + TEX_FLAGS, (flags | NODE_DRAWABLE) & !DRAWABLE_AND_DIRTY);
     }
 }
 

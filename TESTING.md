@@ -3,39 +3,41 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r53
+## What to check on r55
 
-Run r53. It is r52's proven shape - the mask over the bar, the shadow as the mask's sibling, so the
-walker draws it last, outside the clip - with the shadow carved to the part of the blade past the cut,
-in your `#202326` (a dark grey-blue).
+Run r55. It is r52's shape - the mask over the bar, the shadow as the mask's sibling, so the walker
+draws it last, outside the clip - with the shadow at the gauge's real place and size (the bar's own
+place and size, written once at the build), in your `#202326`, and clipped by its own rectangle to the
+part of the blade past the cut.
 
-r54 put the full blade image behind the gauge, which needs the shadow walked before the bar, and that
-insertion point broke the gauge row: the log shows the insertion, then 8 ms later the row's chain gone
-(`root.child=0x0`, `bar.parent=0x0`), 17104 links-lost lines, 17105 lines saying no gauge controller,
-and no cut lines at all - the mask was disabled every frame, so the blade stayed whole, which is what
-your photo showed. r54 is out; the layering research it produced is kept in DEVELOPMENT.md.
+r53 carved the shadow by resizing it; your log settled that: we wrote the size as 0.7 of a unit and the
+copy's rectangle stayed `110 38 238 166`, the bar's full rect, so the shadow covered the whole blade -
+"worse". r54 put the shadow before the gauge, which needs it in front of the mask on the row's chain,
+and your log showed the row's chain gone 8 ms after the insertion, so the gauge never clipped. r55
+writes the shadow's own rectangle - the game clips a picture to the intersection of its rectangle and
+the live scissor - and does not touch the chain.
 
 What to look at:
 
-1. Past the cut: a dark grey-blue blade, the shape of the gauge's blade, from the cut's edge to the
-   tip. Steady: no glow, no pulse.
+1. Past the cut: a dark grey-blue blade, the gauge's blade shape, from the cut's edge to the tip.
+   Steady: no glow, no pulse.
 2. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
-   sharpen, it shrinks back to the tip. Full sharpness: no dark part. Empty sharpness: the dark part
-   runs from the hilt's cut edge to the tip.
+   sharpen, it shrinks back. Full sharpness: no dark part.
 3. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
 4. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue.
 5. Across an area's loading screen and a weapon change, the shadow comes back with the new gauge.
 6. The log carries it: the insertion line ends with `dim=0x...`; `dim blade not added at stage
    50/51/52` means the copy is absent and the gauge is exactly the shipped look. Report the number.
-7. If the gauge stops clipping, stop and send the log. That is what r54 did, and the log names it.
+7. If the gauge stops clipping, or the game faults, stop and send the log: r53 and r54 each named
+   themselves in one read.
 
 The log answers the placement by itself. At the mask's draw step the mod reads the copy's own state as
 the game's layout produced it, and prints `copy state ...`; the bar's same fields print as `bar state
 ...`: the rectangle the game computed (`rect=`), the rectangle it draws inside (`eff=`), the 16-word
-matrix (`mat=`), the position pair (`pos=`) and the authored size (`size=`), floats printed as
-numbers. On the gauge you measured, the copy's line should read `pos=302.0 224.0` and `size=49.5 24.0`
-at empty sharpness, `pos=338.0 224.0` and `size=24.75 24.0` at half, and a 1 unit width at full. Send
-the log; the lines that matter start with `MSG r53`.
+matrix (`mat=`), the position pair (`pos=`) and the authored size (`size=`), floats printed as numbers.
+On the gauge you measured, expect the copy's `rect=128 38 200 166` at empty sharpness, `164 38 200 166`
+at half, and `200 38 200 166` at full, with `pos=0.0 0.0` and `size=88.0 24.0` on both nodes. Send the
+log; the lines that matter start with `MSG r55`.
 
 The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.

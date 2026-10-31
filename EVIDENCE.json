@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r53",
+  "version": "r55",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -88,12 +88,18 @@
       "archive_sha256": "61c116cf21db85d4c2a668daf6b2e91c8aebd17fb81115b32eb6f08ac48132c9",
       "runtime": "NOT RUN: the shadow behind the gauge; the run decides, with r53 as the recorded fallback",
       "adds": "the layering change: root.child = shadow with shadow.sibling = mask, so the walker emits the shadow's records before the mask's enter record and it draws under the gauge and outside the scissor; the per-frame quad writes (core's dim_quad, the authored/position unit conversion) and their fixture are deleted, leaving the node on the bar's own quad from the build; the only per-frame write left is the atlas band at +0x10c following the bar's live tier band"
+    },
+    "r55": {
+      "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
+      "archive_sha256": "63020ca53e4f15b467e73971a22c84a65396abd3153dfcf75c1a7b8bd1a58e7d",
+      "runtime": "NOT RUN: the shadow at the gauge's real quad, clipped by its own rectangle, in #202326",
+      "adds": "core::dim_rect (the part of the blade past the cut in the bar's screen pixels) and write_dim writing the shadow's rect at +0xe0, its effective rect at +0xf0, the bar's live atlas band at +0x10c and the flags with the layout dirty pair clear; core's dim_quad, SPRITE_COLUMNS and the quad fixture are deleted with the r53 run's proof that the quad writes leave this node's rect unchanged"
     }
   },
   "build": {
-    "version": "r53",
+    "version": "r55",
     "status": "BUILT",
-    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
+    "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -105,14 +111,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "7cd8d47ca801df77f40707be4db6029a5397229e6e16116eb5f0920f7bf479f2",
+      "src/insert.rs": "3297e338b9c13a99f2ef402fe5b04a9965040e37ec170ce88603cda451764e38",
       "src/lib.rs": "f7589ae5f0f945db858dd7855786f4f9610f8131c3c621c07da9c613cbd9b390",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "ce178bbdbbc233f5e8e2cf205c94d4ca0b62ec6974f6b3286fba72dcd03cbb02",
-      "core/tests/behavior.rs": "01c36e649bd2e545cdf91b061753c039663da8fbee7ce6430d32a24ab08e3927",
+      "core/src/lib.rs": "5c918e017afdb69e237a7900a7e3d685328ed083a7ddd7e08cba285211413cc9",
+      "core/tests/behavior.rs": "e67a07563ee8f825cfaf23bad5f8ebead6add10c38e9060314a26a97b45dae81",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -120,8 +126,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
-    "elf_sha256": "3955e8d748664c4e642d02e77199451533122b9843938ec9feda59a69fd9c913",
+    "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
+    "elf_sha256": "a67fea6d500401798696283e63f9d9f17608282bf28dd0d66d6cd199cc58c5c0",
     "exports": [
       "fini",
       "forge_onInit",
@@ -228,8 +234,8 @@
       "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in"
     ],
     "words_per_sample": 11,
-    "note": "21 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the 5-node tree with the shadow walked first (kinds 0,1,0,0,1,0,1,0,1,1,2, 11 records in the 88-byte block, the shadow's pair before the mask's enter record and the mask's exit closing the scissor scope), the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e"
+    "note": "22 fixtures: the accepted cut's endpoints and scaling, the box's linearity and bounds, the sample's named slots, the 5-node tree with the mask as the controller's first child and the shadow as its sibling, the walker plan, the cache and object-array sizing, the shadow's rect, and the gauge reading.",
+    "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92"
   },
   "runs": [
     {
@@ -962,10 +968,33 @@
       "root_cause": "r54's insertion point. The copy becomes the controller's first child (root.child = shadow, shadow.sibling = mask, mask.child = bar). The mask's enter/exit records are what the game's row machinery relies on, and the row is entered through the controller's child chain: with our node in front of the mask, the chain the game walks and tears down is no longer its own. In this run, 8 ms after the insertion the controller's child is 0 and the bar's parent is 0 - the row's chain was taken down - and no gauge controller is ever matched again, so the mod's own watchdog reports the HUD absent 17105 times while the mask's enter keeps firing and keeps disabling the mask. r44's accepted shape (mask as the controller's first child) and r52's (that mask, with the copy as the mask's sibling, drawn last) both ran clean and rebuilt across areas; this insertion point does not.",
       "conclusion": "The behind-the-gauge idea needs the copy walked before the bar, and the only link position that does that is ahead of the mask on the controller's chain - the position this run shows is not safe. The shadow goes back to r52's proven shape: the mask's sibling, drawn last, carved to the part past the cut. That is r53, packaged and unchanged at build/modern-sharpness-gauge/candidates/r53/.",
       "fixed_in": "r53 (the preserved fallback candidate; no code change)"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r53",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
+      "log": "work/modern-sharpness-gauge/runs/r53-eden-2026-10-31.txt",
+      "log_sha256": "76497310a3cc77cae31e74d29a4beff77aa54b97836996321168d65723e9b07c",
+      "status": "SHAPE_WRONG_AND_GAME_FAULT",
+      "observed": [
+        "clean insertion, one fill line, the state lines, then the game faulted: '[ 13.610469] MSG r53 scissor mask inserted: mask=0x47f4bbf0 map=0x4869b3f0 entries=6 cache=0x47f4bd10 records=11 dim=0x47f3e8d0 dim_tex=0x532abab0 dim_flags=0x20a0001'",
+        "'[ 13.614281] MSG r53 fill ratio_bp=10000 box=110 32 90 32 bar=110 38 238 166 eff=0 0 0 0 tex=0.0 280.0 88.0 304.0 bar_w=88 feed=128'",
+        "'[ 13.614297] MSG r53 copy state: rect=0 0 0 0 eff=0 0 0 0 mat 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0' - the copy's own rect is 0 0 0 0 at the first read, its matrix carries the translation row 110.0 38.0, its position pair is 0.0 0.0 and its authored pair is 88.0 24.0",
+        "'[ 13.631266] MSG r53 copy state: rect=110 38 238 166 eff=0 0 0 0 mat ... pos=90.0 0.0 size=0.7 24.0' - after our per-frame write the authored pair reads back as written, and the rect is the bar's own rect, 110 38 238 166, full length",
+        "'[ 13.631272] MSG r53 bar state: rect=110 38 238 166 eff=0 0 0 0 mat ... pos=0.0 0.0 size=88.0 24.0' - the bar's own position pair is 0.0 0.0, not 284.0 / 224.0",
+        "the last game lines: a CPU register dump naming the guest module Rabbit_RoApplicationMTFMasterReleaseNX.ns at offsets 0x00B35604 (original address 0x01014604) and 0x00A49264 (original address 0x00F28264), then '[ 190.662956] Frontend <Warning> ./qt_common/render/emu_thread.h:65:ForceStop: Force stopping EmuThread'",
+        "no links-lost line, no HUD-absent line, no stage line in the whole log: ten mod lines, the insertion and the state lines included, then the fault"
+      ],
+      "root_cause_shape": "the per-frame quad writes do not move this node's rectangle. We wrote pos 90.0 / 0.0 and authored 0.7 x 24.0 and the rect stayed 110 38 238 166, the bar's full rect, so the copy drew the whole blade in the shadow colour over the gauge - 'worse' in the tester's word. The layout does not rebuild this node's rect from its authored pair, so the whole r49-r53 carve design produces nothing.",
+      "root_cause_fault": "read, not concluded: the fault is the store 'strb r1, [r4, #0xcb00]' at main+0x1014604 (function main+0x10145d8), reached from main+0xf28264 (function main+0xf28238) - a byte store through a null base at 51968 bytes. No GUI class has a field near that offset, so the object is one of the ~52 KB unit-scale classes, not a GUI node. The link to our writes is not proven: the only r53-only writes are the per-frame authored pair (authored 0.7 against a 128 px rect = a 183x sampling scale) and the colour.",
+      "conclusion": "the carve-by-quad design is dead, and the shadow goes back to r52's shape at the bar's real quad with the clip taken from the node's own rectangle (main+0xa4e628 intersects the live scissor with the node's rect at +0xe0 and main+0xa37c1c writes the render state's clip box). Built as r55.",
+      "fixed_in": "r55"
     }
   ],
   "not_proven": [
-    "why the row's chain is gone 8 ms after r54's insertion: the log shows root.child = 0 and bar.parent = 0 and no gauge controller matched again, not the mechanism. Reading it needs the row's teardown path, which PHASE2 records as still unread",
+    "what made the game fault 177 s after the mod's last line in the r53 session: the store is at main+0x1014604 through a null base and the function is unread; r55 removes the r53-only writes (the per-frame authored/position quad) and that is the test",
+    "the accepted clip intersection in the r53 session: both state lines read eff=0 0 0 0, on the copy and on the bar. In the accepted r44 run the bar's eff line was logged from the prepaint and non-zero, so this is a difference in what the two runs measure, not a measured failure",
     "the atlas band's one-frame lag: it is written at the mask's enter, which the walk visits after the shadow's own records. Removing it needs a hook at the shadow's enter (this class's vtable slot 0x38, main+0x85628), gated on the marker word; not built",
     "the read-back lines of the r52 run: they were not retained in this workspace, so the unit facts used here (authored 88 against the bar's 128 px rect, the bar's position pair 284.0 / 224.0 at rect 110 / 38 from the r8 run) come from the accepted runs' logs",
     "that the clip's width tracks sharpness on screen: r24's probe shows the authored width the scissor receives (written in the enter call), and the user's report is that the gauge drew, not that its width followed sharpness. The authored pair reads 0 between frames because the row's layout zeroes it, so the enter-call write is the only width that reaches the scissor.",
