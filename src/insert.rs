@@ -25,7 +25,7 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_rect, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
+    basis_points, cut_box, dim_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
     NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
@@ -64,6 +64,16 @@ pub const DIM_MARKER: u32 = 0x4d534732;
 /// blue, green, red: `#202326` is `0xFF262320`. The bar's own `0xff5efaff` decodes as yellow in the
 /// same order.
 const DIM_COLOUR: u32 = 0xFF26_2320;
+/// The shade's clip needs two more nodes, because a node's drawing is gated by the render state's
+/// scissor box and only a scissor mask's enter writes that box (main+0xa37c1c). A mask's rectangle is
+/// built from its authored pair at its *parent's* rect corner (main+0xa4b390; the accepted mask's box
+/// `110 32 90 32` on the bar's corner proves the corner), and its only knobs are the authored pair and
+/// the anchor modes - there is no offset. So the offset comes from the parent: the anchor is a mask
+/// node whose Enable bit stays clear, so it applies no scissor and its rectangle is ours to write; the
+/// clip mask, its child, builds its box from the shade box's width at that corner and clips the copy.
+const ANCHOR_MARKER: u32 = 0x4d53_4733;
+const CLIP_MARKER: u32 = 0x4d53_4734;
+const MASK_FACTORY: u32 = 0xa4b6cc;
 /// The style setters Key Quest Markers' badge runs on this class, in its order and with its
 /// values, each through the two-integer ABI `(object, value)`. `Mask = 0` is the one that draws
 /// the corner colours: `Mask = 1` enters the native mask-writing pass.
@@ -109,6 +119,9 @@ const TEX_COLOURS: u32 = 0xa4; // four corner words: LT, RT, LB, RB
 const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
 const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
 static DIM: AtomicU32 = AtomicU32::new(0);
+/// The anchor and clip mask nodes, 0 when the shade has no clip.
+static ANCHOR: AtomicU32 = AtomicU32::new(0);
+static CLIP: AtomicU32 = AtomicU32::new(0);
 
 /// What the game computed for one texture node, read at the mask's enter before any write: the
 /// rectangle at `+0xe0`, the effective rectangle at `+0xf0`, the matrix at `+0x10..+0x4c`, the
@@ -291,6 +304,10 @@ pub struct Outcome {
     pub records: u32,
     /// The dim blade's node, 0 when it was not built.
     pub dim: u32,
+    /// The shade's anchor and clip mask nodes, 0 when the shade has no clip: the anchor carries the
+    /// corner the clip mask's box is built from, the clip mask clips the copy drawn inside it.
+    pub anchor: u32,
+    pub clip: u32,
     /// The stage its build stopped at, 0 when it was built: 50 the allocation, 51 the
     /// constructor and class test, 52 the fields. A failed build leaves the accepted cut alone.
     pub dim_stage: u32,
@@ -307,6 +324,8 @@ pub fn on_teardown() {
     MASK.store(0, Ordering::Release);
     BAR.store(0, Ordering::Release);
     DIM.store(0, Ordering::Release);
+    ANCHOR.store(0, Ordering::Release);
+    CLIP.store(0, Ordering::Release);
 }
 
 /// The captured row root, for the root destructor hook's gate. The destructor's argument is the
@@ -365,16 +384,62 @@ impl Allocator {
     }
 }
 
+/// Build the two nodes the shade's clip needs. Both come from the class factory the accepted mask
+/// build uses (main+0xa4b6cc: it allocates the 0xd0-byte object through the mask DTI's MT allocator
+/// and constructs it), borrow the bar's owning cGUI and resource, and carry their own marker words so
+/// the accepted mask's enter hook ignores them.
+///
+/// The anchor's scissor is off (`MASK_FLAGS` 0): its enter handler then applies nothing, the rectangle
+/// builder never runs, and the rectangle we write at `+0xe0` is the corner the clip mask's box is
+/// built from. The clip mask gets the accepted rebuild-and-apply pair, so its box is rebuilt from its
+/// authored pair at that corner every frame and its scope clips whatever is drawn inside it.
+fn build_clip_nodes(owner: u32, resource: u32) -> Result<(u32, u32), u32> {
+    let dti = MtDti::find("cGUIObjScissorMask").ok_or(53u32)?;
+    let built = |id: u32, flags: u32| -> Result<u32, u32> {
+        let node = memory::call0(base() + MASK_FACTORY).ok_or(53u32)?;
+        if node == 0 || !is_type(node, dti as *const _ as u32) {
+            return Err(53);
+        }
+        let owned = memory::method(node, 0x04);
+        let ready = memory::write_word(node + MASK_ID, id)
+            && memory::write_word(node + MASK_OWNER, owner)
+            && memory::write_word(node + MASK_RESOURCE, resource)
+            // The node's own flags have to stay visible and drawable, or the walker skips the
+            // subtree under it; the scissor is a separate word at +0xa4.
+            && memory::word(node + TEX_FLAGS).is_some_and(|word| {
+                memory::write_word(node + TEX_FLAGS, (word | NODE_DRAWABLE | 1) & !DRAWABLE_AND_DIRTY)
+            })
+            && memory::write_word(node + MASK_FLAGS, flags);
+        if !ready {
+            if let Some(destructor) = owned {
+                let _ = memory::call1(destructor, node);
+            }
+            return Err(54);
+        }
+        Ok(node)
+    };
+    let anchor = built(ANCHOR_MARKER, 0)?;
+    match built(CLIP_MARKER, REBUILD_AND_APPLY) {
+        Ok(clip) => Ok((anchor, clip)),
+        Err(stage) => {
+            if let Some(destructor) = memory::method(anchor, 0x04) {
+                let _ = memory::call1(destructor, anchor);
+            }
+            Err(stage)
+        }
+    }
+}
+
 /// Grow the row's object array by one entry and publish both aliases. `entries` is the length
 /// main+0x5456e4 indexes with, so the block and the new entry have to be in place before the
 /// tree gains a node: a fifth node against a four-word array is read past its end.
-fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: u32) -> Result<u32, u32> {
+fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: [u32; 3]) -> Result<u32, u32> {
     let old = memory::word(instance + 0xd8).ok_or(43u32)?;
     if old == 0 || memory::word(root + 0xa0).ok_or(43u32)? != old {
         return Err(43);
     }
     let allocator = Allocator::find("cGUIInstance").ok_or(42u32)?;
-    let appended = if extra == 0 { 1 } else { 2 };
+    let appended = 1 + extra.iter().filter(|word| **word != 0).count() as u32;
     let bytes = (entries + appended) * 4;
     let fresh = match allocator.alloc(bytes) {
         Some(pointer) if pointer & 15 == 0 => pointer,
@@ -384,10 +449,14 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: u32) -> Re
         }
         None => return Err(42),
     };
-    if !memory::copy_words(old, fresh, entries as usize)
-        || !memory::write_word(fresh + entries * 4, node)
-        || (extra != 0 && !memory::write_word(fresh + entries * 4 + 4, extra))
-    {
+    let mut published = memory::copy_words(old, fresh, entries as usize)
+        && memory::write_word(fresh + entries * 4, node);
+    for slot in 0..3usize {
+        if extra[slot] != 0 {
+            published = published && memory::write_word(fresh + (entries + slot as u32 + 1) * 4, extra[slot]);
+        }
+    }
+    if !published {
         allocator.release(fresh);
         return Err(43);
     }
@@ -524,32 +593,37 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the shadow's own rectangle for this frame's cut: the part of the blade past the cut, in
-/// the bar's screen pixels, into its rect at `+0xe0` and its effective rect at `+0xf0`. The draw is
-/// clipped to the intersection of the live scissor and the node's own rect - main+0xa4e628, the
-/// texture enter, copies the live scissor into `+0xf0`, intersects `+0xe0` and hands the result to
-/// main+0xa37c1c - so writing the rect is what clips the shadow. No mask node and no quad units: the
-/// r53 run settled that the quad writes (`+0x80`/`+0xb4`) leave this node's rect where the bar's
-/// layout put it, so the shadow sat over the whole blade. The node keeps the bar's own quad from the
-/// build, so the blade's shape, size and place are the gauge's, and the layout dirty bits stay clear
-/// because that is what recomputes the rect from the quad. The atlas window follows the bar's live
-/// tier band, so the shadow changes colour with the tier.
-fn write_dim(dim: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
+/// Write the shade for this frame's cut. The anchor's rectangle (`+0xe0`) becomes the shade box, the
+/// clip mask's authored pair (`+0xa8`) becomes its width - the box's width - at the corner that
+/// rectangle provides, with the accepted rebuild-and-apply pair, and the copy's atlas window follows
+/// the bar's live tier band so the shade changes colour with the tier. The copy's own quad and flags
+/// are not touched: r53 proved its quad writes leave its rect where the bar's layout put it, and r55
+/// proved its rect writes do not gate its drawing. The anchor's flags stay clear, so its enter applies
+/// no scissor and the rectangle we write stays.
+fn write_shade(dim: u32, anchor: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
     let band = window_at(bar, NODE_TEXTURE_RECT);
     let box_words = if ratio_bp == u32::MAX {
         [rect[2], rect[1], rect[2], rect[3]]
     } else {
-        dim_rect(rect, ratio_bp)
+        dim_box(rect, ratio_bp)
     };
     for edge in 0..4usize {
         let offset = edge as u32 * 4;
-        let _ = memory::write_word(dim + NODE_RECT + offset, box_words[edge] as u32);
-        let _ = memory::write_word(dim + NODE_EFFECTIVE_RECT + offset, box_words[edge] as u32);
+        let _ = memory::write_word(anchor + NODE_RECT + offset, box_words[edge] as u32);
         let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, band[edge].to_bits());
     }
-    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
-        let _ = memory::write_word(dim + TEX_FLAGS, (flags | NODE_DRAWABLE) & !DRAWABLE_AND_DIRTY);
+    let width = (box_words[2] - box_words[0]).max(1) as u32;
+    let height = (rect[3] - rect[1]).max(1) as u32;
+    if let Some(anchors) = memory::word(clip + MASK_ANCHORS) {
+        if anchors & 0xf != 0 {
+            let _ = memory::write_word(clip + MASK_ANCHORS, anchors & !0xf);
+        }
     }
+    let _ = memory::write_word(clip + MASK_X_SCALE, 1.0f32.to_bits());
+    let _ = memory::write_word(clip + MASK_X_SCALE + 4, 0f32.to_bits());
+    let _ = memory::write_word(clip + MASK_SIZE, width);
+    let _ = memory::write_word(clip + MASK_SIZE + 4, height);
+    let _ = memory::write_word(clip + MASK_FLAGS, REBUILD_AND_APPLY);
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
@@ -601,7 +675,11 @@ pub fn enter(mask: u32) {
     }
     // The copy's and the bar's own state, read before anything is written in this call: what the
     // game's layout produced for the copy on the previous frame.
-    let dim = DIM.load(Ordering::Relaxed);
+    let (dim, anchor, clip) = (
+        DIM.load(Ordering::Relaxed),
+        ANCHOR.load(Ordering::Relaxed),
+        CLIP.load(Ordering::Relaxed),
+    );
     read_state(dim, bar);
     // The live fill: the local player's own sharpness points, read fresh in this call through
     // the same checked mapping discovery uses. No valid gauge - no player yet, a zero maximum,
@@ -612,8 +690,8 @@ pub fn enter(mask: u32) {
         None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
-            if dim != 0 {
-                write_dim(dim, bar, rect_at(bar, NODE_RECT), u32::MAX);
+            if dim != 0 && anchor != 0 && clip != 0 {
+                write_shade(dim, anchor, clip, bar, rect_at(bar, NODE_RECT), u32::MAX);
             }
             return;
         }
@@ -689,11 +767,12 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
-    // The shadow follows the cut from here: `write_dim` sizes it to the part of the blade past the
-    // cut, in the units its own quad uses, and the read-back above measures what the game did with
-    // the quad of the previous frame.
-    if dim != 0 {
-        write_dim(dim, bar, rect, ratio);
+    // The shade follows the cut from here: its anchor's rectangle goes to the part of the blade past
+    // the cut, the clip mask's box is built at that corner and clips the copy drawn inside it, and the
+    // copy's atlas window follows the bar's live tier band. The read-back above measures what the game
+    // did with the clip of the previous frame.
+    if dim != 0 && anchor != 0 && clip != 0 {
+        write_shade(dim, anchor, clip, bar, rect, ratio);
     }
 }
 
@@ -748,7 +827,24 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         Ok(node) => (node, 0u32),
         Err(stage) => (0u32, stage),
     };
-    let map = match grow_map(instance, root, nodes + 1, mask, dim) {
+    // The shade's clip pair, built with the copy: the anchor's rectangle is the corner the clip
+    // mask's box is built from, and the copy is drawn inside that box. Without the copy there is
+    // nothing to clip, so the pair is not built and the accepted shape stands alone.
+    let (anchor, clip) = match if dim == 0 {
+        Ok((0u32, 0u32))
+    } else {
+        build_clip_nodes(owner, resource)
+    } {
+        Ok(pair) => pair,
+        Err(stage) => {
+            if let Some(destructor) = owned {
+                let _ = memory::call1(destructor, mask);
+            }
+            return Err(stage);
+        }
+    };
+    let shade = (dim != 0 && anchor != 0 && clip != 0) as u32;
+    let map = match grow_map(instance, root, nodes + 1, mask, [dim, anchor, clip]) {
         Ok(map) => map,
         Err(stage) => {
             if let Some(destructor) = owned {
@@ -758,10 +854,11 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         }
     };
     // The records the walker emits over the tree this builds: 9 with the mask alone, 11 once the
-    // dim blade joins the root's chain (edge glyph visible; 9 with it hidden, as the looping
-    // tiers keep it). The grown area is (5 << 4) | 8 = 88 bytes = 11 records, so the 11 fit
-    // exactly; without the dim blade the row grows to 4 objects, area 72 = 9 records.
-    let cache = match grow_cache(root, objects + 1 + (dim != 0) as u32, sequences) {
+    // dim blade joins the root's chain as the mask's sibling, and 15 with the shade's clip pair
+    // (mask enter, bar/glow/edge enter+exit, mask exit, anchor enter, clip enter, copy enter+exit,
+    // clip exit, anchor exit, terminator). The grown area is (7 << 4) | 8 = 120 bytes = 15 records,
+    // so they fit exactly; without the shade the row grows to 4 objects, area 72 = 9 records.
+    let cache = match grow_cache(root, objects + 1 + shade * 3, sequences) {
         Ok(done) => done,
         Err(stage) => {
             // The map is published and the tree untouched, so main+0x5456e4 never reaches the
@@ -784,13 +881,16 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         // One inbound chain per node, the invariant every native teardown walk relies on:
         // the bar chain moved under the mask, so the root's sibling chain has to end.
         && memory::write_word(root + NODE_SIBLING, 0)
-        // The dim blade sits on the root's chain as the mask's sibling, so it is drawn after the
-        // mask's subtree and outside the scissor. The parent's layout dirty bit is the badge's
-        // way of telling the walker a sibling chain changed under it.
-        && (dim == 0
+        // The shade hangs off the root's chain as the mask's sibling, so it is walked after the
+        // mask's subtree and outside the accepted scissor: anchor, then its clip mask, then the copy
+        // inside that clip. The parent's layout dirty bit is the badge's way of telling the walker a
+        // sibling chain changed under it.
+        && (shade == 0
             || (memory::word(mask + TEX_FLAGS)
                 .is_some_and(|flags| memory::write_word(mask + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY))
-                && memory::call2(link_sibling, mask, dim).is_some()));
+                && memory::call2(link_sibling, mask, anchor).is_some()
+                && memory::call2(link_child, anchor, clip).is_some()
+                && memory::call2(link_child, clip, dim).is_some()));
     if !linked {
         let _ = memory::call2(link_child, root, row.bar);
         return Err(47);
@@ -802,14 +902,18 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     ROOT.store(root, Ordering::Release);
     MASK.store(mask, Ordering::Release);
     DIM.store(dim, Ordering::Release);
+    ANCHOR.store(anchor, Ordering::Release);
+    CLIP.store(clip, Ordering::Release);
     Ok(Outcome {
         mask,
         map,
         cache: cache.0,
-        entries: nodes + 2 + (dim != 0) as u32,
+        entries: nodes + 2 + shade * 3,
         records: cache.1,
         dim,
         dim_stage,
+        anchor,
+        clip,
         dim_texture: if dim == 0 {
             0
         } else {

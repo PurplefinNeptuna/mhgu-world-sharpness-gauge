@@ -1,36 +1,54 @@
-Current state: r55 DEVELOPMENT candidate, the plan's Phase 5: the shadow at the gauge's real position,
-clipped to the part of the blade past the cut by its own rectangle. The tree is r52's proven shape -
-mask as the controller's first child, bar, glow and edge under it, the shadow as the mask's sibling so
-the walker draws it last, outside the scissor. Its quad is the bar's own pair written at the build, so
-it lands on the gauge exactly (r53's read-back proves it: `copy state: rect=110 38 238 166 ...
-size=88.0 24.0` against `bar state: rect=110 38 238 166 ... size=88.0 24.0`). Colour `#202326` =
-`0xFF262320`.
+Current state: r56 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope.
+The accepted shape is untouched - mask as the controller's first child over bar, glow and edge, the
+accepted box per frame - and the shade hangs off the same chain as the mask's sibling: anchor, then its
+clip mask, then the copy inside that clip. Colour `#202326` = `0xFF262320`.
 
-The clip is the node's own, which is what the code says is available. main+0xa4e628, the texture
-class's enter, copies the live scissor from the context (`+0xd0..0xdc`) into the node's effective rect
-at `+0xf0`, intersects it with the node's own rect at `+0xe0`, and hands that to main+0xa37c1c, which
-writes the render state's clip box. So the rectangle is the knob: writing the shadow's `+0xe0` and
-`+0xf0` to the part of the blade past the cut - in the bar's screen pixels, from `core::dim_rect`, the
-accepted endpoints' right edge to the full-sharpness right edge - clips its drawing. The atlas window
-follows the bar's live tier band, so the shadow changes tier colour. The layout dirty pair (bits 17 and
-19) is left clear on this node, because that pair is what makes the layout recompute the rect from the
-quad, and r53 proved the quad writes (`+0x80`/`+0xb4`) never move this node's rect: it logged
-`pos=90.0 0.0 size=0.7 24.0` with `rect=110 38 238 166` unchanged, which is why r53 covered the whole
-blade. Per-frame writes: 12 words on the shadow (rect 4, effective rect 4, band 4).
+r55's run closed the door r55 opened. Writing the copy's rectangle at `+0xe0` and its effective rect at
+`+0xf0` lands - the log reads `copy state: rect=200 38 200 166 eff=200 38 200 166` at full sharpness,
+the zero-width box at the full-sharpness right edge, exactly as the accepted endpoints say - and the
+copy paints over the gauge anyway (`work/modern-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp`).
+A node's drawing is gated by the render state's scissor box, and only a scissor mask's enter writes that
+box (main+0xa37c1c). The accepted cut is a mask box over the bar, glow and edge; the copy had no mask
+scope, so its own rect did nothing for it.
 
-The two other clip routes are closed by the code, and both are recorded so they are not retried. The
-mask's rectangle builder main+0xa4b390 places the box from the parent's rect corner with the anchor
-modes at `+0xa0` bits 0-3 (0 spans 0..size, 1 centres, 2 spans -size..0, 3 collapses), so a second
-mask hanging off the root can only produce boxes anchored at the gauge's left corner (110), its centre
-(174) or its right corner (238) - never one starting at `110 + kept`. The per-node `ScissorSize`
-(setter main+0xa4dcc4, writes `+0xd8/+0xdc` and sets bit 0 of `+0xd0`) leads to the texture class's
-vtable slot 0x74 at main+0x86420, which opens `ldr r1,[r0,#0x88]; mov r0,r9; blx r1` - a call through
-the node's `+0x88`, the field Key Quest Markers' recipe writes as 0. Not safe to arm.
+r56 gives it a scope with the accepted mechanisms. The anchor is a `cGUIObjScissorMask` with
+`MASK_FLAGS` 0: its enter handler applies no scissor, the rectangle builder never runs, and the
+rectangle we write at its `+0xe0` stays - that is the corner the clip mask's box is built from, because
+a mask's rectangle starts at its parent's rect corner (main+0xa4b390, and the accepted mask's box
+`110 32 90 32` on the bar's corner proves it). The clip mask carries the accepted rebuild-and-apply
+pair, the x scale 1.0, the anchor modes 0, and its authored pair = the shade box's width from
+`core::dim_box` - the bar's screen pixels from the cut's right edge to the full-sharpness right edge:
+72 px wide at 0% on the measured bar, 36 at 50%, 0 at 100% - so its box covers the part of the blade
+past the cut and the copy drawn inside it is clipped to that. The copy keeps the bar's quad from the
+build (it lands on the gauge exactly, r53's read-back) and its atlas window follows the bar's live tier
+band. Per-frame writes: the accepted mask box, the anchor's rect (4 words), the clip mask's authored
+pair, x scale and flags (4 words), the copy's band (4 words). The copy's quad, rect and flags are not
+touched per frame any more.
 
-22 host fixtures pass - `the_shadow_rect_covers_the_blade_past_the_cut` replaces the quad fixture:
-lefts 128/146/164/182/200 with rights all 200 on the measured 110..238 bar, and 123/218 on a 168 px
-bar. verify PASSED with 33 signature windows. Gameplay NOT RUN. r53 stays the recorded fallback at
-`build/modern-sharpness-gauge/candidates/r53/`.
+7 tree nodes, the 8-word object array, `(7 << 4) | 8` = 120 bytes = 15 records, and the walk emits
+exactly 15: mask enter, bar/glow/edge enter+exit, mask exit, anchor enter, clip enter, copy enter/exit,
+clip exit, anchor exit, terminator - so the copy's pair sits after the accepted mask's exit (outside
+the accepted scissor) and inside the clip mask's enter/exit pair (inside its own). Teardown mirrors the
+proven shape: the controller's chain `[mask, anchor]`; the mask destroys bar, glow and edge, the anchor
+destroys the clip mask, the clip mask destroys the copy. 22 host fixtures pass; verify PASSED with 33
+signature windows. Gameplay NOT RUN.
+
+r55 DEVELOPMENT (2026-10-31), refuted by its run: the shadow at the gauge's real position, clipped to
+the part of the blade past the cut by its own rectangle - the tree r52's proven shape, the shadow as the
+mask's sibling drawn last outside the scissor, its quad the bar's own pair written at the build. The
+clip premise was main+0xa4e628 (the live scissor copied into the node's effective rect, intersected with
+its rect, handed to main+0xa37c1c), which belongs to the scissor mask class's own rectangle path, not to
+a texture node's draw path.
+
+The two other clip routes stay closed by the code, recorded so they are not retried. The mask's
+rectangle builder main+0xa4b390 places the box from the parent's rect corner with the anchor modes at
+`+0xa0` bits 0-3 (0 spans 0..size, 1 centres, 2 spans -size..0, 3 collapses), so a second mask hanging
+off the root can only produce boxes anchored at the gauge's left corner (110), its centre (174) or its
+right corner (238) - never one starting at `110 + kept`. r56's answer to that is the anchor: a mask
+whose rectangle we write, so the corner moves with the cut. The per-node `ScissorSize` (setter
+main+0xa4dcc4, writes `+0xd8/+0xdc`, sets bit 0 of `+0xd0`) leads to the texture class's vtable slot
+0x74 at main+0x86420, which opens `ldr r1,[r0,#0x88]; mov r0,r9; blx r1` - a call through the node's
+`+0x88`, the field Key Quest Markers' recipe writes as 0. Not safe to arm.
 
 r53 DEVELOPMENT (2026-10-31), superseded by its run and by r55: run **r53**, the preserved fallback at
 `build/modern-sharpness-gauge/candidates/r53/` (bytes unchanged, sha256 of its zip
@@ -2310,6 +2328,60 @@ r55 does, with the clipping taken from the node's own path.
 
 Closed routes recorded above (the mask builder's anchors, the `ScissorSize` slot 0x74 tail). 22 host
 fixtures pass; verify PASSED with 33 signature windows. Gameplay NOT RUN.
+
+## r55 run 2026-10-31 (Eden): the rect writes land, and the copy paints over the gauge
+
+The tester's photo (`work/modern-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp`, sha256
+`470fe6d562c0e37feca29fad037271a1b5e3bd2428e27a469c803bad282e2e13`): the blade painted in the shadow
+colour across the gauge, the gauge's own outline round it. Log
+`work/modern-sharpness-gauge/runs/r55-eden-2026-10-31.txt` (sha256
+`d57f8817e0ae48a73cbac468659a3b594f14c91504227d907c90afab609894f9`), quoted:
+
+```
+[ 13.610469] MSG r55 scissor mask inserted: mask=0x4805a230 map=0x47fdc0f0 entries=6 cache=0x4805a350 records=11 dim=0x4803e670 dim_tex=0x5189bab0 dim_flags=0x20a0001
+[ 13.614281] MSG r55 fill ratio_bp=10000 box=110 32 90 32 bar=110 38 238 166 eff=0 0 0 0 tex=0.0 280.0 88.0 304.0 bar_w=88 feed=128
+[ 13.614297] MSG r55 copy state: rect=0 0 0 0 eff=0 0 0 0 mat ... 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0
+[ 13.631266] MSG r55 copy state: rect=200 38 200 166 eff=200 38 200 166 mat ... pos=0.0 0.0 size=88.0 24.0
+[ 13.631272] MSG r55 bar state:  rect=110 38 238 166 eff=0 0 0 0 mat ... pos=0.0 0.0 size=88.0 24.0
+```
+
+The writes are exactly right and exactly useless. `rect=200 38 200 166` is the zero-width box at the
+full-sharpness right edge, the accepted endpoint; `eff` carries the same; the copy draws the whole blade
+anyway. So a node's own rect and effective rect are not what gate its drawing. What gates it is the
+render state's scissor box, and only a scissor mask's enter writes that box (main+0xa37c1c, the same
+call the accepted cut uses). PHASE5's note about main+0xa4e628 - the live scissor copied into the node's
+effective rect, intersected with its rect - belongs to the scissor mask class's own rectangle path, not
+to a texture node's draw path.
+
+Also on the record: the bar's `eff=0 0 0 0` in this run and in r53's, against accepted r44's non-zero
+eff line - accepted r44 measured the bar at its own prepaint, these runs read it at the mask's enter.
+r56 stops writing the copy's flags every frame, which is the test for that thread.
+
+## r56, built 2026-10-31: the shadow gets a scissor scope of its own
+
+The clip mechanism the accepted cut proves is a mask box over the nodes walked inside it, so the shadow
+is given one, at the accepted chain position (as the mask's sibling, which r52 proved safe):
+
+- `mask.sibling = anchor`, `anchor.child = clip`, `clip.child = copy`, one inbound chain per node.
+- The anchor is a `cGUIObjScissorMask` from the class factory main+0xa4b6cc with `MASK_FLAGS` 0. Its
+  enter handler (main+0xa4ba94) applies no scissor when the Enable bit is clear and the rebuild never
+  runs, so the rectangle we write at its `+0xe0` stays. That is the corner the clip mask's box is built
+  from: main+0xa4b390 starts a mask's box at its parent's rect corner, which the accepted mask's box
+  `110 32 90 32` on the bar's corner proves.
+- The clip mask carries the accepted pair - the x scale 1.0 at `+0x10/+0x14`, anchor modes 0 at `+0xa0`,
+  the authored pair at `+0xa8` = the shade box's width, and `MASK_FLAGS = REBUILD_AND_APPLY` - so its box
+  is the part of the blade past the cut, and the copy drawn inside it is clipped to that.
+- `core::dim_box` gives both numbers: the box `[left, rect top, right, rect bottom]` and the clip width
+  `right - left`. On the measured 110..238 bar: `[128, 38, 200, 166]` and 72 at 0%, `[164, 38, 200, 166]`
+  and 36 at 50%, `[200, 38, 200, 166]` and 0 at 100%.
+- The copy keeps the bar's quad from the build, so it lands on the gauge exactly (the r53 read-back:
+  `rect=110 38 238 166`, `size=88.0 24.0` = the bar's own), and its atlas window follows the bar's live
+  tier band. Its quad, rect and flags are no longer written per frame.
+- Storage: 7 tree nodes, the 8-word object array, `(7 << 4) | 8` = 120 bytes = 15 records, and the walk
+  emits exactly 15. The tree fixture pins the record order, including the copy's pair after the accepted
+  mask's exit and inside the clip mask's enter/exit pair.
+- Teardown mirrors the proven shape: the controller's chain `[mask, anchor]`; the mask destroys bar, glow
+  and edge, the anchor destroys the clip mask, the clip mask destroys the copy.
 
 ## Rules to keep
 

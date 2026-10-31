@@ -197,13 +197,17 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
     ]
 }
 
-/// The part of the blade past the cut, in the bar's own screen pixels: from the cut's right edge to
-/// the full-sharpness right edge, across the bar's rect rows. This is what the shadow's own
-/// rectangle is set to every frame, because the draw is clipped to the intersection of the live
-/// scissor and the node's own rectangle (main+0xa4e628 copies the scissor into the node's +0xf0 and
-/// intersects +0xe0, and hands the result to main+0xa37c1c), so writing the rectangle clips the
-/// shadow's drawing. At full sharpness the width is 0: nothing shows.
-pub fn dim_rect(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
+/// The part of the blade past the cut in the bar's own screen pixels, and the authored width that
+/// clips to it. Returns `[left, rect top, right, rect bottom]` with `left = rect left + kept` and
+/// `right = rect left + the full-sharpness right edge`, so the width is `tip - kept` and it is empty
+/// at full sharpness. The accepted endpoints are the same ones `cut_box` uses, scaled by the rect's
+/// width, so a bar laid out wider or narrower shades the same fraction of its blade.
+///
+/// r56 uses it twice: the anchor node's rectangle is this box, and the clip mask's authored width is
+/// `box[2] - box[0]`. The anchor exists because a mask's rectangle always starts at its parent's
+/// rect corner (main+0xa4b390, and the accepted mask's box `110 32 90 32` on the bar's corner proves
+/// it), and the anchor's corner is the value we write here.
+pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
     let kept = cut_box(rect, ratio_bp)[2];
     let full = cut_box(rect, FULL_SHARPNESS_BP)[2];
     [

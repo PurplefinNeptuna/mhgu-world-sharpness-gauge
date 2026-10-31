@@ -92,14 +92,20 @@
     "r55": {
       "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
       "archive_sha256": "63020ca53e4f15b467e73971a22c84a65396abd3153dfcf75c1a7b8bd1a58e7d",
-      "runtime": "NOT RUN: the shadow at the gauge's real quad, clipped by its own rectangle, in #202326",
-      "adds": "core::dim_rect (the part of the blade past the cut in the bar's screen pixels) and write_dim writing the shadow's rect at +0xe0, its effective rect at +0xf0, the bar's live atlas band at +0x10c and the flags with the layout dirty pair clear; core's dim_quad, SPRITE_COLUMNS and the quad fixture are deleted with the r53 run's proof that the quad writes leave this node's rect unchanged"
+      "runtime": "RAN 2026-10-31, REGRESSION_SHADOW_OVER_GAUGE: the rect writes land (the copy's rect reads 200 38 200 166 at full sharpness) and the copy paints over the gauge, so a node's rect does not gate its drawing",
+      "adds": "core::dim_box, and the per-frame writes of the copy's rect at +0xe0, its effective rect at +0xf0, the atlas band and its flags with the layout dirty pair clear"
+    },
+    "r56": {
+      "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
+      "archive_sha256": "dd17da1e927b303adf9bf0ade02e44fc7e69d76c134813df4135330d01a9fc65",
+      "runtime": "NOT RUN: the shadow inside its own scissor scope - the anchor node carrying the corner, the clip mask carrying the box, the copy drawn inside it",
+      "adds": "build_clip_nodes: an anchor cGUIObjScissorMask with MASK_FLAGS 0 (its enter applies no scissor and its rectangle is ours to write, marker 0x4d534733) and a clip mask with the accepted rebuild-and-apply pair (marker 0x4d534734), built through the class factory main+0xa4b6cc; links mask.sibling = anchor, anchor.child = clip, clip.child = copy, one inbound chain each; write_shade writes the anchor's rect to the shade box, the clip mask's authored pair to the box's width, its x scale 1.0, its anchor modes 0, the rebuild-and-apply pair, and the copy's atlas band, leaving the copy's quad, rect and flags alone. 7 tree nodes, 8-word array, (7 << 4) | 8 = 120 bytes = 15 records"
     }
   },
   "build": {
-    "version": "r55",
+    "version": "r56",
     "status": "BUILT",
-    "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
+    "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -111,14 +117,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "3297e338b9c13a99f2ef402fe5b04a9965040e37ec170ce88603cda451764e38",
-      "src/lib.rs": "f7589ae5f0f945db858dd7855786f4f9610f8131c3c621c07da9c613cbd9b390",
+      "src/insert.rs": "cc374568bd450ebc85b8401882720df4df41dc7b7ce42875081c55cd0fb08d59",
+      "src/lib.rs": "5a4e934b94a26b7aa032b0060bfc02a087254dfd468e2a0f9a23634d627cfce2",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "5c918e017afdb69e237a7900a7e3d685328ed083a7ddd7e08cba285211413cc9",
-      "core/tests/behavior.rs": "e67a07563ee8f825cfaf23bad5f8ebead6add10c38e9060314a26a97b45dae81",
+      "core/src/lib.rs": "0e8479a7f5d5e8ff9536228e4b1d706a5231d8a78f5b2b221f616f7bb547e4e6",
+      "core/tests/behavior.rs": "1658b3ec337a308d847041b78a550b9ef26c1eeb861d3786ab9c3c2344dc11c2",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -126,8 +132,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
-    "elf_sha256": "a67fea6d500401798696283e63f9d9f17608282bf28dd0d66d6cd199cc58c5c0",
+    "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
+    "elf_sha256": "348197e25525070cd6dcbc09ccfd02a883e767313470be0b3f1aaf997a348522",
     "exports": [
       "fini",
       "forge_onInit",
@@ -235,7 +241,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and scaling, the box's linearity and bounds, the sample's named slots, the 5-node tree with the mask as the controller's first child and the shadow as its sibling, the walker plan, the cache and object-array sizing, the shadow's rect, and the gauge reading.",
-    "nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92"
+    "nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37"
   },
   "runs": [
     {
@@ -990,6 +996,26 @@
       "root_cause_fault": "read, not concluded: the fault is the store 'strb r1, [r4, #0xcb00]' at main+0x1014604 (function main+0x10145d8), reached from main+0xf28264 (function main+0xf28238) - a byte store through a null base at 51968 bytes. No GUI class has a field near that offset, so the object is one of the ~52 KB unit-scale classes, not a GUI node. The link to our writes is not proven: the only r53-only writes are the per-frame authored pair (authored 0.7 against a 128 px rect = a 183x sampling scale) and the colour.",
       "conclusion": "the carve-by-quad design is dead, and the shadow goes back to r52's shape at the bar's real quad with the clip taken from the node's own rectangle (main+0xa4e628 intersects the live scissor with the node's rect at +0xe0 and main+0xa37c1c writes the render state's clip box). Built as r55.",
       "fixed_in": "r55"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r55",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
+      "log": "work/modern-sharpness-gauge/runs/r55-eden-2026-10-31.txt",
+      "log_sha256": "d57f8817e0ae48a73cbac468659a3b594f14c91504227d907c90afab609894f9",
+      "photo": "work/modern-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp",
+      "photo_sha256": "470fe6d562c0e37feca29fad037271a1b5e3bd2428e27a469c803bad282e2e13",
+      "status": "REGRESSION_SHADOW_OVER_GAUGE",
+      "observed": [
+        "one clean insertion and one fill line: 'MSG r55 fill ratio_bp=10000 box=110 32 90 32 bar=110 38 238 166 eff=0 0 0 0 tex=0.0 280.0 88.0 304.0 bar_w=88 feed=128'",
+        "the rect writes land: 'MSG r55 copy state: rect=200 38 200 166 eff=200 38 200 166 mat 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0' - at full sharpness that is the zero-width box at the full-sharpness right edge, exactly as the accepted endpoints say",
+        "and the drawing ignores it: the tester's photo shows the blade painted in the shadow colour across the gauge, so writing the copy's rectangle at +0xe0 and its effective rect at +0xf0 does not gate the copy's drawing",
+        "'MSG r55 bar state: rect=110 38 238 166 eff=0 0 0 0 mat ... pos=0.0 0.0 size=88.0 24.0' - the bar's effective rect reads 0 0 0 0 in this run, as in r53's; accepted r44 logged a non-zero eff, measured at the bar's own prepaint, so the two runs read the bar at a different moment"
+      ],
+      "root_cause": "the clip gate. A node's drawing is gated by the render state's scissor box, and only a scissor mask's enter writes that box (main+0xa37c1c); the accepted cut is a mask box over the bar, glow and edge. The copy has no mask scope, so its own rect and effective rect do not clip it.",
+      "conclusion": "the shadow needs a scissor scope of its own. r56 gives it one: an anchor node whose rectangle we write to the cut's edge, a clip mask whose box is built at that corner, and the copy drawn inside that box - the accepted mask mechanism, on the accepted chain position.",
+      "fixed_in": "r56"
     }
   ],
   "not_proven": [
@@ -1027,7 +1053,9 @@
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
     "that the copy reads correctly under the glow's edge",
     "that the copy draws at all. The insertion line's dim_flags=0x20a0001 is the class constructor's own default (main+0xa4d0d8 writes 0x020a0001 at +0x54), so the log proves construction and not drawing. That the noisy dark block in the r47 photo is this mod's copy is inference from r47's own writes, not a log fact.",
-    "the dim blade's placement in the gauge's own band and its width following the cut: r52 proves the node draws as a full-length blade 32 units under the gauge, and the next step (r53) moves it to the cut with the accepted geometry. The unit conversion for +0x80/+0xb4 comes from the read-back lines, which this workspace has not read yet: the r52 log was not retained"
+    "the dim blade's placement in the gauge's own band and its width following the cut: r52 proves the node draws as a full-length blade 32 units under the gauge, and the next step (r53) moves it to the cut with the accepted geometry. The unit conversion for +0x80/+0xb4 comes from the read-back lines, which this workspace has not read yet: the r52 log was not retained",
+    "the shade chain's runtime behaviour: the anchor with its scissor off, the clip mask reading a corner we wrote into its parent's rectangle, and the copy coming out clipped to the shade box. The read-back lines (the copy's eff, rect and matrix) are built to show exactly that",
+    "the bar's eff=0 0 0 0 in the r53 and r55 runs against accepted r44's non-zero eff: accepted r44 logged the bar's effective rect at its own prepaint, these runs read it at the mask's enter. r56 stops writing the copy's flags every frame, which is the test for that thread"
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-31 (r44 accepted on its own bytes); r52 ran on Eden 2026-10-31 and the copy is seen on screen (photo, log not retained)",

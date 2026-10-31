@@ -1,6 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, dim_rect, draw_plan, is_sharp_animation, local_player,
+    basis_points, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
     read_gauge, sample_controller, scan_walk, span_box,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
@@ -599,73 +599,105 @@ fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
 }
 
 #[test]
-fn the_shadow_rect_covers_the_blade_past_the_cut() {
+fn the_shade_box_and_its_clip_width_follow_the_cut() {
     // The bar's measured rect (110..238, 128 px) with the accepted endpoints (18 px at 0%, 90 px
     // at 100%): the shadow starts at the cut's right edge and its right edge is the full-sharpness
     // right edge, so at empty sharpness it covers 128..200 px and at full sharpness its width is 0.
     let rect = [110, 38, 238, 166];
     let ratios = [0u32, 2500, 5000, 7500, 10_000];
-    let lefts: Vec<i32> = ratios.iter().map(|bp| dim_rect(rect, *bp)[0]).collect();
-    let rights: Vec<i32> = ratios.iter().map(|bp| dim_rect(rect, *bp)[2]).collect();
+    let lefts: Vec<i32> = ratios.iter().map(|bp| dim_box(rect, *bp)[0]).collect();
+    let rights: Vec<i32> = ratios.iter().map(|bp| dim_box(rect, *bp)[2]).collect();
     assert_eq!(lefts, [128, 146, 164, 182, 200]);
     assert_eq!(rights, [200, 200, 200, 200, 200]);
     assert_eq!(
-        dim_rect(rect, 10_000)[2] - dim_rect(rect, 10_000)[0],
+        dim_box(rect, 10_000)[2] - dim_box(rect, 10_000)[0],
         0,
         "full sharpness: nothing left to shade"
     );
-    assert_eq!(dim_rect(rect, 0)[1], 38, "the bar's own rect rows");
-    assert_eq!(dim_rect(rect, 0)[3], 166);
+    // The clip mask's authored width is the box's width: the part of the blade past the cut.
+    let widths: Vec<i32> = ratios
+        .iter()
+        .map(|bp| {
+            let box_words = dim_box(rect, *bp);
+            box_words[2] - box_words[0]
+        })
+        .collect();
+    assert_eq!(widths, [72, 54, 36, 18, 0], "tip minus kept on the measured bar");
+    assert_eq!(dim_box(rect, 0)[1], 38, "the bar's own rect rows");
+    assert_eq!(dim_box(rect, 0)[3], 166);
     // A bar laid out wider than the measured one cuts the same fraction of its blade, and the
     // shadow never runs past the bar's rect.
     let wide = [100, 40, 268, 168];
-    assert_eq!(dim_rect(wide, 0)[0], 123, "18 * 168 / 128 = 23 px in from the rect's left");
-    assert_eq!(dim_rect(wide, 10_000)[2], 218);
-    assert_eq!(dim_rect(wide, 10_000)[0], 218);
-    assert!(dim_rect(wide, 10_000)[2] <= wide[2]);
+    assert_eq!(dim_box(wide, 0)[0], 123, "18 * 168 / 128 = 23 px in from the rect's left");
+    assert_eq!(dim_box(wide, 10_000)[2], 218);
+    assert_eq!(dim_box(wide, 10_000)[0], 218);
+    assert!(dim_box(wide, 10_000)[2] <= wide[2]);
 }
 
 #[test]
-fn a_second_node_fits_the_grown_tree_exactly() {
-    // The dim blade is the mask's sibling on the root's chain, so the row carries five nodes:
-    // the count main+0x5456e4 indexes with, the object array's length, and the walker's records.
+fn the_shade_clip_nodes_fit_the_grown_tree_exactly() {
+    // r56's tree: the mask as the controller's first child over bar, glow and edge (accepted), and
+    // the shade as the mask's sibling - anchor, its clip mask, the copy inside that clip - so the
+    // copy is walked last, outside the accepted scissor, and inside the clip's scope.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
-    let (mask, dim) = (0x7500u32, 0x7600u32);
-    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    let (mask, anchor, clip, dim) = (0x7500u32, 0x7600u32, 0x7700u32, 0x7800u32);
+    for node in [mask, anchor, clip, dim] {
+        fake.put(node + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    }
     fake.put(mask + NODE_CHILD, sharp);
-    fake.put(mask + NODE_SIBLING, dim);
+    fake.put(mask + NODE_SIBLING, anchor);
     fake.put(mask + NODE_PARENT, root);
-    fake.put(dim + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    fake.put(anchor + NODE_CHILD, clip);
+    fake.put(anchor + NODE_SIBLING, 0);
+    fake.put(anchor + NODE_PARENT, root);
+    fake.put(clip + NODE_CHILD, dim);
+    fake.put(clip + NODE_SIBLING, 0);
+    fake.put(clip + NODE_PARENT, anchor);
     fake.put(dim + NODE_CHILD, 0);
     fake.put(dim + NODE_SIBLING, 0);
-    fake.put(dim + NODE_PARENT, root);
+    fake.put(dim + NODE_PARENT, clip);
     for node in [sharp, efx, edge] {
         fake.put(node + NODE_PARENT, mask);
     }
     fake.put(root + NODE_CHILD, mask);
     fake.put(root + NODE_SIBLING, 0);
-    // Five tree nodes, so main+0x5456e4 walks six entries and the map has to be six words.
-    assert_eq!(count_nodes(&fake, root), (5, false));
-    assert_eq!(5 + 1, 6, "the array length the pass indexes with");
-    // Records, from the walker port: mask enter, bar enter/exit, glow enter/exit, edge
-    // enter/exit, mask exit, dim enter/exit, terminator = 11, and the block sized for 5 objects
-    // is (5 << 4) | 8 = 88 bytes = 11 records, so they fit exactly.
+    // Seven tree nodes, so main+0x5456e4 walks eight entries and the map has to be eight words.
+    assert_eq!(count_nodes(&fake, root), (7, false));
+    assert_eq!(7 + 1, 8, "the array length the pass indexes with");
+    // Records, from the walker port: mask enter, bar, glow and edge enter/exit, mask exit, anchor
+    // enter, clip enter, copy enter/exit, clip exit, anchor exit, terminator = 15, and the block
+    // sized for 7 objects is (7 << 4) | 8 = 120 bytes = 15 records, so they fit exactly.
     let plan = draw_plan(&fake, root);
     assert_eq!(
         plan.kinds[..plan.count as usize],
-        [0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 2]
+        [0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 2]
     );
-    assert_eq!(plan.count, 11);
+    assert_eq!(plan.count, 15);
+    // The layering facts the chain is built for: the copy's enter/exit pair (records 11 and 12) sits
+    // after the accepted mask's exit record (record 8), and inside the clip mask's enter/exit pair
+    // (records 10 and 13), which is what clips it.
+    assert_eq!(
+        (
+            plan.kinds[7],
+            plan.kinds[8],
+            plan.kinds[9],
+            plan.kinds[10],
+            plan.kinds[11],
+            plan.kinds[12]
+        ),
+        (1, 0, 0, 0, 1, 1),
+        "mask exit, anchor enter, clip enter, copy enter, copy exit, clip exit"
+    );
     assert!(!plan.overflow && (plan.count as usize) <= ENTRIES);
-    assert_eq!(cache_layout(5, 16).2, 88);
-    assert_eq!(88 / 8, 11);
-    assert_eq!(plan.count * 8, cache_layout(5, 16).2);
-    // With the edge glyph hidden, as the looping tiers keep it, the plan is 9 records: 16 bytes
-    // of the grown area go spare.
+    assert_eq!(cache_layout(7, 16).2, 120);
+    assert_eq!(120 / 8, 15);
+    assert_eq!(plan.count * 8, cache_layout(7, 16).2);
+    // With the edge glyph hidden, as the looping tiers keep it, the plan is 13 records: 16 bytes of
+    // the grown area go spare.
     fake.put(edge + NODE_FLAGS, NODE_DRAWABLE);
     let looping = draw_plan(&fake, root);
-    assert_eq!(looping.count, 9);
-    assert_eq!(looping.count * 8, 72);
-    assert!(looping.count * 8 <= cache_layout(5, 16).2);
+    assert_eq!(looping.count, 13);
+    assert_eq!(looping.count * 8, 104);
+    assert!(looping.count * 8 <= cache_layout(7, 16).2);
 }
