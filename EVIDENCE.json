@@ -292,7 +292,7 @@
         "the tester describes a wide green tier on the Long Sword and a thin green tier on the Dual Blades: the drawn gauge box is identical, only the point counts differ (250 and 200)"
       ],
       "field_notes": [
-        "the four words at node +0x10c are floats, not ints: setTextureRect stores them through a float pointer, so 1134034944 is 308.0",
+        "the four words at node +0x10c are floats, not ints: setTextureRect stores them through a float pointer, so 1134034944 is 304.0 (1133248512 is 280.0, 1118830592 is 88.0, 1134821376 is 328.0, 1135607808 is 352.0)",
         "the word read at node +0x33 has low nibble 0 on all six gauge nodes, so that offset is not the object kind the prepaint routine tests",
         "the observed flag words are 0x02800005 (visible, drawable, plus bit 23) and 0x02040000 (drawable, bit 22, visibility clear)"
       ],
@@ -871,8 +871,9 @@
       "binary_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
       "log": "work/modern-sharpness-gauge/runs/r47-eden-2026-10-31.txt",
       "log_sha256": "dc17611a502e834c7ebbcb07ea22438f053e084559a328dc6cf24fc9f176d08d",
-      "observed": "48 lines, no fault. 'scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001'. The copy exists, resolved its texture, carries the visible and drawable bits, and appeared nowhere in the sharpness gauge. The noisy band in the tester's photo near the gauges is the Dual Blade's demon gauge row (the full red blade under the sharpness gauge), which this mod does not touch.",
-      "root_cause": "Two defects in the copy, read from the geometry: its atlas window was built in u (the cut's fraction of the 88 columns) while the bar draws the blade as a window in v (tex=0 156 87 440 at full sharpness, 0 440 87 512 at 44%), and its position pair was written with screen pixels in fields the layout reads as offsets in the parent's space.",
+      "observed": "48 lines, no fault. 'scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001'. The node exists and its texture resolved. Nothing of the copy appeared in the sharpness gauge. The tester's photo (sha256 6158ff20dcb8b60d8cfdf81225e2cc141c59a624116d6acb3d13227e2228f266) shows a noisy dark translucent block near the gauges; reading that block as this mod's copy is an inference - r47 is the only build whose copy could not sample its texture, and the later builds' photos show no such block.",
+      "root_cause": "Two writes in the copy, read from the build. Its position pair at +0x80/+0x84 was given the bar's rect corner (110, 38) as screen pixels, in fields the layout reads as offsets in the parent's space, so the node lands far from the blade. Its atlas window was written from rect_at, which reads the four words at +0x10c as integers: the bar's v1 word 1133248512 - the float 280.0 - went in as the float 1133248512.0, so the copy sampled rows around v = 1.13e9, outside the 88x24 sheet. Log facts about the bar's window, quoted verbatim and decoded: 'tex=0 1133248512 1118830592 1134034944' is [0, 280, 88, 304] and 'tex=0 1134034944 1118830592 1134821376' is [0, 304, 88, 328], so the bar's window is a whole 88-column tier band and v steps by tier, not by sharpness. The values 'tex=0 156 87 440' and 'tex=0 440 87 512' in the earlier version of this record are in no log.",
+      "log_fact_note": "dim_flags=0x20a0001 is the class constructor's own default: main+0xa4d0d8 ends with movw r0,#1 / movt r0,#0x20a / str r0,[r4,#0x54]. It proves the constructor ran and nothing about drawing.",
       "fixed_in": "r48"
     },
     {
@@ -882,7 +883,10 @@
       "status": "DRAW_NOT_SEEN",
       "binary_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
       "log": "work/modern-sharpness-gauge/runs/r48-eden-2026-10-31.txt",
-      "log_sha256": "6d2da8a7e0517302f20b6e76aaf907bfe3905b9fe144fe6394b13a5f02b772ce"
+      "log_sha256": "6d2da8a7e0517302f20b6e76aaf907bfe3905b9fe144fe6394b13a5f02b772ce",
+      "observed": "67 lines, 62 cut lines, no fault, no teardown. 'scissor mask inserted: mask=0x443887f0 map=0x47f6b970 entries=6 cache=0x44388910 records=11 dim=0x48043500 dim_tex=0x5194bab0 dim_flags=0x20a0001'. The sharpness gauge showed no copy. The grey band with the slanted tip in the tester's photo (sha256 476014feca70a36e881189a2986b8a24cd27219653233e0fc34196316e1b0251) is the Dual Blade's demon gauge: the tester named that band, above the red cropped blade, as a row this mod does not touch. A fill line here reads the bar's window as 'tex=0 1134821376 1118830592 1135607808' = [0, 328, 88, 352], the red band.",
+      "root_cause": "The copy's window is real rows (written with window_at, so no 1.13e9 sampling). The rectangle write at the mask's enter loses to the node's own layout: a cGUIObjTexture is laid out from its position pair +0x80/+0x84 and its authored pair +0xb4/+0xb8 when the walker visits the node, after the plugin's callback, and the position the build wrote was the bar's rect corner (110, 38) in fields the layout reads as offsets in the parent's space. The layout rule is from the class decompile; the gauge showing nothing of it is the tester's report.",
+      "fixed_in": "r49"
     },
     {
       "date": "2026-10-31",
@@ -892,8 +896,8 @@
       "binary_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
       "log": "work/modern-sharpness-gauge/runs/r50-eden-2026-10-31.txt",
       "log_sha256": "1c91ac18d9ae33a2ac73d8dbc0b0106f9bc46229c8874a3e86fc516f10c16682",
-      "observed": "119 lines, no fault, no teardown. 'records=11 dim=0x4800eec0 dim_tex=0x5190bab0 dim_flags=0x20a0001'. The new quad line reads 'fill copy rect=157 38 200 166 pos=47 authored=43' at about 44% sharpness and 'rect=200 38 200 166 authored=1' at full sharpness: the copy is placed from the cut's right edge to the tip, exactly where the accepted geometry says, and the tester sees none of it in the sharpness gauge.",
-      "root_cause": "The copy's atlas window was built on the atlas v axis. The sprite's own record (PHASE0: Txt_sharp, Size 88x24, atlas 0,280,88,304, tier bands 0,304,88,328 orange and 0,328,88,352 red) says the blade's length is the u axis and v carries the tier colour bands, which is what the row's animation slides. A window of v 156..156 samples no rows, so the copy draws nothing.",
+      "observed": "119 lines, no fault, no teardown. 'records=11 dim=0x4800eec0 dim_tex=0x5190bab0 dim_flags=0x20a0001' (the flag word is the class constructor's default, main+0xa4d0d8 writing 0x020a0001 at +0x54). The new quad line reads 'fill copy rect=157 38 200 166 pos=47 authored=43' at ratio_bp=4133 and 'fill copy rect=200 38 200 166 pos=90 authored=1' at ratio_bp=10000, each paired with its cut line, whose tex= words are 1133248512/1118830592/1134034944 = [0, 280, 88, 304] and 1134034944/1118830592/1134821376 = [0, 304, 88, 328]: the copy is placed from the cut's right edge to the tip, exactly where the accepted geometry says, and the tester sees none of it in the sharpness gauge.",
+      "root_cause": "The sprite's length is the u axis and v carries the tier colour bands: Txt_sharp is 88x24 with the bands 0,280,88,304 / 0,304,88,328 / 0,328,88,352 (PHASE0), which is what the bar's live window reads as. r48's window was [u1, tip_v, u2, v1] with tip_v the smallest v1 seen (280), i.e. the band above the bar's own at mid sharpness and zero width at full sharpness. The earlier 'window of v 156..156 samples no rows' reading in this record came from invented tex numbers and is replaced; with the real band the open question is where the node's own layout lands its quad, which is what r49's placement change and r52's read-back measure.",
       "fixed_in": "r51"
     }
   ],
@@ -928,8 +932,8 @@
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
     "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
     "that the copy reads correctly under the glow's edge",
-    "the dim blade appearing in the sharpness gauge at all: r47 and r48 report it built, resolved and flagged drawable in the log, and the tester sees no copy in the gauge; r49 fixes the layout inputs and has not been run",
-    "the dim blade appearing in the sharpness gauge: r50 proved the placement, r51 moves the window onto the sprite's length axis and has not been run"
+    "that the copy draws at all. The insertion line's dim_flags=0x20a0001 is the class constructor's own default (main+0xa4d0d8 writes 0x020a0001 at +0x54), so the log proves construction and not drawing. That the noisy dark block in the r47 photo is this mod's copy is inference from r47's own writes, not a log fact.",
+    "the dim blade appearing in the sharpness gauge: r48 and r50 sampled real sprite rows and the gauge showed none of it, r51 has not been run, and the copy's game-computed rect, effective rect, matrix, position and authored pair have never been read back - r52 reads them at the mask's enter, before any write"
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",

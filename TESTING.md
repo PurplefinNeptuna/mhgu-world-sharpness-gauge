@@ -7,8 +7,11 @@ report, and what the log lines mean.
 
 r51 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
 copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47 and r48 both
-report the copy built, resolved and flagged drawable, with nothing of it visible in the sharpness
-gauge (the noisy band and the grey band in the photos are the Dual Blade's demon gauge, not this mod).
+report the copy built with its texture resolved (`dim=`, `dim_tex=`), with nothing of it visible in the
+sharpness gauge. Their `dim_flags=0x20a0001` is the class constructor's own default, so it says the
+copy was constructed and nothing about whether it drew. The grey band above the red cropped blade in
+the r48 photo is the Dual Blade's demon gauge, a row this mod does not touch; the noisy dark block in
+the r47 photo is read as this mod's copy, which is an inference.
 r48 put the copy's window on the atlas `v`, which is the gauge's tier colour band; r51 puts it back on `u`, the blade's length axis, bounded by the tip. Watch the sharpness gauge at a mid level, not at full sharpness (there the copy is zero width by design). Watch only the sharpness gauge - the upper row, the cropped red blade - and
 send the log: the insertion line's `dim=`, `dim_tex=`, `dim_flags=`, and the new `fill copy rect=... pos=... authored=...` lines, which say where the mod put the copy. That reports the placement without a photo. The accepted cut itself is
 unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
@@ -80,12 +83,15 @@ lines that matter start with `MSG r51`.
 of your sharpness. The line carries the box the mod wrote (`box=`), the bar's own
 rectangle (`bar=`), the rectangle the game draws inside (`eff=`), the part of the
 sword picture the bar uses (`tex=`), the bar's authored width (`bar_w=`, 88) and
-the width the box is built from (`feed=`, 128). Match your screenshot to the line
+the width the box is built from (`feed=`, 128). `tex=` is printed as the raw float
+bits, so 1133248512 is 280.0 and 1134034944 is 304.0: that pair is the tier colour
+band the bar is drawing. Match your screenshot to the line
 with the ratio you had at that moment.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published, the record count, and for the copy: `dim=0x...` its node, `dim_tex=0x...` the sprite it
-resolved, and `dim_flags=` its flag word. `dim=0x0` with `dim blade not added at stage 52` means the
+resolved, and `dim_flags=` its flag word - that word is the class constructor's default
+(0x20a0001), so it says the copy was built, not that it draws. `dim=0x0` with `dim blade not added at stage 52` means the
 copy was refused, and the gauge is exactly the shipped look. Report all three. `mask insertion failed at stage` plus a number from 40 to 49 means it
 did not go in, and the number says which step stopped it: 40 the mask object, 41
 the fields it borrows from the bar, 42 the map allocation, 43 copying the map, 44
