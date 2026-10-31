@@ -8,10 +8,10 @@
     "url": null,
     "date": null
   },
-  "version": "r50",
+  "version": "r51",
   "package_name": "modern-sharpness-gauge",
-  "archive": "modern-sharpness-gauge-r50-candidate.zip",
-  "runtime_test": "NOT RUN. The accepted cut is r44's, accepted on its Eden run of 2026-10-30. r45 froze the game five seconds into both quest launches; r46 ran clean (76 lines, 68 cut lines, one insertion, one area-change teardown) with the accepted look, because its dim copy refused itself at stage 52; r47 ran and reported the copy built, resolved and flagged drawable (records=11) with no copy visible in the sharpness gauge, and sliced the sprite along the wrong axis (the blade's length is the atlas v window, not the u columns); r48 drew the copy with the bar's v rows and a live-calibrated tip end: the log reports it built, resolved and flagged drawable (records=11, dim=0x48043500, dim_tex=0x5194bab0, dim_flags=0x20a0001) and the sharpness gauge shows none of it. r49 places the copy in the bar's own space (position = the bar's position plus the kept width, authored width = the hidden blade width, the bar's y and band height), because a texture node is laid out from its position and authored size on its own visit, which overrode r48's per-frame rectangle. r49 and r50 have not been run. r50 logs the quad the copy is given (a `fill copy rect=... pos=... authored=...` line under each cut line), so a run reports the placement from the log; r50 has not been run.",
+  "archive": "modern-sharpness-gauge-r51-candidate.zip",
+  "runtime_test": "NOT RUN. The accepted cut is r44's, accepted on its Eden run of 2026-10-30. Phase 5 attempts on Eden 2026-10-31: r45 froze the game five seconds into both quest launches (vtable slot 0x00 is not a constructor on this class); r46 ran clean and refused its copy at stage 52 (the Texture setter resolves through *(obj+0x64), which the constructor zeroes); r47 and r48 ran clean and log the copy built, resolved and flagged drawable (records=11) with none of it visible in the sharpness gauge; r50 ran clean and its new quad log shows the placement landing where the accepted geometry says (rect 157..200, authored 43 at about 44% sharpness) while the copy's atlas window sat on the tier colour band. r51 puts that window back on u, the blade's length axis: the sprite's record says Txt_sharp is 88x24 with tier bands along v (0,280,88,304, 0,304,88,328, 0,328,88,352), so the v-axis window was my error. r51 has not been run.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -75,7 +75,7 @@
     "The thread that runs the draw walker at main+0xa494a0 is unproven, and the run did not change that: no bl site, stored word or DTI property in main names that entry.",
     "the dim blade appearing in the sharpness gauge: r47 and r48 report the copy built, resolved and flagged drawable, and the tester sees no copy there; r49 has not been run",
     "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference. The facts line now prints the bar's four corner colours, so a run pins it next to the colour on screen.",
-    "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 through r49 are superseded; r50 is a new candidate and carries no distribution approval."
+    "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 through r50 are superseded; r51 is a new candidate and carries no distribution approval."
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",
   "notices": [
@@ -96,8 +96,8 @@
     "manual": [
       "mods/modern-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r50: pinned toolchain build; 22 host fixtures passed; verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The Phase 5 construction, the texture resolve and its early return on a zero resource are read from the decompiles in work/research-tooling/ghidra-export. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
-    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, three insertions, three links-lost teardowns, no guest exception; the tester reported the cut where r43 put it with the HD Project on, which closed the HD Project question. r45's run (2026-10-31) froze the game: no insertion line on any path, then a guest null read at the gauge's first draw. r46's run (2026-10-31) had no fault and the accepted cut on screen; its line shows the copy was refused: 'records=9 dim=0x0' and 'dim blade not added at stage 52'. r47's copy drew with the wrong sprite window; r48's copy drew too high and too wide; r49 placed the quad in the bar's space; r50 logs it. r50 is NOT RUN. See EVIDENCE.json and backups/accepted/."
+    "static_summary": "r51: pinned toolchain build; 22 host fixtures passed; verify.py PASSED with 21 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The Phase 5 construction, the texture resolve and its early return on a zero resource are read from the decompiles in work/research-tooling/ghidra-export. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
+    "manual_summary": "r44 ran once on Eden 2026-10-30 (installed NRO matched the packaged payload): 209 fill lines on bar rect 110 38 238 166 with feed=128, three insertions, three links-lost teardowns, no guest exception; the tester reported the cut where r43 put it with the HD Project on, which closed the HD Project question. r45's run (2026-10-31) froze the game: no insertion line on any path, then a guest null read at the gauge's first draw. r46's run (2026-10-31) had no fault and the accepted cut on screen; its line shows the copy was refused: 'records=9 dim=0x0' and 'dim blade not added at stage 52'. r47/r48/r50 ran clean with the copy in the tree and none of it visible in the sharpness gauge; r50's quad line proves the placement (rect 157..200, authored 43 at about 44%) with the window on the tier band axis. r51 has not been run. See EVIDENCE.json and backups/accepted/."
   },
   "dependencies": [
     {
@@ -112,10 +112,10 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/modern_sharpness_gauge.nro": {
-      "source": "build/modern-sharpness-gauge/candidates/r50/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93"
+      "source": "build/modern-sharpness-gauge/candidates/r51/package/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
+      "sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b"
     }
   },
-  "candidate": "build/modern-sharpness-gauge/candidates/r50/delivery",
+  "candidate": "build/modern-sharpness-gauge/candidates/r51/delivery",
   "candidate_builder": "scripts/build.py"
 }

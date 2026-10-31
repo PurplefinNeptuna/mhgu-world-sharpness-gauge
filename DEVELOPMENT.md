@@ -1,3 +1,25 @@
+Current state: r51 DEVELOPMENT candidate, the plan's Phase 5. The axis was mine, not the game's:
+the sprite's own record (PHASE0: `Txt_sharp`, Size 88x24, atlas `0,280,88,304`, with tier bands
+`0,304,88,328` orange and `0,328,88,352` red) says the blade's **length** runs along `u`, the sprite's
+88 columns, and `v` carries the tier colour bands that the row's animation slides. r48 put the copy's
+window on `v`, the colour band, so a window of `156..156` samples no rows at all and nothing draws.
+r51 puts it back on `u`: the copy takes the columns the cut hides, from the band the bar is drawing
+(so the same sprite in the same tier colour), drawn from the cut's right edge to the tip's screen
+position - the 100% cut box's width, 90 px on the measured bar - not to the bar rect's right edge.
+The r50 run proved the placement: its quad line reads `fill copy rect=157 38 200 166 pos=47
+authored=43` at about 44% sharpness and `rect=200 38 200 166 authored=1` at full sharpness, with no
+fault and the accepted cut running normally, and the tester sees no copy in the sharpness gauge -
+which is what a zero-row window produces. The construction (allocator slot 0x20 with the DTI id,
+zeroed 304-byte block, constructor main+0xa4f60c, the bar's owner/resource/`+0x64` cGUI, texture
+resolved last, flat grey at the four corners, placement as the mask's sibling) and the per-frame quad
+in the bar's space (position = the bar's position plus the kept width, authored width = the hidden
+blade's width) are unchanged from r47/r50. 22 host fixtures pass; verify PASSED with the same 21
+signature windows. Gameplay NOT RUN. The MT `color` word's byte order is unproven, so the grey's
+alpha byte position is an inference.
+
+## Superseded current-state paragraphs
+
+r50 DEVELOPMENT (2026-10-31), superseded by r51:
 Current state: r50 DEVELOPMENT candidate. The plan's Phase 5 copy has never been seen in the
 sharpness gauge: the r47 and r48 runs both log it built, its texture resolved and its visible and
 drawable bits set (`records=11`, `dim=0x…`, `dim_tex=0x…`, `dim_flags=0x20a0001`), with no fault and
@@ -14,8 +36,6 @@ the log (`fill copy rect=x y x2 y2 pos=... authored=...` under each cut line), s
 the placement from the log instead of from a photograph. 22 host fixtures pass; verify PASSED with
 the same 21 signature windows. Gameplay NOT RUN. The MT `color` word's byte order is unproven, so the
 grey's alpha byte position is an inference.
-
-## Superseded current-state paragraphs
 
 r49 DEVELOPMENT (2026-10-31), superseded by r50:
 Current state: r49 DEVELOPMENT candidate. The Phase 5 copy now appears on screen: the r48 run
@@ -1867,6 +1887,35 @@ for the copy, its x offset in the gauge's own space and its authored width. The 
 answers "where did the mod put the copy?" from the log, so the next report does not depend on
 reading a photograph, and the answer is next to the ratio, the box and the bar's atlas window on the
 line above it.
+
+## r50 run 2026-10-31 (Eden): the placement is proven, the window axis is not
+
+119 lines, no fault, no teardown: `records=11 dim=0x4800eec0 dim_tex=0x5190bab0
+dim_flags=0x20a0001`, and the new quad line, paired with each cut line:
+
+```
+fill ratio_bp=8933 box=110 32 82 32 bar=110 38 238 166 tex=0 156 87 440
+fill copy  rect=192 38 192 166 pos=82 authored=1
+fill ratio_bp=1866 box=110 32 49 32 bar=110 38 238 166 tex=0 156 87 440
+fill copy  rect=157 38 200 166 pos=47 authored=43
+```
+
+At about 44% sharpness the copy is given 157..200 (43 px) with the quad's x offset at 47 in the
+gauge's own space - the placement the accepted geometry asks for, visible in the log. The window was
+the problem: r48's window was `[u1, tip_v, u2, v1]`, i.e. it asked for sprite rows, and `Txt_sharp`'s
+rows are the tier colour bands (yellow `0,280,88,304`, orange `0,304,88,328`, red `0,328,88,352`), not
+blade lengths. `tip_v` was calibrated to the bar's own `v1`, so the window became `156..156`, zero
+rows, and a node with an empty window draws nothing - which is the whole of what the tester sees.
+
+## r51, built 2026-10-31: the copy takes the sprite's hidden columns
+
+`dim_shape` returns the bar's live band as the copy's `v` pair and its `u1` at the cut's column
+(`kept * 88 / rect width`), with the rect running from the cut's right edge to the tip's screen
+position. At the measured bar: 0% → rect 128..200 from column 12, 25% → 146..200 from 24, 50% →
+164..200 from 37, 100% → nothing (left = tip = 200). A 64 px bar: 119..155 from column 12. The
+tip-end calibration and the row sampling by `v` are gone; the per-frame quad from r50 (position = the
+bar's position + the kept width, authored width = the hidden blade's width) stays, as does the quad
+log line.
 
 ## Rules to keep
 

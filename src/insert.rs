@@ -118,11 +118,6 @@ fn window_at(node: u32, offset: u32) -> [f32; 4] {
     out
 }
 
-/// The blade strip's tip end: the smallest `v1` the bar has been seen drawing, which is its
-/// window at full sharpness. f32::MAX means no sample yet, so no copy is drawn. Read on the GUI thread
-/// and read by the same thread's callback, so a relaxed pair is enough.
-static TIP_V: AtomicU32 = AtomicU32::new(const { f32::MAX.to_bits() });
-
 /// Times the enter hook found the mask's links gone: the count the log prints, and the only
 /// teardown signal this build can prove (the root destructor hook has fired zero times).
 static MISSES: AtomicU32 = AtomicU32::new(0);
@@ -456,14 +451,13 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
 /// valid gauge, no hidden blade, or no tip-end sample yet, the width is 0 and nothing is drawn,
 /// which is the accepted shipped appearance.
 fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4], pos: [u32; 2]) {
-    let tip_v = f32::from_bits(TIP_V.load(Ordering::Relaxed));
     let (box_rect, box_window) = if ratio_bp == u32::MAX {
         (
             [rect[0], rect[1], rect[0], rect[3]],
             bar_window,
         )
     } else {
-        dim_shape(rect, ratio_bp, bar_window, tip_v)
+        dim_shape(rect, ratio_bp, bar_window)
     };
     for edge in 0..4usize {
         let _ = memory::write_word(dim + NODE_RECT + edge as u32 * 4, box_rect[edge] as u32);
@@ -644,14 +638,10 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
     if dim != 0 {
-        let window = window_at(bar, NODE_TEXTURE_RECT);
-        // The tip end of the sprite's blade strip is the smallest v1 the bar draws, and that is
-        // its window at full sharpness: the first full-sharpness frame of the row calibrates it.
-        let tip = f32::from_bits(TIP_V.load(Ordering::Relaxed));
-        if window[1].is_finite() && (tip == f32::MAX || window[1] < tip) {
-            TIP_V.store(window[1].to_bits(), Ordering::Relaxed);
-        }
-        write_dim(dim, rect, ratio, window, bar_position(bar));
+        // The bar's live atlas window: its u pair is the sprite's columns, its v pair the tier
+        // band. The copy takes the hidden columns from the same band, so it is the same sprite in
+        // the same tier colour.
+        write_dim(dim, rect, ratio, window_at(bar, NODE_TEXTURE_RECT), bar_position(bar));
     }
 }
 

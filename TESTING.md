@@ -3,13 +3,13 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r50
+## What to check on r51
 
-r50 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
+r51 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
 copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47 and r48 both
 report the copy built, resolved and flagged drawable, with nothing of it visible in the sharpness
 gauge (the noisy band and the grey band in the photos are the Dual Blade's demon gauge, not this mod).
-This is the next attempt. Watch only the sharpness gauge - the upper row, the cropped red blade - and
+r48 put the copy's window on the atlas `v`, which is the gauge's tier colour band; r51 puts it back on `u`, the blade's length axis, bounded by the tip. Watch the sharpness gauge at a mid level, not at full sharpness (there the copy is zero width by design). Watch only the sharpness gauge - the upper row, the cropped red blade - and
 send the log: the insertion line's `dim=`, `dim_tex=`, `dim_flags=`, and the new `fill copy rect=... pos=... authored=...` lines, which say where the mod put the copy. That reports the placement without a photo. The accepted cut itself is
 unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
 rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
@@ -72,7 +72,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r50`.
+lines that matter start with `MSG r51`.
 
 ## The log lines
 

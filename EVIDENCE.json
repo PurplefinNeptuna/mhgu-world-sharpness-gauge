@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r50",
+  "version": "r51",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r50",
+    "version": "r51",
     "status": "BUILT",
-    "nro_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
+    "nro_sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +87,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "be941fab3c4d6163d82f782e83b74afc06dc4c446e2b966c88981b3cc57eeec1",
+      "src/insert.rs": "d22da900ef9d83b3dea26a8592fbf3f9eb162da7c3d6dc9c41bc9c4fa6393a56",
       "src/lib.rs": "2c742525780f111a3794b45dcd952c4cf4277a8d3704b9b71592affac37455c2",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "438ba64c8cecb6934e9b70a15722d8b0fb510ff4519d68b941f00643cae667cf",
-      "core/tests/behavior.rs": "2bb150f6d744aed4eb88e123bda91d576cce4aa7105888d5d4946fb2f71455d8",
+      "core/src/lib.rs": "fc4bd5b9ba51b99dbb07a8c8263bc0504d468e5bd5f68dd0f58a76ff3f2d1911",
+      "core/tests/behavior.rs": "dcac96e37eb3453164d175f15f8920765a00347cd5806e2b543465a155c1cc1c",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
-    "elf_sha256": "e78b16b151cfa3ae6b1671aef1207debcb50b88f53a20a2466a859d0b695643c",
+    "nro_sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b",
+    "elf_sha256": "c13c95d0971b6363a41d8cb2a1ff426c55e2b797c330eee8630fa4724c4d7184",
     "exports": [
       "fini",
       "forge_onInit",
@@ -199,7 +199,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93"
+    "nro_sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b"
   },
   "runs": [
     {
@@ -883,6 +883,18 @@
       "binary_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
       "log": "work/modern-sharpness-gauge/runs/r48-eden-2026-10-31.txt",
       "log_sha256": "6d2da8a7e0517302f20b6e76aaf907bfe3905b9fe144fe6394b13a5f02b772ce"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r50",
+      "emulator": "Eden Development (user run)",
+      "status": "PLACEMENT_PROVEN_WINDOW_AXIS_WRONG",
+      "binary_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
+      "log": "work/modern-sharpness-gauge/runs/r50-eden-2026-10-31.txt",
+      "log_sha256": "1c91ac18d9ae33a2ac73d8dbc0b0106f9bc46229c8874a3e86fc516f10c16682",
+      "observed": "119 lines, no fault, no teardown. 'records=11 dim=0x4800eec0 dim_tex=0x5190bab0 dim_flags=0x20a0001'. The new quad line reads 'fill copy rect=157 38 200 166 pos=47 authored=43' at about 44% sharpness and 'rect=200 38 200 166 authored=1' at full sharpness: the copy is placed from the cut's right edge to the tip, exactly where the accepted geometry says, and the tester sees none of it in the sharpness gauge.",
+      "root_cause": "The copy's atlas window was built on the atlas v axis. The sprite's own record (PHASE0: Txt_sharp, Size 88x24, atlas 0,280,88,304, tier bands 0,304,88,328 orange and 0,328,88,352 red) says the blade's length is the u axis and v carries the tier colour bands, which is what the row's animation slides. A window of v 156..156 samples no rows, so the copy draws nothing.",
+      "fixed_in": "r51"
     }
   ],
   "not_proven": [
@@ -916,7 +928,8 @@
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
     "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
     "that the copy reads correctly under the glow's edge",
-    "the dim blade appearing in the sharpness gauge at all: r47 and r48 report it built, resolved and flagged drawable in the log, and the tester sees no copy in the gauge; r49 fixes the layout inputs and has not been run"
+    "the dim blade appearing in the sharpness gauge at all: r47 and r48 report it built, resolved and flagged drawable in the log, and the tester sees no copy in the gauge; r49 fixes the layout inputs and has not been run",
+    "the dim blade appearing in the sharpness gauge: r50 proved the placement, r51 moves the window onto the sprite's length axis and has not been run"
   ],
   "runtime": {
     "status": "RUN ONCE, EDEN 2026-10-30 (r44): the consolidation build accepted on its own bytes. The accepted behaviour is r42's; the accepted endpoints are the tester's measurement.",
