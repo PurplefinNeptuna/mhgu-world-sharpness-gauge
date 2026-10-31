@@ -1,37 +1,53 @@
-Current state: r56 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope.
-The accepted shape is untouched - mask as the controller's first child over bar, glow and edge, the
-accepted box per frame - and the shade hangs off the same chain as the mask's sibling: anchor, then its
-clip mask, then the copy inside that clip. Colour `#202326` = `0xFF262320`.
+Current state: r57 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope,
+with that scope's corner written on the mask that owns it. The accepted shape is untouched - mask as the
+controller's first child over bar, glow and edge, the accepted box per frame - and the shade is the
+mask's sibling: one clip mask, the copy as its child. Colour `#202326` = `0xFF262320`.
 
-r55's run closed the door r55 opened. Writing the copy's rectangle at `+0xe0` and its effective rect at
-`+0xf0` lands - the log reads `copy state: rect=200 38 200 166 eff=200 38 200 166` at full sharpness,
-the zero-width box at the full-sharpness right edge, exactly as the accepted endpoints say - and the
-copy paints over the gauge anyway (`work/modern-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp`).
-A node's drawing is gated by the render state's scissor box, and only a scissor mask's enter writes that
-box (main+0xa37c1c). The accepted cut is a mask box over the bar, glow and edge; the copy had no mask
-scope, so its own rect did nothing for it.
+r56 ran on Eden 2026-10-31 and the tester's photo is the malformation: the dark part of the gauge on the
+left, where the filled part is, and the colour on the right. Its log
+(`work/modern-sharpness-gauge/runs/r56-eden-2026-10-31.txt`, in the current Eden log; the installed NRO
+is `43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37`, r56's payload) has four insertions
+(`entries=8 records=15 dim=0x486cedb0 dim_tex=0x52babab0`, and three more), 260 fill lines, four
+links-lost teardowns, and no guest exception. The fill's own box lines are the accepted cut's values
+(`fill ratio_bp=6800 box=110 32 66 32 bar=110 38 238 166 ... bar_w=88 feed=128`).
 
-r56 gives it a scope with the accepted mechanisms. The anchor is a `cGUIObjScissorMask` with
-`MASK_FLAGS` 0: its enter handler applies no scissor, the rectangle builder never runs, and the
-rectangle we write at its `+0xe0` stays - that is the corner the clip mask's box is built from, because
-a mask's rectangle starts at its parent's rect corner (main+0xa4b390, and the accepted mask's box
-`110 32 90 32` on the bar's corner proves it). The clip mask carries the accepted rebuild-and-apply
-pair, the x scale 1.0, the anchor modes 0, and its authored pair = the shade box's width from
-`core::dim_box` - the bar's screen pixels from the cut's right edge to the full-sharpness right edge:
-72 px wide at 0% on the measured bar, 36 at 50%, 0 at 100% - so its box covers the part of the blade
-past the cut and the copy drawn inside it is clipped to that. The copy keeps the bar's quad from the
-build (it lands on the gauge exactly, r53's read-back) and its atlas window follows the bar's live tier
-band. Per-frame writes: the accepted mask box, the anchor's rect (4 words), the clip mask's authored
-pair, x scale and flags (4 words), the copy's band (4 words). The copy's quad, rect and flags are not
-touched per frame any more.
+The corner premise is refuted by the builder's body. main+0xa4ba94 (the mask's enter) converts the
+authored pair at `+0xa8/+0xac` to floats and calls main+0xa4b390 with **the node itself**; the builder
+reads that node's transform at `+0x10..+0x48` - its x row `+0x10`, its y row `+0x20/+0x24`, its
+translation at `+0x40/+0x44` - and no parent field at all, and returns `corner .. corner + authored`,
+which the enter folds into `+0xb0..+0xbc`. So:
 
-7 tree nodes, the 8-word object array, `(7 << 4) | 8` = 120 bytes = 15 records, and the walk emits
-exactly 15: mask enter, bar/glow/edge enter+exit, mask exit, anchor enter, clip enter, copy enter/exit,
-clip exit, anchor exit, terminator - so the copy's pair sits after the accepted mask's exit (outside
-the accepted scissor) and inside the clip mask's enter/exit pair (inside its own). Teardown mirrors the
-proven shape: the controller's chain `[mask, anchor]`; the mask destroys bar, glow and edge, the anchor
-destroys the clip mask, the clip mask destroys the copy. 22 host fixtures pass; verify PASSED with 33
-signature windows. Gameplay NOT RUN.
+- a mask's box corner is the mask's own matrix translation, which the class factory fills from the
+  gauge's corner (110,38). That is why the accepted mask's box starts at 110, and it is what r56 read
+  as "the parent's rect corner";
+- the authored width spans forward from that corner, so a mask whose authored width is the part of the
+  blade past the cut clips the **first** that many pixels of the blade, counted from the left. r56's
+  `copy state` lines put the copy at the bar's rect (`rect=110 38 238 166`), so the shade covered the
+  blade's left end exactly as photographed;
+- the anchor's `+0xe0` is not an input to any of this, and a mask object is 0xd0 bytes, so writing the
+  anchor's rectangle there wrote past the end of the node.
+
+r57 writes the corner where the builder reads it. Per frame the clip mask's translation goes to
+`+0x40/+0x44` = the cut's right edge and the bar's rect top, its authored pair stays (width = the part
+of the blade past the cut, height = the bar's rect height), so its box is `110+kept .. 200` on the
+measured bar: 128..200 px at 0%, 164..200 at 50%, and one px at 238 at full sharpness, off the blade.
+The anchor node is gone, and with it its four out-of-bounds writes. New core helper `mask_box` folds a
+transform and authored pair the way main+0xa4b390 does; a fixture pins both the r56 outcome (the box
+starting at 110) and r57's (the box starting at the cut).
+
+6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits
+exactly 13: mask enter, bar/glow/edge enter+exit, mask exit, clip enter, copy enter/exit, clip exit,
+terminator - so the copy's pair sits after the accepted mask's exit (outside the accepted scissor) and
+inside the clip mask's enter/exit pair (inside its own). Teardown mirrors the proven shape: the
+controller's chain `[mask]`; the mask destroys bar, glow and edge, and its sibling chain destroys the
+clip mask, which destroys the copy. 23 host fixtures pass; verify PASSED with 33 signature windows.
+Gameplay NOT RUN.
+
+r56 DEVELOPMENT (2026-10-31), refuted by its run: the shadow inside its own scissor scope, with the
+corner supplied by an anchor mask whose `MASK_FLAGS` stays 0, on the premise that a mask's rectangle
+starts at its parent's rect corner. The box and the copy landed where that premise says they land -
+on the blade's left, over the filled part - and the premise is refuted above. The paragraph is in the
+superseded section.
 
 r55 DEVELOPMENT (2026-10-31), refuted by its run: the shadow at the gauge's real position, clipped to
 the part of the blade past the cut by its own rectangle - the tree r52's proven shape, the shadow as the
@@ -41,12 +57,13 @@ its rect, handed to main+0xa37c1c), which belongs to the scissor mask class's ow
 a texture node's draw path.
 
 The two other clip routes stay closed by the code, recorded so they are not retried. The mask's
-rectangle builder main+0xa4b390 places the box from the parent's rect corner with the anchor modes at
-`+0xa0` bits 0-3 (0 spans 0..size, 1 centres, 2 spans -size..0, 3 collapses), so a second mask hanging
-off the root can only produce boxes anchored at the gauge's left corner (110), its centre (174) or its
-right corner (238) - never one starting at `110 + kept`. r56's answer to that is the anchor: a mask
-whose rectangle we write, so the corner moves with the cut. The per-node `ScissorSize` (setter
-main+0xa4dcc4, writes `+0xd8/+0xdc`, sets bit 0 of `+0xd0`) leads to the texture class's vtable slot
+rectangle builder main+0xa4b390 - refuted 2026-10-31 by r56's run and its own decompile, see the r57
+paragraph - was recorded here as placing the box from the parent's rect corner with the anchor modes at
+`+0xa0` bits 0-3 (0 spans 0..size, 1 centres, 2 spans -size..0, 3 collapses), leaving a second mask
+boxes anchored at the gauge's left corner (110), its centre (174) or its right corner (238). The
+builder takes the mask node's own transform: the corner is the node's translation at `+0x40/+0x44`,
+which is a write, so a mask box starts wherever its translation is written. The per-node `ScissorSize`
+(setter main+0xa4dcc4, writes `+0xd8/+0xdc`, sets bit 0 of `+0xd0`) leads to the texture class's vtable slot
 0x74 at main+0x86420, which opens `ldr r1,[r0,#0x88]; mov r0,r9; blx r1` - a call through the node's
 `+0x88`, the field Key Quest Markers' recipe writes as 0. Not safe to arm.
 
@@ -183,6 +200,42 @@ signature windows. Gameplay NOT RUN. The MT `color` word's byte order is unprove
 alpha byte position is an inference.
 
 ## Superseded current-state paragraphs
+
+r56 DEVELOPMENT (2026-10-31), superseded by r57 after its run:
+Current state: r56 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope.
+The accepted shape is untouched - mask as the controller's first child over bar, glow and edge, the
+accepted box per frame - and the shade hangs off the same chain as the mask's sibling: anchor, then its
+clip mask, then the copy inside that clip. Colour `#202326` = `0xFF262320`.
+
+r55's run closed the door r55 opened. Writing the copy's rectangle at `+0xe0` and its effective rect at
+`+0xf0` lands - the log reads `copy state: rect=200 38 200 166 eff=200 38 200 166` at full sharpness,
+the zero-width box at the full-sharpness right edge, exactly as the accepted endpoints say - and the
+copy paints over the gauge anyway (`work/modern-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp`).
+A node's drawing is gated by the render state's scissor box, and only a scissor mask's enter writes that
+box (main+0xa37c1c). The accepted cut is a mask box over the bar, glow and edge; the copy had no mask
+scope, so its own rect did nothing for it.
+
+r56 gives it a scope with the accepted mechanisms. The anchor is a `cGUIObjScissorMask` with
+`MASK_FLAGS` 0: its enter handler applies no scissor, the rectangle builder never runs, and the
+rectangle we write at its `+0xe0` stays - on the premise that a mask's rectangle starts at its parent's
+rect corner (main+0xa4b390, and the accepted mask's box `110 32 90 32` on the bar's corner). The clip
+mask carries the accepted rebuild-and-apply pair, the x scale 1.0, the anchor modes 0, and its authored
+pair = the shade box's width from `core::dim_box` - the bar's screen pixels from the cut's right edge to
+the full-sharpness right edge: 72 px wide at 0% on the measured bar, 36 at 50%, 0 at 100% - so its box
+covers the part of the blade past the cut and the copy drawn inside it is clipped to that. The copy
+keeps the bar's quad from the build (it lands on the gauge exactly, r53's read-back) and its atlas
+window follows the bar's live tier band. Per-frame writes: the accepted mask box, the anchor's rect
+(4 words), the clip mask's authored pair, x scale and flags (4 words), the copy's band (4 words). The
+copy's quad, rect and flags are not touched per frame any more.
+
+7 tree nodes, the 8-word object array, `(7 << 4) | 8` = 120 bytes = 15 records, and the walk emits
+exactly 15: mask enter, bar/glow/edge enter+exit, mask exit, anchor enter, clip enter, copy enter/exit,
+clip exit, anchor exit, terminator - so the copy's pair sits after the accepted mask's exit (outside
+the accepted scissor) and inside the clip mask's enter/exit pair (inside its own). Teardown mirrors the
+proven shape: the controller's chain `[mask, anchor]`; the mask destroys bar, glow and edge, the anchor
+destroys the clip mask, the clip mask destroys the copy. 22 host fixtures pass; verify PASSED with 33
+signature windows. Ran 2026-10-31 on Eden: the shade on the blade's left, over the filled part; see the
+r57 paragraph for what the run refuted.
 
 r50 DEVELOPMENT (2026-10-31), superseded by r51:
 Current state: r50 DEVELOPMENT candidate. The plan's Phase 5 copy has never been seen in the

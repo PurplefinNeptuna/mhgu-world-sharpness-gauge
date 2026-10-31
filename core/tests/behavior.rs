@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     basis_points, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
-    read_gauge, sample_controller, scan_walk, span_box,
+    mask_box, read_gauge, sample_controller, scan_walk, span_box,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
     MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
@@ -635,25 +635,78 @@ fn the_shade_box_and_its_clip_width_follow_the_cut() {
 }
 
 #[test]
-fn the_shade_clip_nodes_fit_the_grown_tree_exactly() {
-    // r56's tree: the mask as the controller's first child over bar, glow and edge (accepted), and
-    // the shade as the mask's sibling - anchor, its clip mask, the copy inside that clip - so the
-    // copy is walked last, outside the accepted scissor, and inside the clip's scope.
+fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
+    // The r55/r56 report: the shade landed on the blade's left, over the filled part. The builder
+    // main+0xa4b390 reads the mask node's own transform and nothing else, so a mask's box is
+    // `corner .. corner + authored` with the corner the node's translation at +0x40/+0x44. Every
+    // mask from the class factory carries the gauge's corner (110,38): the accepted mask's box
+    // 110 38 110+kept 166 from authored (kept, 128) pins the template's rows and that corner.
+    let rect = [110, 38, 238, 166];
+    let template = [
+        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 110.0, 38.0, 3.0, 1.0,
+    ];
+    let ratios = [0u32, 2500, 5000, 7500, 10_000];
+    let authored_width = |bp: u32| {
+        let shade = dim_box(rect, bp);
+        (shade[2] - shade[0]).max(1)
+    };
+    // What r56 wrote: the authored pair, with the translation left at the factory's corner.
+    let left: Vec<[i32; 4]> = ratios
+        .iter()
+        .map(|bp| mask_box(template, [authored_width(*bp), rect[3] - rect[1]]))
+        .collect();
+    assert_eq!(
+        left.iter().map(|b| [b[0], b[2]]).collect::<Vec<_>>(),
+        [[110, 182], [110, 164], [110, 146], [110, 128], [110, 111]],
+        "the shade starts at the bar's left corner: the malformation the run showed"
+    );
+    // r57 writes the mask's own translation, the box's left edge, so the authored width spans from
+    // the cut to the full-sharpness right edge: the box is the part of the blade past the cut.
+    let shade_boxes: Vec<[i32; 4]> = ratios
+        .iter()
+        .map(|bp| {
+            let shade = dim_box(rect, *bp);
+            let mut matrix = template;
+            matrix[12] = shade[0] as f32;
+            matrix[13] = shade[1] as f32;
+            mask_box(matrix, [authored_width(*bp), rect[3] - rect[1]])
+        })
+        .collect();
+    assert_eq!(
+        shade_boxes,
+        [
+            [128, 38, 200, 166],
+            [146, 38, 200, 166],
+            [164, 38, 200, 166],
+            [182, 38, 200, 166],
+            [200, 38, 201, 166],
+        ],
+        "the box is the blade past the cut, one px of nothing at full sharpness"
+    );
+    assert_eq!(authored_width(10_000), 1, "the zero-width scissor is never asked for");
+    // The accepted cut's own box through the same fold, at the r56 log's ratio_bp=6800 (kept 66).
+    assert_eq!(mask_box(template, [66, 128]), [110, 38, 176, 166]);
+}
+
+#[test]
+fn the_shade_clip_node_fits_the_grown_tree_exactly() {
+    // r57's tree: the mask as the controller's first child over bar, glow and edge (accepted), and
+    // the shade's clip mask as the mask's sibling with the copy as its child, so the copy is walked
+    // last, outside the accepted scissor, and inside the clip mask's scope.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
-    let (mask, anchor, clip, dim) = (0x7500u32, 0x7600u32, 0x7700u32, 0x7800u32);
-    for node in [mask, anchor, clip, dim] {
+    let (mask, clip, dim) = (0x7500u32, 0x7700u32, 0x7800u32);
+    for node in [mask, clip, dim] {
         fake.put(node + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
     }
     fake.put(mask + NODE_CHILD, sharp);
-    fake.put(mask + NODE_SIBLING, anchor);
+    fake.put(mask + NODE_SIBLING, clip);
     fake.put(mask + NODE_PARENT, root);
-    fake.put(anchor + NODE_CHILD, clip);
-    fake.put(anchor + NODE_SIBLING, 0);
-    fake.put(anchor + NODE_PARENT, root);
     fake.put(clip + NODE_CHILD, dim);
     fake.put(clip + NODE_SIBLING, 0);
-    fake.put(clip + NODE_PARENT, anchor);
+    // A sibling of the mask in the root's chain: the native sibling linker gives it the mask's
+    // parent, so the pop from the clip's chain lands on the root and the walk ends there.
+    fake.put(clip + NODE_PARENT, root);
     fake.put(dim + NODE_CHILD, 0);
     fake.put(dim + NODE_SIBLING, 0);
     fake.put(dim + NODE_PARENT, clip);
@@ -662,23 +715,24 @@ fn the_shade_clip_nodes_fit_the_grown_tree_exactly() {
     }
     fake.put(root + NODE_CHILD, mask);
     fake.put(root + NODE_SIBLING, 0);
-    // Seven tree nodes, so main+0x5456e4 walks eight entries and the map has to be eight words.
-    assert_eq!(count_nodes(&fake, root), (7, false));
-    assert_eq!(7 + 1, 8, "the array length the pass indexes with");
-    // Records, from the walker port: mask enter, bar, glow and edge enter/exit, mask exit, anchor
-    // enter, clip enter, copy enter/exit, clip exit, anchor exit, terminator = 15, and the block
-    // sized for 7 objects is (7 << 4) | 8 = 120 bytes = 15 records, so they fit exactly.
+    // Six tree nodes, so main+0x5456e4 walks seven entries and the map has to be seven words.
+    assert_eq!(count_nodes(&fake, root), (6, false));
+    assert_eq!(6 + 1, 7, "the array length the pass indexes with");
+    // Records, from the walker port: mask enter, bar, glow and edge enter/exit, mask exit, clip
+    // enter, copy enter/exit, clip exit, terminator = 13, and the block sized for 6 objects is
+    // (6 << 4) | 8 = 104 bytes = 13 records, so they fit exactly.
     let plan = draw_plan(&fake, root);
     assert_eq!(
         plan.kinds[..plan.count as usize],
-        [0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 2]
+        [0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1, 2]
     );
-    assert_eq!(plan.count, 15);
-    // The layering facts the chain is built for: the copy's enter/exit pair (records 11 and 12) sits
+    assert_eq!(plan.count, 13);
+    // The layering facts the chain is built for: the copy's enter/exit pair (records 10 and 11) sits
     // after the accepted mask's exit record (record 8), and inside the clip mask's enter/exit pair
-    // (records 10 and 13), which is what clips it.
+    // (records 9 and 12), which is what clips it.
     assert_eq!(
         (
+            plan.kinds[6],
             plan.kinds[7],
             plan.kinds[8],
             plan.kinds[9],
@@ -686,18 +740,18 @@ fn the_shade_clip_nodes_fit_the_grown_tree_exactly() {
             plan.kinds[11],
             plan.kinds[12]
         ),
-        (1, 0, 0, 0, 1, 1),
-        "mask exit, anchor enter, clip enter, copy enter, copy exit, clip exit"
+        (1, 1, 0, 0, 1, 1, 2),
+        "edge exit, mask exit, clip enter, copy enter, copy exit, clip exit, terminator"
     );
     assert!(!plan.overflow && (plan.count as usize) <= ENTRIES);
-    assert_eq!(cache_layout(7, 16).2, 120);
-    assert_eq!(120 / 8, 15);
-    assert_eq!(plan.count * 8, cache_layout(7, 16).2);
-    // With the edge glyph hidden, as the looping tiers keep it, the plan is 13 records: 16 bytes of
+    assert_eq!(cache_layout(6, 16).2, 104);
+    assert_eq!(104 / 8, 13);
+    assert_eq!(plan.count * 8, cache_layout(6, 16).2);
+    // With the edge glyph hidden, as the looping tiers keep it, the plan is 11 records: 16 bytes of
     // the grown area go spare.
     fake.put(edge + NODE_FLAGS, NODE_DRAWABLE);
     let looping = draw_plan(&fake, root);
-    assert_eq!(looping.count, 13);
-    assert_eq!(looping.count * 8, 104);
-    assert!(looping.count * 8 <= cache_layout(7, 16).2);
+    assert_eq!(looping.count, 11);
+    assert_eq!(looping.count * 8, 88);
+    assert!(looping.count * 8 <= cache_layout(6, 16).2);
 }

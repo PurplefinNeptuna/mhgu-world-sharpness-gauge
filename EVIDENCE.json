@@ -1016,6 +1016,26 @@
       "root_cause": "the clip gate. A node's drawing is gated by the render state's scissor box, and only a scissor mask's enter writes that box (main+0xa37c1c); the accepted cut is a mask box over the bar, glow and edge. The copy has no mask scope, so its own rect and effective rect do not clip it.",
       "conclusion": "the shadow needs a scissor scope of its own. r56 gives it one: an anchor node whose rectangle we write to the cut's edge, a clip mask whose box is built at that corner, and the copy drawn inside that box - the accepted mask mechanism, on the accepted chain position.",
       "fixed_in": "r56"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r56",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
+      "log": "work/modern-sharpness-gauge/runs/r56-eden-2026-10-31.txt",
+      "log_sha256": "5c9e4b76db5a6f463f3371606dadcc81942ca85f5bbfed48bd15d4c7219187a0",
+      "photo": "work/modern-sharpness-gauge/visual/r56/r56-shade-on-the-left-photo.webp",
+      "photo_sha256": "e021136194a8982baa4289a1ef345257571768a294ebe3ca6d0910ab6805746e",
+      "status": "SHADE_ON_THE_LEFT_OF_THE_GAUGE",
+      "observed": [
+        "the tester's crop shows the dark shade over the blade's left end and the tier colour to its right: 'malformed as the empty bar (shadow) are on the left, it should be on right'",
+        "four insertions on the accepted tree: 'MSG r56 scissor mask inserted: mask=0x47dec530 map=0x47ec8120 entries=8 cache=0x47efeb60 records=15 dim=0x486cedb0 dim_tex=0x52babab0 dim_flags=0x20a0001 anchor=0x486cef30 clip=0x44190b40', and three more rows",
+        "260 cut lines on the accepted track, e.g. 'MSG r56 fill ratio_bp=6800 box=110 32 66 32 bar=110 38 238 166 eff=0 0 0 0 tex=0.0 280.0 88.0 304.0 bar_w=88 feed=128'",
+        "the copy at the bar's own placement: 'MSG r56 copy state: rect=110 38 238 166 eff=0 0 0 0 mat 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0'",
+        "four links-lost teardowns with no guest exception, e.g. 'MSG r56 inserted mask's links lost (4 times): marker=0xffffff mask.parent=0xffebebec mask.child=0xffe1e1e3 bar.parent=0x47f2a5d0 bar.sibling=0x47eee770 root.child=0x47f2a5d0 instance hook fires=8564175'",
+        "the installed NRO matches r56's packaged payload, so the report is about r56's bytes"
+      ],
+      "meaning": "the shade's clip box starts at the bar's left corner: main+0xa4b390 builds a mask's box from the mask node's own matrix translation at +0x40/+0x44, which the class factory fills with (110,38), and the authored width spans forward from it. The anchor's +0xe0 rectangle is not an input to the builder and is past the end of a 0xd0-byte mask object."
     }
   ],
   "not_proven": [
@@ -1096,5 +1116,6 @@
     "backup": "backups/accepted/modern-sharpness-gauge/r44-distribution-approved/",
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
-  }
+  },
+  "static_summary": "r57: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The mask box fold is a port of main+0xa4b390 and main+0xa4ba94 in core's mask_box, and a fixture asserts the r56 writes (box starting at 110) and the r57 writes (box starting at the cut). The construction recipes and read-back fields come from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
 }

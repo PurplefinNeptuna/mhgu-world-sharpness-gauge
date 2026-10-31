@@ -203,10 +203,9 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
 /// at full sharpness. The accepted endpoints are the same ones `cut_box` uses, scaled by the rect's
 /// width, so a bar laid out wider or narrower shades the same fraction of its blade.
 ///
-/// r56 uses it twice: the anchor node's rectangle is this box, and the clip mask's authored width is
-/// `box[2] - box[0]`. The anchor exists because a mask's rectangle always starts at its parent's
-/// rect corner (main+0xa4b390, and the accepted mask's box `110 32 90 32` on the bar's corner proves
-/// it), and the anchor's corner is the value we write here.
+/// The clip mask's authored width is `box[2] - box[0]` and its box's right edge is `box[2]`: the
+/// mask builds `corner .. corner + authored` (see `mask_box`), so its transform translation is
+/// written at `box[2]` and the authored width pulls the left edge back to `box[0]`.
 pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
     let kept = cut_box(rect, ratio_bp)[2];
     let full = cut_box(rect, FULL_SHARPNESS_BP)[2];
@@ -215,6 +214,31 @@ pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
         rect[1],
         (rect[0] + full).min(rect[2]),
         rect[3],
+    ]
+}
+
+/// The rectangle a scissor mask builds for itself when its enter runs with the rebuild bit set:
+/// main+0xa4ba94 turns the authored pair at `+0xa8/+0xac` into floats, hands it with the node to
+/// main+0xa4b390, and folds the four resulting corners into `+0xb0..+0xbc` (min, min, max, max).
+/// `matrix` is the node's 16 words at `+0x10..+0x4c` row-major, `authored` its pair. The corner is
+/// the node's own matrix translation at `+0x40/+0x44`: the builder reads no parent field and no
+/// rectangle at `+0xe0`, and a mask object is 0xd0 bytes, so `+0xe0` is past its end.
+///
+/// shortcut: only the anchor modes this mod writes (bits 0-3 of `+0xa0` cleared, both axes 0,
+/// spanning `0..size`) are modelled, and modes 1/2/3 are not. The accepted mask's box
+/// `110 38 110+kept 166` from authored `(kept, 128)` pins the template's rows this folds over.
+pub fn mask_box(matrix: [f32; 16], authored: [i32; 2]) -> [i32; 4] {
+    let (x_row_x, y_row_y, x_row_y, y_row_x, z_row_x, z_row_y) =
+        (matrix[0], matrix[5], matrix[1], matrix[4], matrix[8], matrix[9]);
+    let (width, height) = (authored[0] as f32, authored[1] as f32);
+    // The x-end and y-end terms main+0xa4b390 names `fVar11` and `fVar10`, per corner.
+    let x_span = x_row_x * width + y_row_x * x_row_x * height;
+    let y_span = y_row_y * x_row_x * height + x_row_y * width;
+    [
+        (matrix[12] + z_row_x) as i32,
+        (matrix[13] + z_row_y) as i32,
+        (matrix[12] + z_row_x + x_span) as i32,
+        (matrix[13] + z_row_y + y_span) as i32,
     ]
 }
 
