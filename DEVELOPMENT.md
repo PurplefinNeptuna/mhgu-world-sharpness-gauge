@@ -1,7 +1,45 @@
-Current state: r57 DEVELOPMENT candidate, the plan's Phase 5: the shadow inside its own scissor scope,
-with that scope's corner written on the mask that owns it. The accepted shape is untouched - mask as the
-controller's first child over bar, glow and edge, the accepted box per frame - and the shade is the
-mask's sibling: one clip mask, the copy as its child. Colour `#202326` = `0xFF262320`.
+Current state: r58 DEVELOPMENT candidate, the plan's Phase 5: the shadow drawn from the blade's own
+columns past the cut. The accepted shape is untouched - mask as the controller's first child over bar,
+glow and edge, the accepted box per frame, the shade as the mask's sibling (one clip mask, the copy as
+its child) - and the colour is `#202326` = `0xFF262320`.
+
+r57 ran 2026-10-31 in two Eden sessions (installed NRO `c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3`
+= r57's packaged payload; `work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-a.txt` with 104 MSG
+lines, 1 insertion `entries=7 records=13`, 91 fill lines, `r57-eden-2026-10-31-b.txt` with 35, 26 fill
+lines; no guest exception). The photos put the shade on the blade's right end, from the cut to the tip,
+with the tier colour on its left: the corner write is right. Two faults, both in the copy's quad:
+
+- the dark part carries the whole blade shape, squeezed: the spiral and the notch row appear inside it
+  at a smaller scale than the bar's own part beside it (`visual/r57/r57-2-half.webp`). A texture node's
+  draw maps its atlas window into the rectangle its draw is clipped to, and the copy kept the bar's
+  authored `88x24` window inside a box of `(90 - kept)` px: squeezed by 0.41 at half sharpness on the
+  measured bar, while the bar's own sprite is squeezed by `kept/88` in the same frame. Two scales on one
+  blade, which is the tester's "slight shadow image size mismatch ... noticeable with aliasing".
+- at quest start there is no dark part at all (`visual/r57/r57-4-start-before-colorchange.webp`). At
+  10000 bp the accepted endpoints put the cut at 90 px of the 128 px rect and the blade's sprite is 88
+  columns, so the shade box was 1 px. The fill line's growth says the rest: `box=110 32 89 32` at
+  ratio_bp=9866, `75 32` at 8000, `61 32` at 6000, and the box only reaches the sizes the tester calls
+  visible after the tier band steps (`tex=0.0 280.0 88.0 304.0` to `0.0 304.0 88.0 328.0` at
+  ratio_bp=5800), which is the report's "the shadow does not shown until first color change".
+
+r58 gives the copy the quad of the columns past the cut, so it draws them 1:1: its atlas window runs
+`kept..88`, its authored pair is `(88-kept, band height)`, its position is the bar's position plus the
+kept width, and the layout dirty bit is set every frame so the layout rebuilds its rect from them. The
+clip mask's box runs from the cut to the bar rect's right edge (`110+kept .. 238`), so the scissor cuts
+the shade at the blade's right end and never touches the kept part; at full sharpness the authored
+width is 0 and the copy draws nothing. core's new `shade_quad` folds kept, the columns past the cut and
+the box, and `dim_box` is gone. The fill line now ends with `shade_box=`, the clip mask's own
+`+0xb0..+0xbc` read at the bar mask's enter, so a run reports the box the game folded next to the box
+the bar was cut by.
+
+6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits
+exactly 13. 23 host fixtures pass; verify PASSED with 33 signature windows. Gameplay NOT RUN.
+
+r57 DEVELOPMENT (2026-10-31), superseded by r58 after its runs: the shadow inside its own scissor
+scope, with that scope's corner written on the mask that owns it. Its box was on the blade's right end,
+as designed; the copy kept the bar's whole authored quad inside that box, which drew the whole blade
+shrunk into it, and at full sharpness the box was 1 px.
+
 
 r56 ran on Eden 2026-10-31 and the tester's photo is the malformation: the dark part of the gauge on the
 left, where the filled part is, and the colour on the right. Its log

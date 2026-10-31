@@ -1036,6 +1036,63 @@
         "the installed NRO matches r56's packaged payload, so the report is about r56's bytes"
       ],
       "meaning": "the shade's clip box starts at the bar's left corner: main+0xa4b390 builds a mask's box from the mask node's own matrix translation at +0x40/+0x44, which the class factory fills with (110,38), and the authored width spans forward from it. The anchor's +0xe0 rectangle is not an input to the builder and is past the end of a 0xd0-byte mask object."
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r57",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3",
+      "log": "work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-a.txt",
+      "log_sha256": "5cb5d4e4cf185799350a81671325eccb3d2f86d550d889d09ba2fa7ef59b1504",
+      "photos": [
+        "work/modern-sharpness-gauge/visual/r57/r57-1-empty.webp",
+        "work/modern-sharpness-gauge/visual/r57/r57-2-half.webp",
+        "work/modern-sharpness-gauge/visual/r57/r57-3-nearfull.jpg",
+        "work/modern-sharpness-gauge/visual/r57/r57-4-start-before-colorchange.webp"
+      ],
+      "photo_sha256": {
+        "r57-1-empty.webp": "3df9394d6f4ebe46a0a39ee116a69a8cbc7f0cd782185731dc6fd80d746560fe",
+        "r57-2-half.webp": "421eadc39411a6c99e0c4cbe8f1843c9446c04f257ec57f29e69b9dc58facd70",
+        "r57-3-nearfull.jpg": "17d588a0ff1040cb54fc446f9a63ac162a6028afd5bcbfed90638a175f1e6170",
+        "r57-4-start-before-colorchange.webp": "b1c97b40e7ba019ee72975cedc0ba9a3b42d52634089be5b23329f7ddd622253"
+      },
+      "status": "SHADE_RIGHT_SIDE_SHRUNK_AND_LATE",
+      "observed": [
+        "the insertion prints the r57 tree: 'MSG r57 scissor mask inserted: mask=0x4804c430 map=0x47fbb510 entries=7 cache=0x4802f510 records=13 dim=0x48057b60 dim_tex=0x5170bab0 dim_flags=0x20a0001 clip=0x48057ce0' (the r57 tree: 6 nodes, 13 records, no anchor word)",
+        "the accepted cut is unchanged on the bar: 91 / 26 fill lines on the accepted track, box widths 90 at 10000 down to 52 at 4800 on the bar rect 110 38 238 166 with feed=128",
+        "the copy's rect lands on the bar's own: 'MSG r57 copy state: rect=110 38 238 166 eff=0 0 0 0 mat ... 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0'",
+        "the tester's photos: the dark part sits from the cut to the blade's tip with the tier colour to its left - the side the plan asks for; 'for every quest start, the shadow does not shown until first color change'; 'slight shadow image size mismatch ... the difference is minimal but can be noticeable with aliasing'",
+        "91 fill lines from ratio_bp=10000 box=110 32 90 32 down to 6000 box=110 32 61 32, then 5800 box=110 32 59 32 with the tier band moving 0.0 280.0 88.0 304.0 -> 0.0 304.0 88.0 328.0",
+        "no guest exception, no ForceStop in either session"
+      ],
+      "meaning": "the box is on the right side of the blade, so the corner write is right; the copy keeps the bar's whole authored quad inside a box of (90 - kept) px, and a texture node's draw maps its atlas window into the rectangle its draw is clipped to, so the whole blade is drawn shrunk into the shade box - and at 100% sharpness the box is 1 px, so nothing shows."
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r57",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3",
+      "log": "work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-b.txt",
+      "log_sha256": "4068a22af2ed70cb5cee3a65d02ec974d3a53a39b4be77d69718a2588cbe09af",
+      "photos": [
+        "work/modern-sharpness-gauge/visual/r57/r57-1-empty.webp"
+      ],
+      "photo_sha256": {
+        "r57-1-empty.webp": "3df9394d6f4ebe46a0a39ee116a69a8cbc7f0cd782185731dc6fd80d746560fe",
+        "r57-2-half.webp": "421eadc39411a6c99e0c4cbe8f1843c9446c04f257ec57f29e69b9dc58facd70",
+        "r57-3-nearfull.jpg": "17d588a0ff1040cb54fc446f9a63ac162a6028afd5bcbfed90638a175f1e6170",
+        "r57-4-start-before-colorchange.webp": "b1c97b40e7ba019ee72975cedc0ba9a3b42d52634089be5b23329f7ddd622253"
+      },
+      "status": "SHADE_RIGHT_SIDE_SHRUNK_AND_LATE",
+      "observed": [
+        "the insertion prints the r57 tree: 'MSG r57 scissor mask inserted: mask=0x4804c430 map=0x47fbb510 entries=7 cache=0x4802f510 records=13 dim=0x48057b60 dim_tex=0x5170bab0 dim_flags=0x20a0001 clip=0x48057ce0' (the r57 tree: 6 nodes, 13 records, no anchor word)",
+        "the accepted cut is unchanged on the bar: 91 / 26 fill lines on the accepted track, box widths 90 at 10000 down to 52 at 4800 on the bar rect 110 38 238 166 with feed=128",
+        "the copy's rect lands on the bar's own: 'MSG r57 copy state: rect=110 38 238 166 eff=0 0 0 0 mat ... 110.0 38.0 3.0 1.0 pos=0.0 0.0 size=88.0 24.0'",
+        "the tester's photos: the dark part sits from the cut to the blade's tip with the tier colour to its left - the side the plan asks for; 'for every quest start, the shadow does not shown until first color change'; 'slight shadow image size mismatch ... the difference is minimal but can be noticeable with aliasing'",
+        "26 fill lines, e.g. 'MSG r57 fill ratio_bp=7466 box=110 32 71 32 bar=110 38 238 166 eff=0 0 0 0 tex=0.0 280.0 88.0 304.0 bar_w=88 feed=128'",
+        "no guest exception, no ForceStop in either session"
+      ],
+      "meaning": "the box is on the right side of the blade, so the corner write is right; the copy keeps the bar's whole authored quad inside a box of (90 - kept) px, and a texture node's draw maps its atlas window into the rectangle its draw is clipped to, so the whole blade is drawn shrunk into the shade box - and at 100% sharpness the box is 1 px, so nothing shows."
     }
   ],
   "not_proven": [
@@ -1117,5 +1174,5 @@
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   },
-  "static_summary": "r57: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The mask box fold is a port of main+0xa4b390 and main+0xa4ba94 in core's mask_box, and a fixture asserts the r56 writes (box starting at 110) and the r57 writes (box starting at the cut). The construction recipes and read-back fields come from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
+  "static_summary": "r58: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. core's shade_quad folds the copy's columns past the cut and the shade box, and a fixture asserts both the r56 boxes (starting at the bar's left corner, the malformation that run showed) and the r58 boxes (from the cut to the bar rect's right edge); mask_box ports main+0xa4b390's fold over the node's own transform. The construction recipes and read-back fields come from the decompiles in work/research-tooling/ghidra-export and Key Quest Markers' accepted record. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
 }

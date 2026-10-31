@@ -1,8 +1,8 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
+    basis_points, count_nodes, cache_layout, cut_box, draw_plan, is_sharp_animation, local_player, shade_quad,
     mask_box, read_gauge, sample_controller, scan_walk, span_box,
-    CLIP_HEIGHT, CLIP_TOP,
+    CLIP_HEIGHT, CLIP_TOP, FULL_SHARPNESS_BP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
     MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
     NODE_KIND, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE,
@@ -599,39 +599,34 @@ fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
 }
 
 #[test]
-fn the_shade_box_and_its_clip_width_follow_the_cut() {
-    // The bar's measured rect (110..238, 128 px) with the accepted endpoints (18 px at 0%, 90 px
-    // at 100%): the shadow starts at the cut's right edge and its right edge is the full-sharpness
-    // right edge, so at empty sharpness it covers 128..200 px and at full sharpness its width is 0.
+fn the_shade_quad_is_the_bar_columns_past_the_cut_at_the_bar_scale() {
+    // The measured bar: rect 110..238 (128 px), its blade sprite 88 columns (`bar_w=88` on the log
+    // line). The copy's quad is the columns past the cut and its box runs from the cut's edge to the
+    // bar rect's right edge, so the shade draws the blade's own columns at 1:1 and never shrinks the
+    // whole blade into the box.
     let rect = [110, 38, 238, 166];
     let ratios = [0u32, 2500, 5000, 7500, 10_000];
-    let lefts: Vec<i32> = ratios.iter().map(|bp| dim_box(rect, *bp)[0]).collect();
-    let rights: Vec<i32> = ratios.iter().map(|bp| dim_box(rect, *bp)[2]).collect();
-    assert_eq!(lefts, [128, 146, 164, 182, 200]);
-    assert_eq!(rights, [200, 200, 200, 200, 200]);
+    let quads: Vec<(i32, i32, i32, i32)> = ratios.iter().map(|bp| shade_quad(rect, 88, *bp)).collect();
     assert_eq!(
-        dim_box(rect, 10_000)[2] - dim_box(rect, 10_000)[0],
-        0,
-        "full sharpness: nothing left to shade"
+        quads,
+        [
+            (18, 70, 128, 238),
+            (36, 52, 146, 238),
+            (54, 34, 164, 238),
+            (72, 16, 182, 238),
+            (88, 0, 198, 238),
+        ],
+        "the columns past the cut, and the box from the cut to the rect's right edge"
     );
-    // The clip mask's authored width is the box's width: the part of the blade past the cut.
-    let widths: Vec<i32> = ratios
-        .iter()
-        .map(|bp| {
-            let box_words = dim_box(rect, *bp);
-            box_words[2] - box_words[0]
-        })
-        .collect();
-    assert_eq!(widths, [72, 54, 36, 18, 0], "tip minus kept on the measured bar");
-    assert_eq!(dim_box(rect, 0)[1], 38, "the bar's own rect rows");
-    assert_eq!(dim_box(rect, 0)[3], 166);
-    // A bar laid out wider than the measured one cuts the same fraction of its blade, and the
-    // shadow never runs past the bar's rect.
-    let wide = [100, 40, 268, 168];
-    assert_eq!(dim_box(wide, 0)[0], 123, "18 * 168 / 128 = 23 px in from the rect's left");
-    assert_eq!(dim_box(wide, 10_000)[2], 218);
-    assert_eq!(dim_box(wide, 10_000)[0], 218);
-    assert!(dim_box(wide, 10_000)[2] <= wide[2]);
+    // Full sharpness has no columns left, and the accepted floor keeps the bar's first 18 px at 0%.
+    assert_eq!(shade_quad(rect, 88, 10_000).1, 0, "nothing to shade");
+    // A bar laid out wider cuts the same fraction of its blade, and the box never runs past it.
+    assert_eq!(
+        shade_quad([100, 40, 268, 168], 116, 0),
+        (23, 93, 123, 268),
+        "18 * 168 / 128 = 23 px in from the rect's left"
+    );
+    assert_eq!(shade_quad([100, 40, 268, 168], 116, 10_000).1, 0);
 }
 
 #[test]
@@ -646,44 +641,47 @@ fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
         1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 110.0, 38.0, 3.0, 1.0,
     ];
     let ratios = [0u32, 2500, 5000, 7500, 10_000];
+    // What r56 wrote: the authored pair from the cut to the full-sharpness right edge (72 px at 0%,
+    // 1 px at 100%), with the translation left at the factory's corner.
+    let r56_width = |bp: u32| (cut_box(rect, FULL_SHARPNESS_BP)[2] - cut_box(rect, bp)[2]).max(1);
     let authored_width = |bp: u32| {
-        let shade = dim_box(rect, bp);
-        (shade[2] - shade[0]).max(1)
+        let (_, _, left, right) = shade_quad(rect, 88, bp);
+        (right - left).max(1)
     };
-    // What r56 wrote: the authored pair, with the translation left at the factory's corner.
     let left: Vec<[i32; 4]> = ratios
         .iter()
-        .map(|bp| mask_box(template, [authored_width(*bp), rect[3] - rect[1]]))
+        .map(|bp| mask_box(template, [r56_width(*bp), rect[3] - rect[1]]))
         .collect();
     assert_eq!(
         left.iter().map(|b| [b[0], b[2]]).collect::<Vec<_>>(),
         [[110, 182], [110, 164], [110, 146], [110, 128], [110, 111]],
         "the shade starts at the bar's left corner: the malformation the run showed"
     );
-    // r57 writes the mask's own translation, the box's left edge, so the authored width spans from
-    // the cut to the full-sharpness right edge: the box is the part of the blade past the cut.
+    // r57 wrote the mask's own translation at the cut's edge, with the authored width running only
+    // to the full-sharpness right edge. r58 runs the box to the bar rect's right edge, so the copy's
+    // columns past the cut are clipped only at the blade's right end.
     let shade_boxes: Vec<[i32; 4]> = ratios
         .iter()
         .map(|bp| {
-            let shade = dim_box(rect, *bp);
+            let (_, _, left, right) = shade_quad(rect, 88, *bp);
             let mut matrix = template;
-            matrix[12] = shade[0] as f32;
-            matrix[13] = shade[1] as f32;
-            mask_box(matrix, [authored_width(*bp), rect[3] - rect[1]])
+            matrix[12] = left as f32;
+            matrix[13] = rect[1] as f32;
+            mask_box(matrix, [right - left, rect[3] - rect[1]])
         })
         .collect();
     assert_eq!(
         shade_boxes,
         [
-            [128, 38, 200, 166],
-            [146, 38, 200, 166],
-            [164, 38, 200, 166],
-            [182, 38, 200, 166],
-            [200, 38, 201, 166],
+            [128, 38, 238, 166],
+            [146, 38, 238, 166],
+            [164, 38, 238, 166],
+            [182, 38, 238, 166],
+            [198, 38, 238, 166],
         ],
-        "the box is the blade past the cut, one px of nothing at full sharpness"
+        "the box is the blade past the cut, to the bar rect's right edge"
     );
-    assert_eq!(authored_width(10_000), 1, "the zero-width scissor is never asked for");
+    assert_eq!(authored_width(10_000), 40, "never a zero-width scissor");
     // The accepted cut's own box through the same fold, at the r56 log's ratio_bp=6800 (kept 66).
     assert_eq!(mask_box(template, [66, 128]), [110, 38, 176, 166]);
 }

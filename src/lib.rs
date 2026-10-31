@@ -97,7 +97,7 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " fill ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu:.1} {tv:.1} {tw:.1} {th:.1} bar_w={bw2} feed={feed}"
+            " fill ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu:.1} {tv:.1} {tw:.1} {th:.1} bar_w={bw2} feed={feed} shade_box={s0} {s1} {s2} {s3}"
         ),
         ratio = cut[0],
         bl = cut[1] as i32, bt = cut[2] as i32, bw = cut[3] as i32, bh = cut[4] as i32,
@@ -105,7 +105,8 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         el = cut[9] as i32, et = cut[10] as i32, er = cut[11] as i32, eb = cut[12] as i32,
         tu = f32::from_bits(cut[13]), tv = f32::from_bits(cut[14]),
         tw = f32::from_bits(cut[15]), th = f32::from_bits(cut[16]),
-        bw2 = cut[17] as i32, feed = cut[18] as i32);
+        bw2 = cut[17] as i32, feed = cut[18] as i32,
+        s0 = cut[19] as i32, s1 = cut[20] as i32, s2 = cut[21] as i32, s3 = cut[22] as i32);
     }
     // What the game computed for the copy, read at the mask's enter before any write, and the same
     // fields on the bar: its rectangle and effective rectangle as signed pixels, its 16-word matrix,

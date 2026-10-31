@@ -197,24 +197,19 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
     ]
 }
 
-/// The part of the blade past the cut in the bar's own screen pixels, and the authored width that
-/// clips to it. Returns `[left, rect top, right, rect bottom]` with `left = rect left + kept` and
-/// `right = rect left + the full-sharpness right edge`, so the width is `tip - kept` and it is empty
-/// at full sharpness. The accepted endpoints are the same ones `cut_box` uses, scaled by the rect's
-/// width, so a bar laid out wider or narrower shades the same fraction of its blade.
+/// The shade's quad for this cut, in the bar's own pixels and texture columns: the columns of its
+/// blade past the cut, drawn at the bar's own scale. Returns `(kept, columns_past, box_left,
+/// box_right)` with `kept` the accepted cut's width, `columns_past = the bar's column count - kept`
+/// (0 at full sharpness, the blade's full width at 0%), the box from the cut's edge to the bar
+/// rect's right edge.
 ///
-/// The clip mask's authored width is `box[2] - box[0]` and its box's right edge is `box[2]`: the
-/// mask builds `corner .. corner + authored` (see `mask_box`), so its transform translation is
-/// written at `box[2]` and the authored width pulls the left edge back to `box[0]`.
-pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
-    let kept = cut_box(rect, ratio_bp)[2];
-    let full = cut_box(rect, FULL_SHARPNESS_BP)[2];
-    [
-        (rect[0] + kept).min(rect[2]),
-        rect[1],
-        (rect[0] + full).min(rect[2]),
-        rect[3],
-    ]
+/// A texture node's draw maps its atlas window into the rectangle its draw is clipped to. Giving the
+/// copy the bar's whole authored quad inside that box draws the blade shrunk into the shade box - the
+/// r57 photos: the whole blade squeezed in, and 1 px of nothing at full sharpness. Giving it the
+/// window, the authored pair and the position of the columns past the cut draws those columns 1:1.
+pub fn shade_quad(rect: [i32; 4], columns: i32, ratio_bp: u32) -> (i32, i32, i32, i32) {
+    let kept = cut_box(rect, ratio_bp)[2].min(columns.max(0));
+    (kept, (columns - kept).max(0), rect[0] + kept, rect[2])
 }
 
 /// The rectangle a scissor mask builds for itself when its enter runs with the rebuild bit set:

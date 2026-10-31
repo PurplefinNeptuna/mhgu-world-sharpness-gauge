@@ -25,8 +25,8 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
-    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
+    basis_points, cut_box, shade_quad, FULL_SHARPNESS_BP, NODE_AUTHORED_WIDTH, NODE_CHILD,
+    NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -44,6 +44,7 @@ const ENABLE_SETTER: u32 = 0xa4ba20;
 const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
+const MASK_BOX: u32 = 0xb0; // the rectangle the enter handler folds in: min x, min y, max x, max y
 /// bit 1 set asks the game's enter handler to rebuild the rectangle from the node's quad, and
 /// bit 0 applies it. The rebuild is the game's own arithmetic, and its inputs are the fields
 /// written above it.
@@ -235,7 +236,10 @@ pub fn tick_clock() {
 /// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the rect
 /// width the box was built from. The ratio is always the player's own sharpness and the
 /// endpoints are core's accepted offsets, so neither is repeated on the line.
-pub const CUT_WORDS: usize = 19;
+/// width the box was built from, and the shade's clip box read from the clip mask's
+/// `+0xb0..+0xbc` at the bar mask's enter - the box the game folded on the clip mask's previous
+/// enter, which is what the copy's draw is clipped to.
+pub const CUT_WORDS: usize = 23;
 static CUT: [AtomicU32; CUT_WORDS] = const { [const { AtomicU32::new(0) }; CUT_WORDS] };
 static CUT_READY: AtomicBool = AtomicBool::new(false);
 /// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
@@ -579,31 +583,56 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the shade for this frame's cut. The clip mask's translation (`+0x40/+0x44`) is the shade
-/// box's right edge and top, its authored pair (`+0xa8/+0xac`) is the box's width and height, so the
-/// box it builds spans the part of the blade past the cut, and the copy drawn inside it is clipped
-/// to that. The copy's atlas window follows the bar's live tier band so the shade changes colour
-/// with the tier. The copy's own quad, rect and flags are not touched: r53 proved its quad writes
-/// leave its rect where the bar's layout put it, and r55 proved its rect writes do not gate its
-/// drawing.
+/// Write the shade for this frame's cut. A texture node's draw maps its atlas window into the
+/// rectangle its draw is clipped to, so a copy that keeps the bar's whole authored quad inside a
+/// narrower box is drawn *shrunk into that box* - the r57 photos: the blade with its spiral and its
+/// notches, squeezed, and 1 px of nothing at full sharpness. This writes the copy's quad to the
+/// columns of the blade past the cut at the bar's own scale, so the dark part is the blade's own
+/// tip part at 1:1.
+///
+/// The bar's atlas window is its authored quad in texture columns (`0..88` on the measured bar), the
+/// same units the cut's width is measured in. The copy's window starts at the kept column and ends
+/// at the bar's, its authored pair is that many columns and the band's height, and its position is
+/// the bar's position plus the kept width. The layout builds its rect from that pair on its visit,
+/// so the layout dirty bit is set every frame.
+///
+/// The clip mask's translation (`+0x40/+0x44`) is the box's left edge and the rect's top, its
+/// authored pair (`+0xa8/+0xac`) spans to the bar's rect's right edge, so the scissor cuts the shade
+/// at the blade's right end and never touches the kept part.
 fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
     let band = window_at(bar, NODE_TEXTURE_RECT);
-    let box_words = if ratio_bp == u32::MAX {
-        [rect[2], rect[1], rect[2], rect[3]]
-    } else {
-        dim_box(rect, ratio_bp)
-    };
+    let position = window_at(bar, TEX_POSITION);
+    let columns = (band[2] - band[0]).max(0.0) as i32;
+    let height = (band[3] - band[1]).max(0.0) as i32;
+    let (kept, past, left, right) = shade_quad(
+        rect,
+        columns,
+        if ratio_bp == u32::MAX {
+            // No gauge to cut by: the shade goes to width 0, the accepted appearance.
+            FULL_SHARPNESS_BP
+        } else {
+            ratio_bp
+        },
+    );
+    let uv = [kept as f32, band[1], band[2], band[3]];
     for edge in 0..4usize {
         let offset = edge as u32 * 4;
-        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, band[edge].to_bits());
+        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, uv[edge].to_bits());
     }
-    let width = (box_words[2] - box_words[0]).max(1) as u32;
-    let height = (rect[3] - rect[1]).max(1) as u32;
+    let _ = memory::write_word(dim + TEX_POSITION, (position[0] + kept as f32).to_bits());
+    let _ = memory::write_word(dim + TEX_POSITION + 4, position[1].to_bits());
+    let _ = memory::write_word(dim + TEX_AUTHORED, (past as f32).to_bits());
+    let _ = memory::write_word(dim + TEX_AUTHORED + 4, (height as f32).to_bits());
+    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
+        if flags & DRAWABLE_AND_DIRTY != DRAWABLE_AND_DIRTY {
+            let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
+        }
+    }
     // The box's corner is the mask node's own matrix translation: main+0xa4b390 reads the node's
     // transform and nothing else, so this is the only lever that moves the shade along the blade.
     // The authored width spans forward from it, so the translation is the box's left edge.
-    let _ = memory::write_word(clip + MASK_TRANSLATION, (box_words[0] as f32).to_bits());
-    let _ = memory::write_word(clip + MASK_TRANSLATION + 4, (box_words[1] as f32).to_bits());
+    let _ = memory::write_word(clip + MASK_TRANSLATION, (left as f32).to_bits());
+    let _ = memory::write_word(clip + MASK_TRANSLATION + 4, (rect[1] as f32).to_bits());
     if let Some(anchors) = memory::word(clip + MASK_ANCHORS) {
         if anchors & 0xf != 0 {
             let _ = memory::write_word(clip + MASK_ANCHORS, anchors & !0xf);
@@ -611,8 +640,8 @@ fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
     }
     let _ = memory::write_word(clip + MASK_X_SCALE, 1.0f32.to_bits());
     let _ = memory::write_word(clip + MASK_X_SCALE + 4, 0f32.to_bits());
-    let _ = memory::write_word(clip + MASK_SIZE, width);
-    let _ = memory::write_word(clip + MASK_SIZE + 4, height);
+    let _ = memory::write_word(clip + MASK_SIZE, (right - left).max(1) as u32);
+    let _ = memory::write_word(clip + MASK_SIZE + 4, (rect[3] - rect[1]).max(1) as u32);
     let _ = memory::write_word(clip + MASK_FLAGS, REBUILD_AND_APPLY);
 }
 
@@ -720,6 +749,16 @@ pub fn enter(mask: u32) {
         }
         CUT[17].store(authored as u32, Ordering::Relaxed);
         CUT[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
+        // The shade's clip box as the game folded it on its own last enter: the box the copy's
+        // draw is clipped to, straight from `+0xb0..+0xbc`.
+        let shade_box = if clip == 0 {
+            [0i32; 4]
+        } else {
+            rect_at(clip, MASK_BOX)
+        };
+        for (edge, word) in shade_box.iter().enumerate() {
+            CUT[19 + edge].store(*word as u32, Ordering::Relaxed);
+        }
         CUT_READY.store(true, Ordering::Release);
     }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these

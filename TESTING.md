@@ -3,41 +3,37 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r57
+## What to check on r58
 
-Run r57. The gauge's own cut is exactly as accepted (r44). The shade now has a scissor scope of its
-own, and that scope starts where the cut ends: the shadow is the blade shape from the cut's edge to the
-tip, in your `#202326`, at the gauge's real place and size.
+Run r58. The gauge's own cut is exactly as accepted (r44). The dark part is now the blade's own
+columns past the cut, drawn at the blade's own size: the sawtooth row, the tip slant and the outline
+should match the bright part they sit next to, with no squeezed blade inside the dark part.
 
-Your photo of r56 decided this. In it the dark part lies on the **left**, over the filled part, and the
-tier colour is on the right. A scissor mask's box is built over the mask's own transform - its
-translation at `+0x40/+0x44` is the box's corner and its authored width spans forward from there - so
-r56's clip mask, left at the corner the class factory gives every mask (the bar's left corner), clipped
-the first that-many pixels of the blade from the left. r57 writes the clip mask's own translation to the
-cut's right edge each frame, so its box is `cut .. 200` on the bar you measured: 128..200 px at empty
-sharpness, 164..200 at half, and one px off the tip at full. The anchor node is gone.
+Your photos of r57 decided this. In them the dark part is on the right, where it belongs, and it shows
+the whole blade shape squeezed into it - the spiral and the notches smaller than the bar's own - and at
+quest start there is no dark part at all. r57 kept the bar's full 88 px window inside a box that is
+narrower than that, and the game scales a texture node's sprite into its clipped rectangle. r58 gives
+the copy the window, the size and the position of the columns past the cut, so the dark part is the
+blade at 1:1.
 
 What to look at:
 
-1. Past the cut: a dark grey-blue blade, the gauge's blade shape, from the cut's edge to the tip.
-   Steady: no glow, no pulse. Nothing dark on the left half of the blade.
+1. Past the cut: a dark grey-blue blade from the cut's edge to the tip, at the same size as the
+   coloured part, its notch row and tip matching. Steady: no glow, no pulse.
 2. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
    sharpen, it shrinks back. Full sharpness: no dark part.
 3. The kept part is untouched: the game's own colour, pulse, glow and edge glyph, as in r44.
 4. The dark part follows the tier colour: after a sharpen across a tier it takes the new tier's hue.
 5. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
-6. If the game faults, send the log: r53's fault line (`strb` at main+0x1014604) is the thing r56's
-   removal of the per-frame quad and flag writes tests.
+6. If the game faults, send the log.
 7. The log carries it: the insertion line ends with `clip=0x...`; `dim blade not added at stage
-   50/51/52` means the shade was not built and the gauge is exactly the shipped look. Report the number.
-   `records=13` and `entries=7` on that line are r57's tree; 15 and 8 mean you ran r56.
+   50/51/52` means the shade was not built and the gauge is exactly the shipped look.
+   `entries=7 records=13` on that line is the tree r57 and r58 share.
 
-The copy's own state lines are unchanged: `copy state ...` and `bar state ...` carry its rectangle
-(`rect=`), the rectangle its draw is clipped to (`eff=`), its 16-word matrix (`mat=`), its position pair
-(`pos=`) and its authored pair (`size=`). Expect the copy at the bar's own placement (`rect=110 38 238
-166`, `pos=0.0 0.0`, `size=88.0 24.0`), and the dark part where its clip box says it is, which the
-`fill` line's ratio tells you: on the bar you measured, x from 128 at empty sharpness, 164 at half,
-nothing at full. Send the log; the lines that matter start with `MSG r57`.
+The new fact on the cut line is the last field: `shade_box=x0 y0 x1 y1`, the box the game folded for
+the shade's own clip mask. On the bar you measured, expect the left number to move with the cut
+(128 at empty sharpness, 198 at full) and the right number to stay 238. Report the line beside the
+screenshot; the lines that matter start with `MSG r58`.
 
 The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
 110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
