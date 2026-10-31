@@ -201,6 +201,18 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
 /// along `u`; the `v` pair is the tier's colour band, which the row's animation slides.
 pub const SPRITE_COLUMNS: i32 = 88;
 
+/// r52's forced drop: the copy's position pair is the bar's own pair with this much added to y, so
+/// it sits below the real blade. The bar's pair is a float offset in its parent's space (the r8 run
+/// read 284.0 / 224.0 live) with transform scale 1.0 (the r33 run's `mat=0x3f800000`), so these are
+/// the units the layout draws in, not screen pixels.
+pub const DIM_DROP: f32 = 32.0;
+
+/// r52's forced quad, written once at the build and never touched again: the bar's position pair
+/// with the drop on y, and the bar's authored pair as the copy's size.
+pub fn dim_position(position: [f32; 2], authored: [f32; 2]) -> ([f32; 2], [f32; 2]) {
+    ([position[0], position[1] + DIM_DROP], authored)
+}
+
 /// The dim blade of the plan's Phase 5: the sprite's columns past the cut, drawn where they
 /// would be uncut. Returns its screen rect and its atlas window.
 ///

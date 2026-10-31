@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r51",
+  "version": "r52",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -70,12 +70,18 @@
       "archive_sha256": "eda613d2ee7bbc7dc0828bf22a1c7077cc0e0d2ea6843a82166e1c84edca861e",
       "runtime": "NOT RUN",
       "changes": "Row identity from the proven fields (4 / 4 / 15 / 29); cache length from sampling drawables; root+0x50 recorded in the clip line instead of gating; 13 host fixtures pass."
+    },
+    "r52": {
+      "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
+      "runtime": "NOT RUN: the forced-visibility candidate; the user's run decides it",
+      "adds": "Key Quest Markers' complete cGUIObjTexture recipe on the copy (its twelve style setters in its order and values, the texture id last, then mTextureRect main+0xa4fb58 given a pointer to the bar's live four floats), one forced quad written once (the bar's position pair with 32.0 on y, the bar's authored 88x24, opaque magenta 0xFFFF00FF at the four corners), no per-frame writes, and a read-back of the copy's and the bar's rect, effective rect, 16-word matrix, position pair and authored pair at the mask's enter before any write",
+      "archive_sha256": "b11fde29ab4434c1b03ad117bf9c038b4549ec2e56e638d7fb30ba75336ccf96"
     }
   },
   "build": {
-    "version": "r51",
+    "version": "r52",
     "status": "BUILT",
-    "nro_sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b",
+    "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +93,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "d22da900ef9d83b3dea26a8592fbf3f9eb162da7c3d6dc9c41bc9c4fa6393a56",
-      "src/lib.rs": "2c742525780f111a3794b45dcd952c4cf4277a8d3704b9b71592affac37455c2",
+      "src/insert.rs": "9575238e2ef1e4def6c30877007184f5175f709fe42985cfb3b70a0bb525e6f1",
+      "src/lib.rs": "f7589ae5f0f945db858dd7855786f4f9610f8131c3c621c07da9c613cbd9b390",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
-      "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
+      "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "fc4bd5b9ba51b99dbb07a8c8263bc0504d468e5bd5f68dd0f58a76ff3f2d1911",
-      "core/tests/behavior.rs": "dcac96e37eb3453164d175f15f8920765a00347cd5806e2b543465a155c1cc1c",
+      "core/src/lib.rs": "94e0823daade27218e00e1e8ef317d37668ff7835e0b97ed917d0152e5a9696f",
+      "core/tests/behavior.rs": "89f098436cd64b4183c570e56dfc305feee1038e6aac8fbe8b6d1734cf28bc17",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +108,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b",
-    "elf_sha256": "c13c95d0971b6363a41d8cb2a1ff426c55e2b797c330eee8630fa4724c4d7184",
+    "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
+    "elf_sha256": "b6c953309174fbccfcb263eda7f5d3040c2f4333626f68e0652f053329e33155",
     "exports": [
       "fini",
       "forge_onInit",
@@ -146,7 +152,19 @@
       "0xa4b6cc",
       "0xa486fc",
       "0x7aa47c",
-      "0xa4ba94"
+      "0xa4ba94",
+      "0xa47a04",
+      "0xa47a94",
+      "0xa4a9f4",
+      "0xa4aa24",
+      "0xa4aa5c",
+      "0xa4aa94",
+      "0xa4aac8",
+      "0xa4aafc",
+      "0xa4dc24",
+      "0xa4dc54",
+      "0xa4dca0",
+      "0xa4fa5c"
     ],
     "hook_address": "0xa494a0",
     "hook_window_words": 12,
@@ -173,7 +191,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 22,
+    "count": 23,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
@@ -195,11 +213,13 @@
       "the same endpoints as offsets on the measured rect: 64, 128 and 256 px rects cut at the same fraction of their width; a narrow rect scales down",
       "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right",
       "the dim blade (Phase 5): its rect from the cut's right edge to the bar rect's right edge and its atlas u as the same fraction of the authored 88 columns, at 0 / 25 / 50 / 100% on the measured bar and on a 64 px rect",
-      "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in"
+      "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in",
+      "the dim blade's forced quad: the bar's live position pair with DIM_DROP 32.0 on y (284.0/224.0 -> 284.0/256.0) and the bar's authored 88x24 passing through",
+      "the dim blade's atlas window: the bar's live band [0, 280, 88, 304] with the columns past the cut, at 0 / 25 / 50 / 100% and on a 64 px rect"
     ],
     "words_per_sample": 11,
-    "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "329e61370949ede577d2791258e597c24c52d5cd7ad5006ce4d2ae9d04c6710b"
+    "note": "23 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, its forced quad's drop and size, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
+    "nro_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef"
   },
   "runs": [
     {

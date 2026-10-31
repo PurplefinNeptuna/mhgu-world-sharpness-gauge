@@ -25,8 +25,8 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_shape, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT, NODE_PARENT,
-    NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
+    basis_points, cut_box, dim_position, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_EFFECTIVE_RECT,
+    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -59,11 +59,31 @@ const ROW_SIZING: u32 = 0x08;
 // The field offsets are from the DTI record and the setter decompiles, recorded in
 // work/modern-sharpness-gauge/PHASE5_RESEARCH.md.
 pub const DIM_MARKER: u32 = 0x4d534732;
-/// Flat dark grey for all four corner colours. The MT `color` word's byte order is not proven in
-/// this workspace, so the grey is byte-symmetric and the alpha byte's position is an inference:
-/// a run that shows the copy too transparent, or dark in the wrong channels, is this constant,
-/// not the mechanism.
-const DIM_COLOUR: u32 = 0x73404040;
+/// Opaque magenta at all four corners, in the AABBGGRR order the bar's own `0xff5efaff` decodes
+/// as yellow in. The MT `color` word's byte order is unproven, so a copy that comes out cyan with
+/// magenta channels is this constant, not the mechanism.
+const DIM_COLOUR: u32 = 0xFFFF_00FF;
+/// The style setters Key Quest Markers' badge runs on this class, in its order and with its
+/// values, each through the two-integer ABI `(object, value)`. `Mask = 0` is the one that draws
+/// the corner colours: `Mask = 1` enters the native mask-writing pass.
+const STYLE_SETTERS: [(u32, u32); 12] = [
+    (0xa4dc24, 1), // BlendState
+    (0xa4a9f4, 0), // ControlPoint
+    (0xa47a94, 0), // FixFrame
+    (0xa4dca0, 0), // Mask
+    (0xa47a04, 2), // Priority
+    (0xa4aa24, 1), // ReferencePosition
+    (0xa4aa5c, 1), // ReferenceRotation
+    (0xa4aa94, 3), // ReferenceScaleX
+    (0xa4aac8, 3), // ReferenceScaleY
+    (0xa4aafc, 3), // ReferenceScaleZ
+    (0xa4dc54, 0), // Reverse
+    (0xa4fa5c, 0), // SamplerState
+];
+/// The `mTextureRect` setter (main+0xa4fb58): `(object, *const f32[4])`. It returns at once when
+/// the four words already match, and otherwise copies the four floats in and, when the flag byte
+/// at +0x108 has bits 4/5 set, calls the class's vtable slot 0x28.
+const TEXTURE_RECT_SETTER: u32 = 0xa4fb58;
 const TEXTURE_SIZE: u32 = 304;
 const TEXTURE_CTOR: u32 = 0xa4f60c;
 const TEXTURE_ALLOC_SLOT: u32 = 0x20;
@@ -86,30 +106,87 @@ const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
 const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
 static DIM: AtomicU32 = AtomicU32::new(0);
 
-/// The quad the copy was last given: rect corners, the x position in the bar's space, its authored
-/// width, and the `v` rows it samples. `forge_onUpdate` prints it next to the cut line, so a run
-/// reports the copy's placement from the log instead of from a photograph.
-static DIM_QUAD: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
-
-pub fn take_dim_quad() -> [u32; 6] {
-    let mut out = [0u32; 6];
-    for (index, slot) in out.iter_mut().enumerate() {
-        *slot = DIM_QUAD[index].load(Ordering::Relaxed);
+/// What the game computed for one texture node, read at the mask's enter before any write: the
+/// rectangle at `+0xe0`, the effective rectangle at `+0xf0`, the matrix at `+0x10..+0x4c`, the
+/// position pair at `+0x80/+0x84` and the authored pair at `+0xb4/+0xb8`. This is the copy's own
+/// state as the draw walk left it on the previous frame, so a run places the copy from the log
+/// instead of from a photograph. The rectangle pair are signed pixels; the matrix, position and
+/// authored pair are floats.
+pub const STATE_WORDS: usize = 28;
+const STATE_FIELDS: [(u32, usize); 5] = [
+    (NODE_RECT, 4),
+    (NODE_EFFECTIVE_RECT, 4),
+    (0x10, 16),
+    (TEX_POSITION, 2),
+    (TEX_AUTHORED, 2),
+];
+const _: () = {
+    let (mut total, mut index) = (0usize, 0usize);
+    while index < STATE_FIELDS.len() {
+        total += STATE_FIELDS[index].1;
+        index += 1;
     }
-    out
+    assert!(total == STATE_WORDS, "every state word has a field to come from");
+};
+/// The copy's state words, then the bar's.
+static STATE: [AtomicU32; STATE_WORDS * 2] = const { [const { AtomicU32::new(0) }; STATE_WORDS * 2] };
+static STATE_LAST: [AtomicU32; STATE_WORDS * 2] = const { [const { AtomicU32::new(0) }; STATE_WORDS * 2] };
+static STATE_READY: AtomicBool = AtomicBool::new(false);
+/// The last clock tick that queued a state line, for the rate limit in `read_state`.
+static STATE_LOG_AT: AtomicU32 = AtomicU32::new(0);
+
+/// Read the copy's and the bar's own state and queue it once, when it changed and at most every
+/// 30 update ticks. Read-only, and it runs before any write in this callback, so what it reports
+/// is the layout's output, not this plugin's.
+fn read_state(dim: u32, bar: u32) {
+    let mut words = [0u32; STATE_WORDS * 2];
+    for which in 0..2usize {
+        let node = if which == 0 { dim } else { bar };
+        if node == 0 {
+            continue;
+        }
+        let mut index = which * STATE_WORDS;
+        for (offset, count) in STATE_FIELDS {
+            for word in 0..count {
+                words[index] = memory::word(node + offset + word as u32 * 4).unwrap_or(0);
+                index += 1;
+            }
+        }
+    }
+    if words
+        .iter()
+        .enumerate()
+        .all(|(index, word)| *word == STATE_LAST[index].load(Ordering::Relaxed))
+    {
+        return;
+    }
+    let updates = UPDATES.load(Ordering::Relaxed);
+    if updates.wrapping_sub(STATE_LOG_AT.load(Ordering::Relaxed)) < 30 {
+        return;
+    }
+    STATE_LOG_AT.store(updates, Ordering::Relaxed);
+    for (index, word) in words.iter().enumerate() {
+        STATE_LAST[index].store(*word, Ordering::Relaxed);
+        STATE[index].store(*word, Ordering::Relaxed);
+    }
+    STATE_READY.store(true, Ordering::Release);
 }
 
-/// The bar's position pair as raw float bits, read live. The copy is moved in the bar's space,
-/// so its own position is the bar's plus the kept part's width.
-fn bar_position(bar: u32) -> [u32; 2] {
-    [
-        memory::word(bar + TEX_POSITION).unwrap_or(0),
-        memory::word(bar + TEX_POSITION + 4).unwrap_or(0),
-    ]
+/// The queued state: the copy's words, then the bar's. `forge_onUpdate` prints it, so nothing is
+/// formatted in the hook.
+pub fn take_state() -> Option<[u32; STATE_WORDS * 2]> {
+    if !STATE_READY.swap(false, Ordering::Acquire) {
+        return None;
+    }
+    let mut out = [0u32; STATE_WORDS * 2];
+    for (index, slot) in out.iter_mut().enumerate() {
+        *slot = STATE[index].load(Ordering::Relaxed);
+    }
+    Some(out)
 }
 
-/// The atlas window of a node, in float pixels: the bar's live blade window is a pair of `v`
-/// rows, and the copy's window has to be read and written the same way.
+/// The atlas window of a node, in float pixels: the bar's live blade window, and the authored
+/// pair, are stored as floats.
 fn window_at(node: u32, offset: u32) -> [f32; 4] {
     let mut out = [0.0f32; 4];
     for edge in 0..4 {
@@ -378,15 +455,12 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     if gui == 0 {
         return Err(52);
     }
-    // The bar's own geometry as float bits, read raw: the authored pair and the atlas rectangle.
-    let (authored, atlas) = (rect_at(bar, TEX_AUTHORED), window_at(bar, NODE_TEXTURE_RECT));
-    // The bar's own position pair, in float bits: a node's quad is position + authored size in the
-    // parent's space, and the bar is a child of the inserted mask, so its offsets are local. The
-    // copy hangs off the same parent, so it starts from the same pair.
-    let pos = [
-        memory::word(bar + TEX_POSITION).ok_or(50u32)?,
-        memory::word(bar + TEX_POSITION + 4).ok_or(50u32)?,
-    ];
+    // The bar's live quad, in floats: its authored pair (88.0 x 24.0 on the measured bar) and its
+    // position pair. The copy takes the bar's own size, and the bar's position with core's drop on
+    // y, so it sits under the blade in the units the bar's own quad uses.
+    let (authored, bar_position) = (window_at(bar, TEX_AUTHORED), window_at(bar, TEX_POSITION));
+    let (copy_position, copy_size) =
+        dim_position([bar_position[0], bar_position[1]], [authored[0], authored[1]]);
     let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
     let node = match allocator.alloc_text(TEXTURE_SIZE, dti.id()) {
         Some(pointer) if pointer & 15 == 0 => pointer,
@@ -414,28 +488,30 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     // Constructed: the native destructor owns the block from here. A failure calls the
     // destructor and never the allocator's free - the destructor frees through this allocator.
     let owned = memory::method(node, 0x04);
-    // Order matters: the setter's first test is the object's resource at +0x78, and with the block
-    // still zeroed it returns early, leaving the texture object 0. The fields come first, the
-    // resolve last.
+    // The Key Quest Markers order: identity and ownership, the quad, the flags, the style setters,
+    // the colours, the texture id last (its first test is the resource at +0x78, so it runs after
+    // that word is written), then the atlas rectangle through its setter, with a pointer to the
+    // bar's own live four floats.
     let ready = memory::write_word(node + TEX_MID, DIM_MARKER)
         && memory::write_word(node + TEX_GUI, gui)
         && memory::write_word(node + TEX_OWNER, owner)
         && memory::write_word(node + TEX_RESOURCE, resource)
-        && memory::write_word(node + TEX_POSITION, pos[0])
-        && memory::write_word(node + TEX_POSITION + 4, pos[1])
-        && memory::write_word(node + TEX_AUTHORED, authored[0] as u32)
-        && memory::write_word(node + TEX_AUTHORED + 4, authored[1] as u32)
+        && memory::write_word(node + TEX_POSITION, copy_position[0].to_bits())
+        && memory::write_word(node + TEX_POSITION + 4, copy_position[1].to_bits())
+        && memory::write_word(node + TEX_AUTHORED, copy_size[0].to_bits())
+        && memory::write_word(node + TEX_AUTHORED + 4, copy_size[1].to_bits())
         && memory::word(node + TEX_FLAGS).is_some_and(|flags| {
             memory::write_word(node + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY)
         })
-        && (0..4usize).all(|edge| {
-            memory::write_word(node + NODE_TEXTURE_RECT + edge as u32 * 4, atlas[edge].to_bits())
-        })
+        && STYLE_SETTERS
+            .iter()
+            .all(|(setter, value)| memory::call2(base() + setter, node, *value).is_some())
         && (0..4usize).all(|corner| {
             memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR)
         })
         && memory::call2(base() + TEXTURE_SETTER, node, texture)
-            .is_some_and(|_| memory::word(node + TEX_TEXTURE_OBJECT).is_some_and(|p| p != 0));
+            .is_some_and(|_| memory::word(node + TEX_TEXTURE_OBJECT).is_some_and(|p| p != 0))
+        && memory::call2(base() + TEXTURE_RECT_SETTER, node, bar + NODE_TEXTURE_RECT).is_some();
     if !ready {
         if let Some(destructor) = owned {
             let _ = memory::call1(destructor, node);
@@ -443,58 +519,6 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         return Err(52);
     }
     Ok(node)
-}
-
-/// Write the dim blade's screen rect and atlas window for this frame's cut: the sprite rows the
-/// bar is not drawing, from the cut's right edge to the tip's screen position. The rect is signed
-/// pixels and the window is float pixels, which is how the bar's own pair reads live. With no
-/// valid gauge, no hidden blade, or no tip-end sample yet, the width is 0 and nothing is drawn,
-/// which is the accepted shipped appearance.
-fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4], pos: [u32; 2]) {
-    let (box_rect, box_window) = if ratio_bp == u32::MAX {
-        (
-            [rect[0], rect[1], rect[0], rect[3]],
-            bar_window,
-        )
-    } else {
-        dim_shape(rect, ratio_bp, bar_window)
-    };
-    for edge in 0..4usize {
-        let _ = memory::write_word(dim + NODE_RECT + edge as u32 * 4, box_rect[edge] as u32);
-        let _ = memory::write_word(
-            dim + NODE_TEXTURE_RECT + edge as u32 * 4,
-            box_window[edge].to_bits(),
-        );
-    }
-    // A texture node is laid out from its position and authored size, and the layout runs on the
-    // node's own visit, after this callback: writing only the rectangle is overwritten and the copy
-    // comes out at the bar's authored size. So the quad is moved in the bar's own space: start the
-    // copy where the kept part ends and make it as wide as the hidden blade, keeping the bar's y and
-    // band height, and ask the layout to apply it.
-    let start = (box_rect[0] - rect[0]) as f32;
-    let width = (box_rect[2] - box_rect[0]).max(1) as f32;
-    let _ = memory::write_word(
-        dim + TEX_POSITION,
-        (f32::from_bits(pos[0]) + start).to_bits(),
-    );
-    let _ = memory::write_word(dim + TEX_AUTHORED, width.to_bits());
-    if let Some(flags) = memory::word(dim + TEX_FLAGS) {
-        let _ = memory::write_word(dim + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY);
-    }
-    let pos_x = (f32::from_bits(pos[0]) + start) as i32;
-    for (index, word) in [
-        box_rect[0],
-        box_rect[1],
-        box_rect[2],
-        box_rect[3],
-        pos_x,
-        width as i32,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        DIM_QUAD[index].store(word as u32, Ordering::Relaxed);
-    }
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
@@ -544,25 +568,18 @@ pub fn enter(mask: u32) {
         crate::hooks::teardown_gauge_row(root);
         return;
     }
+    // The copy's and the bar's own state, read before anything is written in this call: what the
+    // game's layout produced for the copy on the previous frame.
+    let dim = DIM.load(Ordering::Relaxed);
+    read_state(dim, bar);
     // The live fill: the local player's own sharpness points, read fresh in this call through
     // the same checked mapping discovery uses. No valid gauge - no player yet, a zero maximum,
     // points above the maximum - is unsupported state, so the clip is turned off here and the
     // native gauge is left as the game draws it.
-    let dim = DIM.load(Ordering::Relaxed);
     let ratio = match sampling::live_gauge().and_then(|gauge| basis_points(gauge)) {
         Some(bp) => bp,
         None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
-            // No gauge to cut by: the copy is hidden to width 0, the accepted appearance.
-            if dim != 0 {
-                write_dim(
-                    dim,
-                    rect_at(bar, NODE_RECT),
-                    u32::MAX,
-                    window_at(bar, NODE_TEXTURE_RECT),
-                    bar_position(bar),
-                );
-            }
             return;
         }
     };
@@ -637,12 +654,9 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
-    if dim != 0 {
-        // The bar's live atlas window: its u pair is the sprite's columns, its v pair the tier
-        // band. The copy takes the hidden columns from the same band, so it is the same sprite in
-        // the same tier colour.
-        write_dim(dim, rect, ratio, window_at(bar, NODE_TEXTURE_RECT), bar_position(bar));
-    }
+    // The copy is not written here. r52 gives it its forced quad once, at the build, and reads the
+    // game's own state for it back at the enter above: writing it per frame is what every earlier
+    // build measured, and none of them placed the copy.
 }
 
 /// Insert the mask under the row root, over the bar, glow and edge, after the row's map and

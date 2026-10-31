@@ -5,11 +5,16 @@ part you see starts at the hilt. The glow around the bar and the glyph at its ed
 inside the same cut. Nothing else on the HUD changes.
 
 This build cuts the bar at your own sharpness: full sharpness shows the whole blade, every hit
-takes the cut a little further from the tip toward the hilt, in a straight line, and empty
-sharpness leaves the hilt with the rest of the blade drawn dim and steady in the space behind the
-cut. The colours, the pulse and the glow stay the game's own on the part you can see; the dimmed
-part has no glow and does not pulse. There is nothing to set up: the cut follows the sharpness the
-game reports.
+takes the cut a little further from the tip toward the hilt, in a straight line, and empty sharpness
+leaves the hilt. The colours, the pulse and the glow stay the game's own on the part you see. There
+is nothing to set up: the cut follows the sharpness the game reports.
+
+The dulled blade behind the cut, from the plan for this mod, is not showing in the game yet. This
+build tests it. The copy of the blade is drawn at a fixed size under the gauge in magenta, a colour
+the sharpness gauge never uses, and it is never moved after the gauge is built, so a run answers one
+question: does the game draw this copy at all. If you see a magenta blade under the sharpness gauge,
+that is the test working, and the report of it is what the mod needs. If you see nothing there, the
+gauge looks exactly as the released build.
 
 The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
 the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
@@ -23,14 +28,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r51-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r52-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r51`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r52`
 should be listed.
 
 ## Usage

@@ -1,8 +1,8 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, dim_shape, draw_plan, is_sharp_animation, local_player,
+    basis_points, count_nodes, cache_layout, cut_box, dim_position, dim_shape, draw_plan, is_sharp_animation, local_player,
     read_gauge, sample_controller, scan_walk, span_box,
-    CLIP_HEIGHT, CLIP_TOP,
+    CLIP_HEIGHT, CLIP_TOP, DIM_DROP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
     MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
     NODE_KIND, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE,
@@ -606,11 +606,11 @@ fn the_dim_blade_shows_the_columns_past_the_cut() {
     // edge to the tip's screen position (110 + 90 = 200 on the measured bar), not to the bar
     // rect's right edge.
     let bar = [110, 38, 238, 166];
-    let band = [0.0f32, 156.0, 87.0, 440.0];
+    let band = [0.0f32, 280.0, 88.0, 304.0];
     for (ratio, left, column) in [(0u32, 128, 12.0f32), (2_500, 146, 24.0), (5_000, 164, 37.0), (10_000, 200, 61.0)] {
         let (rect, window) = dim_shape(bar, ratio, band);
         assert_eq!((rect[0], rect[1], rect[2], rect[3]), (left, 38, 200, 166));
-        let expected = if left < 200 { (column, 156.0, 87.0, 440.0) } else { (0.0, 156.0, 87.0, 440.0) };
+        let expected = if left < 200 { (column, 280.0, 88.0, 304.0) } else { (0.0, 280.0, 88.0, 304.0) };
         assert_eq!((window[0], window[1], window[2], window[3]), expected);
     }
     // A 64 px bar keeps the same fractions: cut 9 px at 0%, tip at 45 px, so the copy runs
@@ -618,7 +618,23 @@ fn the_dim_blade_shows_the_columns_past_the_cut() {
     let half = [110, 38, 174, 166];
     let (rect, window) = dim_shape(half, 0, band);
     assert_eq!((rect[0], rect[1], rect[2], rect[3]), (119, 38, 155, 166));
-    assert_eq!((window[0], window[1], window[2], window[3]), (12.0, 156.0, 87.0, 440.0));
+    assert_eq!((window[0], window[1], window[2], window[3]), (12.0, 280.0, 88.0, 304.0));
+}
+
+#[test]
+fn the_forced_copy_quad_sits_under_the_bar() {
+    // r52 writes the copy once: the bar's live position pair with DIM_DROP on y, and the bar's own
+    // authored pair as its size. The pair is read live as floats (the r8 run: 284.0 / 224.0) and
+    // the bar's authored pair is 88x24 (Txt_sharp), so the copy lands 32 units under the bar at the
+    // sprite's own size. This is the position the r52 run has to place from the read-back line.
+    let (position, size) = dim_position([284.0, 224.0], [88.0, 24.0]);
+    assert_eq!((position[0], position[1]), (284.0, 256.0));
+    assert_eq!((size[0], size[1]), (88.0, 24.0));
+    assert_eq!(DIM_DROP, 32.0);
+    // The bar's authored pair passes through unchanged: the copy is the sprite's own size, so it is
+    // a full-length blade, not a squeezed one.
+    let (position, size) = dim_position([0.0, 0.0], [88.0, 24.0]);
+    assert_eq!((position[0], position[1], size[0], size[1]), (0.0, 32.0, 88.0, 24.0));
 }
 #[test]
 fn a_second_node_fits_the_grown_tree_exactly() {

@@ -180,4 +180,91 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         0, 80, 160, 225, 1, 128, 160, 225,
         164, 0, 149, 229, 2, 0, 16, 227,
     ]),
+    // The twelve style setters Key Quest Markers' badge calls on cGUIObjTexture, in its
+    // order: the same offsets its accepted signature record verifies (mods/key-quest-markers/
+    // src/signatures.rs), with their 32-byte windows rechecked here against the same main NSO.
+    // main+0x0a47a04: cGUIObjTexture Priority setter
+    (0xa47a04, [
+        0, 72, 45, 233, 0, 32, 160, 225,
+        92, 192, 178, 229, 4, 224, 146, 229,
+        126, 48, 255, 230, 1, 0, 83, 225,
+        0, 136, 189, 8, 255, 63, 15, 227,
+    ]),
+    // main+0x0a47a94: cGUIObjTexture FixFrame setter
+    (0xa47a94, [
+        84, 32, 144, 229, 0, 0, 81, 227,
+        2, 48, 160, 225, 159, 49, 195, 231,
+        8, 48, 130, 19, 84, 48, 128, 229,
+        30, 255, 47, 225, 240, 72, 45, 233,
+    ]),
+    // main+0x0a4a9f4: cGUIObjTexture ControlPoint setter
+    (0xa4a9f4, [
+        160, 32, 144, 229, 15, 48, 2, 226,
+        1, 0, 83, 225, 30, 255, 47, 1,
+        17, 32, 195, 231, 160, 32, 128, 229,
+        0, 16, 144, 229, 80, 16, 145, 229,
+    ]),
+    // main+0x0a4aa24: cGUIObjTexture ReferencePosition setter
+    (0xa4aa24, [
+        160, 32, 144, 229, 16, 48, 2, 226,
+        35, 2, 49, 225, 30, 255, 47, 1,
+        31, 34, 196, 231, 1, 18, 130, 225,
+        160, 16, 128, 229, 84, 16, 144, 229,
+    ]),
+    // main+0x0a4aa5c: cGUIObjTexture ReferenceRotation setter
+    (0xa4aa5c, [
+        160, 32, 144, 229, 32, 48, 2, 226,
+        163, 2, 49, 225, 30, 255, 47, 1,
+        159, 34, 197, 231, 129, 18, 130, 225,
+        160, 16, 128, 229, 84, 16, 144, 229,
+    ]),
+    // main+0x0a4aa94: cGUIObjTexture ReferenceScaleX setter
+    (0xa4aa94, [
+        160, 32, 144, 229, 82, 51, 225, 231,
+        1, 0, 83, 225, 30, 255, 47, 1,
+        17, 35, 199, 231, 160, 32, 128, 229,
+        84, 16, 144, 229, 2, 24, 129, 227,
+    ]),
+    // main+0x0a4aac8: cGUIObjTexture ReferenceScaleY setter
+    (0xa4aac8, [
+        160, 32, 144, 229, 82, 52, 225, 231,
+        1, 0, 83, 225, 30, 255, 47, 1,
+        17, 36, 201, 231, 160, 32, 128, 229,
+        84, 16, 144, 229, 2, 24, 129, 227,
+    ]),
+    // main+0x0a4aafc: cGUIObjTexture ReferenceScaleZ setter
+    (0xa4aafc, [
+        160, 32, 144, 229, 82, 53, 225, 231,
+        1, 0, 83, 225, 30, 255, 47, 1,
+        17, 37, 203, 231, 160, 32, 128, 229,
+        84, 16, 144, 229, 2, 24, 129, 227,
+    ]),
+    // main+0x0a4dc24: cGUIObjTexture BlendState setter
+    (0xa4dc24, [
+        204, 32, 144, 229, 208, 48, 144, 229,
+        17, 34, 203, 231, 204, 32, 128, 229,
+        208, 48, 128, 229, 30, 255, 47, 225,
+        45, 10, 144, 237, 46, 10, 208, 237,
+    ]),
+    // main+0x0a4dc54: cGUIObjTexture Reverse setter
+    (0xa4dc54, [
+        0, 72, 45, 233, 0, 32, 160, 225,
+        204, 224, 178, 229, 1, 58, 14, 226,
+        35, 6, 49, 225, 0, 136, 189, 8,
+        1, 0, 81, 227, 4, 192, 146, 229,
+    ]),
+    // main+0x0a4dca0: cGUIObjTexture Mask setter
+    (0xa4dca0, [
+        204, 32, 144, 229, 208, 48, 144, 229,
+        17, 32, 195, 231, 204, 32, 128, 229,
+        208, 48, 128, 229, 30, 255, 47, 225,
+        216, 45, 193, 225, 240, 32, 192, 225,
+    ]),
+    // main+0x0a4fa5c: cGUIObjTexture SamplerState setter
+    (0xa4fa5c, [
+        8, 33, 144, 229, 15, 48, 2, 226,
+        1, 0, 83, 225, 30, 255, 47, 1,
+        17, 32, 195, 231, 8, 33, 128, 229,
+        0, 16, 144, 229, 80, 16, 145, 229,
+    ]),
 ];

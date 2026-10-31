@@ -3,32 +3,44 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r51
+## What to check on r52
 
-r51 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
-copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47 and r48 both
-report the copy built with its texture resolved (`dim=`, `dim_tex=`), with nothing of it visible in the
+r52 is a visibility test, not a finished look. The dulled part of the blade is drawn as a copy of
+the sprite in opaque magenta - a colour the sharpness gauge never uses - at the sprite's full 88x24
+size, 32 units under the sharpness gauge, written once when the gauge row is built and never moved
+after that. Watch the strip below the sharpness gauge, at any sharpness level. The expected picture
+is a magenta full-length blade under the gauge, steady, no glow and no pulse. Say plainly whether
+you see it at all: "nothing", "a magenta blade under the gauge", "a magenta block somewhere else",
+and where. If you see it, say how wide it is relative to the red blade and whether it moves.
+
+r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47, r48 and r50 all
+log the copy built with its texture resolved (`dim=`, `dim_tex=`) with nothing of it visible in the
 sharpness gauge. Their `dim_flags=0x20a0001` is the class constructor's own default, so it says the
 copy was constructed and nothing about whether it drew. The grey band above the red cropped blade in
 the r48 photo is the Dual Blade's demon gauge, a row this mod does not touch; the noisy dark block in
 the r47 photo is read as this mod's copy, which is an inference.
-r48 put the copy's window on the atlas `v`, which is the gauge's tier colour band; r51 puts it back on `u`, the blade's length axis, bounded by the tip. Watch the sharpness gauge at a mid level, not at full sharpness (there the copy is zero width by design). Watch only the sharpness gauge - the upper row, the cropped red blade - and
-send the log: the insertion line's `dim=`, `dim_tex=`, `dim_flags=`, and the new `fill copy rect=... pos=... authored=...` lines, which say where the mod put the copy. That reports the placement without a photo. The accepted cut itself is
-unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
-rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
 
-1. The part past the cut shows a dim, steady blade, the same shape, from the cut's edge to the
-   tip, not a squeezed copy and not a rectangle.
-2. It does not glow and does not pulse, and its colour does not breathe with the tier animation.
-3. On the kept part nothing changed: the native colour, the pulse, the glow and the edge glyph
+What the log now answers on its own. The mask's enter reads the copy's own state, as the game's
+layout produced it on the previous frame, and prints `copy state ...`; the same fields on the bar print
+as `bar state ...`. Each line carries the rectangle the game computed (`rect=`), the rectangle it
+draws inside (`eff=`), the 16-word matrix (`mat=`), the node's position pair (`pos=`) and its authored
+size (`size=`), with the floats printed as numbers. On the gauge you measured, the copy's line should
+read `pos=284.0 256.0`, `size=88.0 24.0`, a rectangle 88 wide and 24 tall, the matrix's first row
+1.0, and `eff=` equal to `rect=`. Send the log; the lines that matter start with `MSG r52`.
+
+The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
+110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to
+look at:
+
+1. The magenta blade under the gauge: its length, its position relative to the red blade, and
+   whether it is steady.
+2. On the kept part nothing changed: the native colour, the pulse, the glow and the edge glyph
    are the same as r44.
-4. Full sharpness: no dim part past the tip. Empty sharpness: the whole blade dim, hilt normal.
-5. Sharpening across a tier boundary: the dim part stays put, the kept part takes the new colour.
-6. The log carries the copy: the insertion line ends with `dim=0x...`. If it says
+3. The log carries the copy: the insertion line ends with `dim=0x...`. If it says
    `dim blade not added at stage 50/51/52`, the copy is absent and the gauge looks exactly like
    r44. Report the number.
-7. Mid-quest weapon change and an area change: the copy goes with the row and comes back on the
-   new row.
+4. Mid-quest weapon change and an area change: the copy and its state lines go with the row and
+   come back on the new row.
 
 1. One melee quest: full sharpness, a few hits down to a low level, empty, then
    sharpen back. The cut should land where r43 landed at the same sharpness. Take
@@ -75,18 +87,26 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r51`.
+Lines that matter start with `MSG r52`.
 
 ## The log lines
 
-`fill ratio_bp` lines are printed when the cut moves, each followed by a `fill copy rect=x y x2 y2 pos=... authored=...` line: the rectangle the copy was given, its x offset in the gauge's own space and its authored width. If the copy is missing from the gauge, that line says where it was placed. `0` to `10000` basis points
+`fill ratio_bp` lines are printed when the cut moves: `0` to `10000` basis points
 of your sharpness. The line carries the box the mod wrote (`box=`), the bar's own
 rectangle (`bar=`), the rectangle the game draws inside (`eff=`), the part of the
 sword picture the bar uses (`tex=`), the bar's authored width (`bar_w=`, 88) and
-the width the box is built from (`feed=`, 128). `tex=` is printed as the raw float
-bits, so 1133248512 is 280.0 and 1134034944 is 304.0: that pair is the tier colour
-band the bar is drawing. Match your screenshot to the line
+the width the box is built from (`feed=`, 128). `tex=` is the part of the sword picture the bar
+uses, printed as numbers now: the gauge's window is one whole tier band, 88 columns wide, so the
+line reads `tex=0.0 280.0 88.0 304.0` in the top band and steps to `304.0 328.0` and `328.0 352.0`
+with the tiers. Match your screenshot to the line
 with the ratio you had at that moment.
+
+`copy state` and `bar state` are the copy and the bar as the game's own layout left them: the
+rectangle it computed (`rect=`), the rectangle it draws inside (`eff=`), the 16 numbers of the node's
+matrix (`mat=`), the node's position pair (`pos=`) and its authored size (`size=`). They are read at
+the mask's draw step, before the mod writes anything, so they are the game's answer to "where is this
+node, and how big does the game think it is". The copy's line is the one that says where the magenta
+blade landed; the bar's line beside it is the reference to compare it with.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published, the record count, and for the copy: `dim=0x...` its node, `dim_tex=0x...` the sprite it

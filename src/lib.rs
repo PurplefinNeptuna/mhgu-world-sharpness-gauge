@@ -97,22 +97,54 @@ pub extern "C" fn forge_onUpdate(delta: f32) {
         log::error!(concat!(
             "MSG ",
             env!("MSG_VERSION"),
-            " fill ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu} {tv} {tw} {th} bar_w={bw2} feed={feed}"
+            " fill ratio_bp={ratio} box={bl} {bt} {bw} {bh} bar={l} {t} {r} {b} eff={el} {et} {er} {eb} tex={tu:.1} {tv:.1} {tw:.1} {th:.1} bar_w={bw2} feed={feed}"
         ),
         ratio = cut[0],
         bl = cut[1] as i32, bt = cut[2] as i32, bw = cut[3] as i32, bh = cut[4] as i32,
         l = cut[5] as i32, t = cut[6] as i32, r = cut[7] as i32, b = cut[8] as i32,
         el = cut[9] as i32, et = cut[10] as i32, er = cut[11] as i32, eb = cut[12] as i32,
-        tu = cut[13] as i32, tv = cut[14] as i32, tw = cut[15] as i32, th = cut[16] as i32,
+        tu = f32::from_bits(cut[13]), tv = f32::from_bits(cut[14]),
+        tw = f32::from_bits(cut[15]), th = f32::from_bits(cut[16]),
         bw2 = cut[17] as i32, feed = cut[18] as i32);
-        let quad = insert::take_dim_quad();
-        log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
-            " fill copy rect={x} {y} {x2} {y2} pos={pos} authored={width}"
-        ),
-        x = quad[0] as i32, y = quad[1] as i32, x2 = quad[2] as i32, y2 = quad[3] as i32,
-        pos = quad[4] as i32, width = quad[5] as i32);
+    }
+    // What the game computed for the copy, read at the mask's enter before any write, and the same
+    // fields on the bar: its rectangle and effective rectangle as signed pixels, its 16-word matrix,
+    // its position pair and its authored pair as floats. This is the copy's placement as the layout
+    // left it, so a run answers "where did the copy land?" from the log.
+    if let Some(state) = insert::take_state() {
+        for (which, name) in [(0usize, "copy"), (1usize, "bar")] {
+            let words = &state[which * insert::STATE_WORDS..][..insert::STATE_WORDS];
+            let floats = |index: usize| f32::from_bits(words[index]);
+            let mut line = String::with_capacity(256);
+            let _ = write!(
+                line,
+                " rect={} {} {} {} eff={} {} {} {} mat",
+                words[0] as i32,
+                words[1] as i32,
+                words[2] as i32,
+                words[3] as i32,
+                words[4] as i32,
+                words[5] as i32,
+                words[6] as i32,
+                words[7] as i32
+            );
+            for word in &words[8..24] {
+                let _ = write!(line, " {:.1}", f32::from_bits(*word));
+            }
+            let _ = write!(
+                line,
+                " pos={:.1} {:.1} size={:.1} {:.1}",
+                floats(24),
+                floats(25),
+                floats(26),
+                floats(27)
+            );
+            log::error!(concat!(
+                "MSG ",
+                env!("MSG_VERSION"),
+                " {name} state:{line}"
+            ), name = name, line = line);
+        }
     }
     if let Some(reading) = gui::tick() {
         let words = reading.facts;

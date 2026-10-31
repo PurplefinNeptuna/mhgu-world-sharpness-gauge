@@ -1,3 +1,33 @@
+Current state: r52 DEVELOPMENT candidate, the plan's Phase 5, a forced-visibility candidate. The copy
+has never been seen where it was put, so r52 stops tuning geometry. The copy gets Key Quest Markers'
+complete badge recipe: the allocator slot and constructor it uses, the bar's `+0x50`/`+0x64`/`+0x74`/
+`+0x78`, the twelve style setters in its order with its values (`BlendState=1`, `ControlPoint=0`,
+`FixFrame=0`, `Mask=0`, `Priority=2`, `ReferencePosition=1`, `ReferenceRotation=1`,
+`ReferenceScaleX/Y/Z=3`, `Reverse=0`, `SamplerState=0`), then the `Texture` id last, then its atlas
+rectangle through `mTextureRect` (main+0xa4fb58) with a pointer to the bar's own live four floats.
+Then one set of forced values, written once at the build and never touched again: the bar's position
+pair with 32.0 added to y, the bar's own authored pair as its size (88.0 x 24.0), and opaque magenta
+`0xFFFF00FF` at all four corners, since the bar's own `0xff5efaff` decodes as yellow in AABBGGRR and
+magenta is a colour this gauge has none of. It stays the mask's sibling, so it draws after the mask's
+subtree and outside the scissor. Nothing is written to it per frame: the per-frame quad and the
+`fill copy` line are gone. In their place, the mask's enter reads the copy's game-computed state
+back, before any write, and the same fields on the bar: the rect at `+0xe0`, the effective rect at
+`+0xf0`, the 16-word matrix at `+0x10..+0x4c`, the position pair at `+0x80/+0x84` and the authored
+pair at `+0xb4/+0xb8`. The lines print on change, rate-limited, and floats print as floats; the cut
+line's `tex=` prints floats now too, which is what the words at `+0x10c` are.
+Prediction for the run: a magenta full-length blade, 32 units under the sharpness gauge, no pulse.
+The read-back values that confirm it: the copy's position pair at 284.0 / 256.0 on the measured bar
+(the bar's own pair with the drop), its authored pair at 88.0 / 24.0, its rect 88 wide and 24 tall
+where the earlier runs' rectangles came out 0 wide, its matrix's x row 1.0 like the bar's (so the
+authored 88 lands as 88 px), and its effective rect equal to its rect, because nothing clips it
+outside the mask. If the copy's rect reads 88x24 at that position and no magenta blade is on screen,
+the node is laid out and the gap is the draw path, so the next step is static research on the walker
+main+0xa494a0 for why a sibling of the scissor mask is not emitted - not another r53. 23 host
+fixtures pass; verify PASSED with 33 signature windows, the twelve setter windows Key Quest Markers
+verifies now checked here as well. Gameplay NOT RUN. The MT `color` word's byte order is unproven, so
+the magenta constant's alpha byte position is an inference.
+
+r51 DEVELOPMENT (2026-10-31), superseded by r52:
 Current state: r51 DEVELOPMENT candidate, the plan's Phase 5. The axis was mine, not the game's:
 the sprite's own record (PHASE0: `Txt_sharp`, Size 88x24, atlas `0,280,88,304`, with tier bands
 `0,304,88,328` orange and `0,328,88,352` red) says the blade's **length** runs along `u`, the sprite's
@@ -1956,6 +1986,37 @@ position. At the measured bar: 0% → rect 128..200 from column 12, 25% → 146.
 tip-end calibration and the row sampling by `v` are gone; the per-frame quad from r50 (position = the
 bar's position + the kept width, authored width = the hidden blade's width) stays, as does the quad
 log line.
+
+## r52, built 2026-10-31: the complete badge recipe, forced values, and the read-back
+
+Two records decide this build. The `+0x10c` window words are floats, so the log's
+`1133248512 1118830592 1134034944` is `[0, 280, 88, 304]`, a whole tier band: reading them as
+integers is what put r47's copy at v ≈ 1.13e9, and `dim_flags=0x20a0001` is main+0xa4d0d8's own
+field write, not a drawing signal. Geometry tuning has had five candidates with none of it seen, so
+r52 changes the question to "can this node draw at all, and where does the game put it".
+
+Construction is Key Quest Markers' `create()` field by field: the DTI allocator's slot 0x20 with the
+DTI id, 304 zeroed words, constructor main+0xa4f60c, then its identity/ownership words, its authored
+pair, its flags, its twelve style setters in its order with its values through the two-integer ABI,
+its `Texture` id through main+0xa4faf0, and its atlas rectangle through main+0xa4fb58 given a pointer
+to the bar's own live four floats. Nothing of the recipe is skipped.
+
+Forced values, written once and never again: the copy's position pair is the bar's live pair with
+core's `DIM_DROP` 32.0 on y; its authored pair is the bar's (88.0 x 24.0); its four corner colours
+are opaque magenta `0xFFFF00FF`. It is linked where r51 links it, as the mask's sibling. No enter
+handler writes to it: `write_dim` and the `fill copy` line are deleted.
+
+The read-back replaces them. `read_state` takes the copy's and the bar's rect at `+0xe0`, effective
+rect at `+0xf0`, 16-word matrix at `+0x10..+0x4c`, position pair and authored pair, at the mask's
+enter before any write, so what prints is the layout's own output for the previous frame. It queues
+on change, at most once per 30 update ticks, and `forge_onUpdate` prints `copy state ...` and
+`bar state ...` with the floats as floats.
+
+What the run has to answer: a magenta full-length blade 32 units under the gauge with no pulse. The
+read-back that confirms it on the measured bar: `pos=284.0 256.0`, `size=88.0 24.0`, the rect 88 by
+24, the matrix's x row 1.0, and the effective rect equal to the rect. If those land and the blade is
+not on screen, the node is laid out and the gap is in the draw path: back to the walker
+main+0xa494a0 for why a sibling of the scissor mask is not emitted, not a new candidate.
 
 ## Rules to keep
 
