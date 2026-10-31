@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r47",
+  "version": "r48",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -73,9 +73,9 @@
     }
   },
   "build": {
-    "version": "r47",
+    "version": "r48",
     "status": "BUILT",
-    "nro_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
+    "nro_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -87,14 +87,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "ad85516664a16cff8f2738ed05db89436027259e001c5d6d71c648f29fe05b42",
+      "src/insert.rs": "5f29d8df3bbd923bff51eb42e0986257a3b523026ddfbe054b2cb068c2c3b655",
       "src/lib.rs": "3834e5487ce76e52748ead46a80bf164de9167939dfbb4a18d8f496f5167a1b4",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "d6105673cbc7d718323c4932c08f214448370fcec7b48e65a563a2f2c5c91397",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "a3f6d741ca3c9b0f3dbd3804a7dd0efdcd6cadec00f9249d9ccc3388cb00acf8",
-      "core/tests/behavior.rs": "e8de0cf043115c619f27a5f90e8e97ddcf2efa856a83097f22e06cd4a11032c5",
+      "core/src/lib.rs": "438ba64c8cecb6934e9b70a15722d8b0fb510ff4519d68b941f00643cae667cf",
+      "core/tests/behavior.rs": "597bf46723de6376db5a3f9945744fd032733b4e9aff49b9a7f56727e8f7414a",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -102,8 +102,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
-    "elf_sha256": "f2c46a9ce641234684889ecbd5727df1f92fc3c9b83304fbc470a11d495a487c",
+    "nro_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
+    "elf_sha256": "af97f6e3410726e1bca60f16d5e99da83edecbe640452179c28048ed94bf1410",
     "exports": [
       "fini",
       "forge_onInit",
@@ -199,7 +199,7 @@
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and its scaling with the bar rect, the box's linearity and its bounds, the sample's named slots, the dim blade's rect/atlas at four ratios and on a 64 px rect, the 5-node tree's node count, 6-entry array, 11/9 record sequences and 88-byte draw area, the walker plan, cache sizing and object-array sizing.",
-    "nro_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0"
+    "nro_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd"
   },
   "runs": [
     {
@@ -862,6 +862,18 @@
       "observed": "76 lines from this mod, no freeze and no guest fault. 68 cut lines with the accepted endpoints (box=110 32 90 32 at 10000 bp down to box=110 32 18 32 at 0, bar rect 110 38 238 166, feed=128), one insertion 'records=9 dim=0x0', one 'dim blade not added at stage 52', one links-lost teardown at an area change. The tester saw no second copy behind the shorter gauge: the additive path hides the copy, so the gauge is exactly the accepted look.",
       "root_cause": "The texture resolve ran before the fields. main+0xa4faf0 returns early with +0x100 = -1 and +0x104 = 0 when the object's resource at +0x78 is 0, and the block was freshly zeroed, so the check on +0x104 failed and stage 52 dropped the node. The resolve also needs *(obj+0x64)+0xe8 (main+0xb80fd0): the class constructor zeroes +0x64, so the copy has to be given the bar's.",
       "fixed_in": "r47"
+    },
+    {
+      "date": "2026-10-31",
+      "version": "r47",
+      "emulator": "Eden Development (user run)",
+      "status": "DRAWN_WITH_WRONG_SPRITE_WINDOW",
+      "binary_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
+      "log": "work/modern-sharpness-gauge/runs/r47-eden-2026-10-31.txt",
+      "log_sha256": "dc17611a502e834c7ebbcb07ea22438f053e084559a328dc6cf24fc9f176d08d",
+      "observed": "48 lines, no fault. 'scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001' - the copy exists, resolved its texture, and is visible and drawable. The tester photographed a noisy dark band to the right of the bar: the copy draws in the right place with the wrong content.",
+      "root_cause": "The bar draws the blade as a window in the atlas v: the same bar reads tex=0 156 87 440 at full sharpness and tex=0 440 87 512 at 44%, with u fixed at 0..87. r47 built its copy's window in u (the cut's fraction of the 88 columns) and copied the bar's v pair, so it sliced ~284 sheet rows sideways into a 38 px strip.",
+      "fixed_in": "r48"
     }
   ],
   "not_proven": [
@@ -893,7 +905,7 @@
     "The thread that runs the draw walker at main+0xa494a0, and therefore the thread the insertion's tree write races against, is unproven: no bl site, stored word or DTI property in main names that entry. Recorded as an open item in DEVELOPMENT.md.",
     "Resolved at r44's Eden run (2026-10-30): the tester played with the MHGU HD Project mod on and reported the cut where r43 put it, and the log shows the gauge row's bar rect 110 38 238 166, the same 128 px rect as the accepted runs. The pair is accepted with HD active too.",
     "Whether the dim copy reads correctly under the glow's edge, and whether the strip past the tip at full sharpness is invisible as intended, are screenshot questions.",
-    "the dim blade on screen: r45 froze the game, r46 refused the copy at stage 52, r47 has not been run",
+    "the dim blade reading as a blade: r47's copy drew as a noisy strip (the sprite's length axis is v, not u), r48 has not been run",
     "the MT color word's byte order: the flat dark grey's alpha byte position is an inference",
     "that the copy reads correctly under the glow's edge"
   ],

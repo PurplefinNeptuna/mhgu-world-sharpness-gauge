@@ -86,6 +86,21 @@ const TEX_TEXTURE_ID: u32 = 0x100; // the DTI setter's texture id
 const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from that id
 static DIM: AtomicU32 = AtomicU32::new(0);
 
+/// The atlas window of a node, in float pixels: the bar's live blade window is a pair of `v`
+/// rows, and the copy's window has to be read and written the same way.
+fn window_at(node: u32, offset: u32) -> [f32; 4] {
+    let mut out = [0.0f32; 4];
+    for edge in 0..4 {
+        out[edge] = f32::from_bits(memory::word(node + offset + edge as u32 * 4).unwrap_or(0));
+    }
+    out
+}
+
+/// The blade strip's tip end: the smallest `v1` the bar has been seen drawing, which is its
+/// window at full sharpness. f32::MAX means no sample yet, so no copy is drawn. Read on the GUI thread
+/// and read by the same thread's callback, so a relaxed pair is enough.
+static TIP_V: AtomicU32 = AtomicU32::new(const { f32::MAX.to_bits() });
+
 /// Times the enter hook found the mask's links gone: the count the log prints, and the only
 /// teardown signal this build can prove (the root destructor hook has fired zero times).
 static MISSES: AtomicU32 = AtomicU32::new(0);
@@ -129,7 +144,7 @@ pub fn take_cut_line() -> Option<[u32; CUT_WORDS]> {
     Some(out)
 }
 
-/// The four words of one rectangle field on a node.
+/// The four words of a rectangle field as signed pixels (the bar's screen rect).
 fn rect_at(node: u32, offset: u32) -> [i32; 4] {
     let mut out = [0i32; 4];
     for edge in 0..4 {
@@ -349,7 +364,7 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     // The bar's own geometry as float bits, read raw: the authored pair and the atlas rectangle.
     let (authored, atlas, rect) = (
         rect_at(bar, TEX_AUTHORED),
-        rect_at(bar, NODE_TEXTURE_RECT),
+        window_at(bar, NODE_TEXTURE_RECT),
         rect_at(bar, NODE_RECT),
     );
     let allocator = Allocator::find("cGUIObjTexture").ok_or(50u32)?;
@@ -394,10 +409,7 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
             memory::write_word(node + TEX_FLAGS, flags | DRAWABLE_AND_DIRTY)
         })
         && (0..4usize).all(|edge| {
-            memory::write_word(
-                node + NODE_TEXTURE_RECT + edge as u32 * 4,
-                (atlas[edge] as f32).to_bits(),
-            )
+            memory::write_word(node + NODE_TEXTURE_RECT + edge as u32 * 4, atlas[edge].to_bits())
         })
         && (0..4usize).all(|corner| {
             memory::write_word(node + TEX_COLOURS + corner as u32 * 4, DIM_COLOUR)
@@ -413,24 +425,26 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the dim blade's rectangle and atlas for this frame's cut. It starts where the kept part
-/// ends and runs to the bar rect's right edge, with the atlas `u` at the same fraction of the
-/// authored 88 columns, so the copy keeps the blade's scale. The rectangle is signed pixels and
-/// the atlas rectangle is float pixels, which is how the bar's own pair reads live
-/// (`tex=0 156 87 440`). With no valid gauge the width is zero and nothing is drawn, which is the
-/// accepted shipped appearance.
-fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32) {
-    let atlas = rect_at(dim, NODE_TEXTURE_RECT);
-    let (box_rect, box_atlas) = if ratio_bp == u32::MAX {
-        ([rect[0], rect[1], rect[0], rect[3]], atlas)
+/// Write the dim blade's screen rect and atlas window for this frame's cut: the sprite rows the
+/// bar is not drawing, from the cut's right edge to the tip's screen position. The rect is signed
+/// pixels and the window is float pixels, which is how the bar's own pair reads live. With no
+/// valid gauge, no hidden blade, or no tip-end sample yet, the width is 0 and nothing is drawn,
+/// which is the accepted shipped appearance.
+fn write_dim(dim: u32, rect: [i32; 4], ratio_bp: u32, bar_window: [f32; 4]) {
+    let tip_v = f32::from_bits(TIP_V.load(Ordering::Relaxed));
+    let (box_rect, box_window) = if ratio_bp == u32::MAX {
+        (
+            [rect[0], rect[1], rect[0], rect[3]],
+            bar_window,
+        )
     } else {
-        dim_shape(rect, ratio_bp, atlas)
+        dim_shape(rect, ratio_bp, bar_window, tip_v)
     };
     for edge in 0..4usize {
         let _ = memory::write_word(dim + NODE_RECT + edge as u32 * 4, box_rect[edge] as u32);
         let _ = memory::write_word(
             dim + NODE_TEXTURE_RECT + edge as u32 * 4,
-            (box_atlas[edge] as f32).to_bits(),
+            box_window[edge].to_bits(),
         );
     }
 }
@@ -493,7 +507,7 @@ pub fn enter(mask: u32) {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the copy is hidden to width 0, the accepted appearance.
             if dim != 0 {
-                write_dim(dim, rect_at(bar, NODE_RECT), u32::MAX);
+                write_dim(dim, rect_at(bar, NODE_RECT), u32::MAX, window_at(bar, NODE_TEXTURE_RECT));
             }
             return;
         }
@@ -570,7 +584,14 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
     if dim != 0 {
-        write_dim(dim, rect, ratio);
+        let window = window_at(bar, NODE_TEXTURE_RECT);
+        // The tip end of the sprite's blade strip is the smallest v1 the bar draws, and that is
+        // its window at full sharpness: the first full-sharpness frame of the row calibrates it.
+        let tip = f32::from_bits(TIP_V.load(Ordering::Relaxed));
+        if window[1].is_finite() && (tip == f32::MAX || window[1] < tip) {
+            TIP_V.store(window[1].to_bits(), Ordering::Relaxed);
+        }
+        write_dim(dim, rect, ratio, window);
     }
 }
 

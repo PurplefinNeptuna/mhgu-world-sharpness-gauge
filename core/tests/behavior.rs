@@ -599,33 +599,34 @@ fn the_box_endpoints_are_linear_and_never_leave_the_rect() {
 }
 
 #[test]
-fn the_dim_blade_covers_the_cut_part_at_the_right_scale() {
-    // Phase 5: the copy of the blade starts where the kept part ends, runs to the bar rect's
-    // right edge, and its atlas `u` is the same fraction of the authored 88 columns, so the
-    // sprite is not squeezed into the empty part.
+fn the_dim_blade_shows_the_hidden_part_of_the_strip() {
+    // The bar's atlas window is the blade's length along v, and it slides with sharpness: the
+    // live bar reads tex=0 156 87 440 at full sharpness and tex=0 440 87 512 at 44%. The hidden
+    // blade is the sprite's v from the tip end down to the bar's current v1, drawn from the cut's
+    // right edge to where the tip sits at full sharpness (110 + 90 = 200 on the measured bar).
     let bar = [110, 38, 238, 166];
-    let atlas = [0, 280, 88, 304];
-    for (ratio, left, column) in [
-        (0u32, 128, 12),
-        (2_500, 146, 24),
-        (5_000, 164, 37),
-        (10_000, 200, 61),
+    let window_at = |v1: f32| [0.0f32, v1, 87.0, 440.0];
+    for (ratio, v1, left, right) in [
+        (10_000u32, 156.0f32, 200, 200),
+        (5_000, 298.0, 164, 200),
+        (2_500, 369.0, 146, 200),
+        (0, 512.0, 128, 200),
     ] {
-        let (rect, atlas_out) = dim_shape(bar, ratio, atlas);
-        assert_eq!((rect[0], rect[1], rect[2], rect[3]), (left, 38, 238, 166));
-        assert_eq!((atlas_out[0], atlas_out[1], atlas_out[2], atlas_out[3]), (column, 280, 88, 304));
+        let (rect, hidden) = dim_shape(bar, ratio, window_at(v1), 156.0);
+        assert_eq!((rect[0], rect[1], rect[2], rect[3]), (left, 38, right, 166));
+        let v0 = if right > left { 156.0 } else { v1 };
+        assert_eq!((hidden[0], hidden[1], hidden[2], hidden[3]), (0.0, v0, 87.0, v1));
     }
-    // The scaling keeps working on other rect widths: a 64 px bar cuts at 9 px, so the copy
-    // starts 9 px in and its atlas u is the same 12/128 fraction of the columns.
+    // No tip-end sample yet (the first frames of a quest, before any full-sharpness read): the
+    // copy draws nothing, which is the accepted appearance, not a guess at the sprite.
+    let (rect, _) = dim_shape(bar, 5_000, window_at(298.0), f32::MAX);
+    assert_eq!(rect[2] - rect[0], 0);
+    // The fractions hold on other rect widths: a 64 px bar cuts at 9 px and its tip is at 45 px,
+    // so the copy runs 119..155 with the same sprite rows.
     let half = [110, 38, 174, 166];
-    let (rect, atlas_out) = dim_shape(half, 0, atlas);
-    assert_eq!((rect[0], rect[2], atlas_out[0]), (119, 174, 12));
-    // At 100% the copy is the strip past the tip, where the sprite has no ink, and at 0% it is
-    // the whole blade: the widths are 38 px and 110 px on the measured bar.
-    assert_eq!(dim_shape(bar, 10_000, atlas).0[2] - dim_shape(bar, 10_000, atlas).0[0], 38);
-    assert_eq!(dim_shape(bar, 0, atlas).0[2] - dim_shape(bar, 0, atlas).0[0], 110);
+    let (rect, hidden) = dim_shape(half, 0, window_at(298.0), 156.0);
+    assert_eq!((rect[0], rect[2], hidden[1], hidden[3]), (119, 155, 156.0, 298.0));
 }
-
 #[test]
 fn a_second_node_fits_the_grown_tree_exactly() {
     // The dim blade is the mask's sibling on the root's chain, so the row carries five nodes:

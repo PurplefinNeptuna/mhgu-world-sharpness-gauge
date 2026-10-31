@@ -23,14 +23,14 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r47-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r48-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r47`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r48`
 should be listed.
 
 ## Usage

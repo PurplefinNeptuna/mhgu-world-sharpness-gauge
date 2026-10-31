@@ -3,12 +3,12 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r47
+## What to check on r48
 
-r47 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
-copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into both quest launches and r46 refused to add the copy at all
-(`dim=0x0`, `dim blade not added at stage 52`): this is the second attempt, so report what the log
-says about the copy, not only what the screen shows. The accepted cut itself is
+r48 adds the plan's Phase 5: the dulled part of the blade, past the cut, is drawn as a second
+copy of the sprite in a flat dark colour, with no glow and no pulse. r45 froze the game five seconds into a quest, r46 refused to add the copy, and r47's copy drew in
+the right place with the sprite sliced the wrong way (a noisy dark band). This is the third attempt:
+report both what you see and the `dim=`, `dim_tex=` and `dim_flags=` words on the insertion line. The accepted cut itself is
 unchanged from r44, and its box maths is identical on the bar's measured 110..238 rect (128 px):
 rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%. What to look at:
 
@@ -70,7 +70,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r47`.
+lines that matter start with `MSG r48`.
 
 ## The log lines
 

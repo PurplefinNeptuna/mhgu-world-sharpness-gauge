@@ -40,6 +40,10 @@ pub const SHARPNESS_TYPE: u32 = 5_104;
 // not part of the identity. The gauge identity tuple is identical in every
 // inspected language archive and in the HD copy, so identification never uses
 // names, strings or a language prefix.
+/// A full gauge, in the basis points `basis_points` returns: the tip's screen position is
+/// the cut box's width here, and the hidden blade is everything past it.
+pub const FULL_SHARPNESS_BP: u32 = 10_000;
+
 pub const SHARP_ANIMATION: u32 = 4;
 pub const SHARP_OBJECTS: u32 = 4;
 pub const SHARP_FIRST_OBJECT: u32 = 29;
@@ -193,23 +197,31 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
     ]
 }
 
-/// The blade sprite is authored 88 columns wide and drawn across the bar rect's live width, so
-/// one column is rect width / 88 screen px.
-pub const SPRITE_COLUMNS: i32 = 88;
-
-/// The dim blade of the plan's Phase 5: the sprite's columns from the cut's right edge to the
-/// authored right edge, drawn where they would be uncut. Returns the screen rect and the atlas
-/// `u` for that copy. The rect starts where the kept part ends and ends at the bar rect's right
-/// edge; the atlas `u` is the same fraction of the authored 88 columns, so the copy shows the
-/// blade's remaining columns at the right scale instead of squeezing the whole sprite into the
-/// empty part. At 100% it is the strip past the tip, where the sprite has no ink.
-pub fn dim_shape(rect: [i32; 4], ratio_bp: u32, atlas: [i32; 4]) -> ([i32; 4], [i32; 4]) {
-    let width = (rect[2] - rect[0]).max(1);
-    let box_ = cut_box(rect, ratio_bp);
-    let left = (rect[0] + box_[2]).min(rect[2]);
+/// The dim blade of the plan's Phase 5: the part of the blade the cut hides, drawn where it would
+/// be if it were there. Returns its screen rect and its atlas window.
+///
+/// The gauge's sprite window is the blade's *length* along the atlas `v`, and it slides: the live
+/// bar reads `tex=0 156 87 440` at full sharpness and `tex=0 440 87 512` at 44%, so the drawn
+/// window is `[v1, v2]` with `v1` rising toward the hilt as sharpness drops. The hidden part is
+/// therefore the sprite's `v` from the blade's tip end down to the bar's current `v1`, and its
+/// screen place is from the cut's right edge to where the tip sits at full sharpness. `u` stays
+/// the bar's own `u` pair, which is the sprite's width.
+///
+/// `atlas` is the bar's live window `[u1, v1, u2, v2]` in float pixels and `tip_v` the smallest
+/// `v1` seen from the bar, that is the tip end of the sprite's blade strip. A 100% cut leaves no
+/// hidden blade, and an uncalibrated `tip_v` (no full-sharpness sample yet) draws nothing.
+pub fn dim_shape(rect: [i32; 4], ratio_bp: u32, atlas: [f32; 4], tip_v: f32) -> ([i32; 4], [f32; 4]) {
+    let left = rect[0] + cut_box(rect, ratio_bp)[2];
+    let tip = rect[0] + cut_box(rect, FULL_SHARPNESS_BP)[2];
+    let hidden = tip > left && tip_v.is_finite() && atlas[1].is_finite() && tip_v < atlas[1];
     (
-        [left, rect[1], rect[2], rect[3]],
-        [box_[2] * SPRITE_COLUMNS / width, atlas[1], atlas[2], atlas[3]],
+        [left, rect[1], if hidden { tip } else { left }, rect[3]],
+        [
+            atlas[0],
+            if hidden { tip_v } else { atlas[1] },
+            atlas[2],
+            atlas[1],
+        ],
     )
 }
 
