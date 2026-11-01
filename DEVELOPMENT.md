@@ -1,35 +1,53 @@
-Current state: r61 DEVELOPMENT candidate, the plan's Phase 5. The accepted shape is r59's, unchanged:
+Current state: r62 DEVELOPMENT candidate, the plan's Phase 5. The accepted shape is r59's, unchanged:
 mask as the controller's first child over bar, glow and edge, `core::dim_box` for the box per frame, the
 shade as the mask's sibling (one clip mask with the copy as its child), `#202326` = `0xFF262320`, the
-clip mask carrying bit 17, the copy carrying the bar's sampler. r61 changes the copy's atlas window: its
-`u` pair is the columns of the bar's live band that the shade box covers.
+clip mask carrying bit 17, the copy carrying the bar's sampler, and r59's geometry for the copy's atlas
+window - the bar's own four floats, `u` = `0..88` and `v` = the live tier band. What r62 changes is how
+those floats reach the screen: `write_shade` calls the `mTextureRect` setter (main+0xa4fb58) with
+`bar + 0x10c` every frame, where r59, r60 and r61 wrote the copy's `+0x10c` by hand.
 
-The copy is the clip mask's child, so the mask's authored pair scales it: the copy's authored 88 columns
-land in the box's pixels and the window's `u` pair is stretched with them. With `u` at `0..88` - what r59
-and r60 wrote - the whole blade is squeezed into the box, the tip slope (atlas columns 70..86) is
-compressed into the box's last pixels and the tier frames' 2 px notch cut-ins collapse. That is the
-unworn blade the tester reported at every tier: measured on his crops of 2026-11-01
-(`visual/r60/r60-1.webp`, `r60-2.webp`, and the r59 crops for the same tiers), the dark part's bottom
-outline is flat at atlas row 18.5 for the box's width, then rises to 13 and 7 in the last 12 px of the
-71 px box. It matches the squeezed mapping of the full window and not the bar's own 1:1 columns. r59 and
-r60 both wrote `v` only, so the shape never changed; the r60 log proves the write lands
-(`shade_tex=0.0 280.0 88.0 304.0` on all 73 fill lines) and that the window is not the lever by itself.
+The requirement is the tester's, from the r60 report: "r59 and r60 both failed to shown worn blade for
+orange or red color sharpness" - the shade must draw the bar's CURRENT tier frame, the worn blade at
+orange and red, exactly like the kept part. The r60 task text ("the shade always draws the unworn blade")
+had it backwards, so that wording is withdrawn and `core::UNWORN_TEXTURE_RECT`, which was built from it,
+is deleted.
 
-`core::shade_window(rect, ratio_bp, band, authored)` returns `[box_left_column, band top,
-box_right_column, band bottom]`: the columns come from `dim_box`'s edges divided by the bar's own
-rect/authored scale, so on the measured bar it is `12.4..61.9` at 0% and `61.9..61.9` at 100%, and the u
-span times the bar's scale is the box's width. `write_shade` writes it per frame into the copy's
-`+0x10c` and into `SHADE_WINDOW`, the four words the `mTextureRect` setter (main+0xa4fb58) is given a
-pointer to at build, seeded with the bar's live band so the first frame is a real window. `v` is the
-bar's live band, as in r59, so the copy draws the tier's own frame at the bar's scale.
+The raw writes could not work because the drawn quad's UVs are a cache. The texture's draw slot
+main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner colours
+from `+0xa4` only when `(global+0x98 & (node+0xc0 >> 24) & 7)` is nonzero, and clears those `+0xc0` bits
+afterwards. The only writer of the `+0xc0` bits 24..26 is vtable slot 0x50 (main+0xa4fc68, `bfi r1, r3,
+#24, #3`). The setter is the path to it: it returns at once when the four floats already match, and on a
+change it stores them at `+0x10c`, calls slot 0x28 when `+0x108 & 0x30`, and tail-calls slot 0x50
+unconditionally. So a raw write marks nothing, and the copy keeps drawing the window its quad was built
+with - the band in `+0x10c` on its first draws after the build, which is yellow `0.0 280.0 88.0 304.0`.
+That is what the three versions' logs show: the r60 run's 73 fill lines all read
+`shade_tex=0.0 280.0 88.0 304.0` while the bar's own `tex=` played all three bands, and the r57 run's
+copy carried `0.0 280.0 88.0 304.0` down to `ratio_bp=6000` and then `0.0 304.0 88.0 328.0` from 5800
+only because r57 wrote no window at all after the build. `PHASE5_RESEARCH.md` records the three facts
+with their addresses, read from the bytes and the decompiles.
+
+r61 (52be4a7) is WITHDRAWN: packaged, never run, do not ship. Its premise and r58's - that the clip
+mask's authored pair squeezes the copy's 88 columns into the box, so the window's `u` pair has to carry
+the box's columns - is refuted: the copy is clipped by the box at 1:1, the orange photos show no spiral
+inside the dark part at half sharpness, and the `u` pair stays `0..88`. `core::shade_window`,
+`core::UNWORN_TEXTURE_RECT` and insert's `SHADE_WINDOW` are deleted with those premises.
 
 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits
-exactly 13. 24 host fixtures pass; verify PASSED with 33 signature windows; distribution check PASS. The
-fill line keeps `tex=`, `bar_w=`, `feed=` and `shade_box=`, and `shade_tex=` now reads the per-frame
-window. r61 Gameplay NOT RUN. Candidate
-`build/modern-sharpness-gauge/candidates/r61/delivery/modern-sharpness-gauge-r61-candidate.zip` sha256
-`e9f1af62902f4fba7d3404eaa452f9278764f22ad30568af135fc645442526db`, payload NRO
-`fd90862d908e579d68c25df22a2b7cf9804c39be7ab915cd01eb3fb804326488`.
+exactly 13. 23 host fixtures pass, verify PASSED with 33 signature windows, distribution check PASS. No
+host fixture is possible for the change r62 makes: the vertex cache is game code, and the host suite has
+no game - the instruments are the fill line's `shade_tex=` and the crops. The fill line keeps `tex=`,
+`bar_w=`, `feed=`, `shade_box=` and `shade_tex=` (the copy's `+0x10c` as floats). r62 Gameplay NOT RUN.
+Candidate
+`build/modern-sharpness-gauge/candidates/r62/delivery/modern-sharpness-gauge-r62-candidate.zip` sha256
+`34673e6f81f3c5124278954613835e5c3924cc71b646a630c762141760931df8`, payload NRO
+`51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`.
+
+r61 DEVELOPMENT (2026-11-01), withdrawn unrun, kept for its record: it wrote the window's `u` pair as
+the columns the box covers (`core::shade_window`, `12.4..61.9` at 0% on the measured 128 px bar) and
+handed the setter a pointer to a static `SHADE_WINDOW` array, on the squeeze premise above. Its
+`shade_tex=` read-back was the instrument that proved the window write lands, and it is what showed the
+window moving while the shape did not. 24 host fixtures passed then; the r62 change is the one the cache
+facts call for.
 
 r60 DEVELOPMENT (2026-11-01), RUN on Eden the same day and REJECTED: "still not changed", "r59 and r60
 both failed to shown worn blade for orange or red color sharpness". It wrote core's
@@ -48,6 +66,16 @@ is r60's packaged payload; no fault in the log. The crops `visual/r60/r60-1.webp
 the r59 crops, which is what refuted the axis: the shape is set by the window's `u` pair under the mask's
 scale, not by the band `v`. Candidate sha256
 `2c51ae62dfdd9cba3669c1465abceb18d0e0385ae4f9ca7fa06a64165cc48c50`, superseded by r61.
+
+Two readings of that run are corrected here. The requirement r60 was built to is the tester's words above
+- the shade showing the bar's current tier frame, the worn blade at orange and red - and the r60 task
+text's wording, "the shade always draws the unworn blade", had it backwards: r60 was built to draw a
+fixed frame, and the fix is the live tier frame. The crops' outline, read as a squeezed 88-column window,
+is likewise refuted: the copy is clipped by the box at 1:1, the orange crops show no spiral inside the
+dark part at half sharpness, and what r59 and r60 actually drew is the band that was in the copy's
+`+0x10c` when its quad was first built (yellow, `0.0 280.0 88.0 304.0`), because their raw writes marked
+nothing dirty in the vertex cache. See `work/modern-sharpness-gauge/PHASE5_RESEARCH.md` for the three
+facts and their addresses.
 
 r59 DEVELOPMENT (2026-10-31), ACCEPTED by the user on 2026-11-01 ("r59 works well") from its Eden run:
 the shadow composed with the gauge row's transform and drawn with the bar's own sampler. Its Eden log

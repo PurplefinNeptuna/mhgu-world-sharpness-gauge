@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     basis_points, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
-    mask_box, read_gauge, sample_controller, scan_walk, shade_window, span_box,
+    mask_box, read_gauge, sample_controller, scan_walk, span_box,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
     MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
@@ -632,36 +632,6 @@ fn the_shade_box_and_its_clip_width_follow_the_cut() {
     assert_eq!(dim_box(wide, 10_000)[2], 218);
     assert_eq!(dim_box(wide, 10_000)[0], 218);
     assert!(dim_box(wide, 10_000)[2] <= wide[2]);
-}
-
-#[test]
-fn the_shade_window_carries_the_box_columns_of_the_bar_band() {
-    // The crops of 2026-11-01, r59 and r60 at yellow, orange and red: with the window's u pair at
-    // 0..88 the shade's bottom outline measured flat at atlas row 18.5 with the tip slope
-    // (columns 70..86) compressed into the last 12 px of a 71 px box - the whole blade squeezed into
-    // the box, which is why it read as the unworn blade at every tier. The window's u pair is
-    // therefore the columns the box covers, on the bar's live band.
-    let rect = [110, 38, 238, 166];
-    let authored = [88.0f32, 24.0];
-    let ratios = [0u32, 2500, 5000, 7500, 10_000];
-    for band in [[0.0f32, 328.0, 88.0, 352.0], [0.0, 304.0, 88.0, 328.0], [0.0, 280.0, 88.0, 304.0]] {
-        for bp in ratios {
-            let w = shade_window(rect, bp, band, authored);
-            let box_words = dim_box(rect, bp);
-            assert_eq!([w[1], w[3]], [band[1], band[3]], "v is the bar's live band at {bp}");
-            assert_eq!(
-                (w[2] - w[0]) * 128.0 / 88.0,
-                (box_words[2] - box_words[0]) as f32,
-                "the u span at the bar's scale is the box's width at {bp} on {band:?}"
-            );
-            assert_eq!(w[0], (box_words[0] - 110) as f32 * 88.0 / 128.0, "the box's left column");
-        }
-    }
-    let at0 = shade_window(rect, 0, [0.0, 328.0, 88.0, 352.0], authored);
-    assert!(
-        (at0[0] - 12.375).abs() < 1e-5 && (at0[2] - 61.875).abs() < 1e-5,
-        "18 px in from the bar's left is column 12.375 and the full-sharpness edge is 61.875: {at0:?}"
-    );
 }
 
 #[test]

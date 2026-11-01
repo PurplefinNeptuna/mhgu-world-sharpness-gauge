@@ -26,7 +26,7 @@ use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
     basis_points, cut_box, dim_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
-    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, shade_window,
+    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -95,8 +95,10 @@ const STYLE_SETTERS: [(u32, u32); 12] = [
     (0xa4fa5c, 0), // SamplerState, replaced by the bar's live low nibble in build_dim
 ];
 /// The `mTextureRect` setter (main+0xa4fb58): `(object, *const f32[4])`. It returns at once when
-/// the four words already match, and otherwise copies the four floats in and, when the flag byte
-/// at +0x108 has bits 4/5 set, calls the class's vtable slot 0x28.
+/// the four floats already match. Otherwise it copies the four floats into `+0x10c`, calls the
+/// class's vtable slot 0x28 when the flag byte at +0x108 has bits 4/5 set, and always tail-calls
+/// slot 0x50 (main+0xa4fc68) - the only writer of the +0xc0 bits 24..26, the vertex cache dirty
+/// mark the draw slot reads (core's `NODE_TEXTURE_RECT`).
 const TEXTURE_RECT_SETTER: u32 = 0xa4fb58;
 const TEXTURE_SIZE: u32 = 304;
 const TEXTURE_CTOR: u32 = 0xa4f60c;
@@ -132,11 +134,6 @@ const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from th
 /// The style byte the `SamplerState` setter (main+0xa4fa5c) writes its value into, low nibble, and
 /// whose bits 4/5 the `mTextureRect` setter tests. The bar's own value is what its draw filters with.
 const TEX_SAMPLER: u32 = 0x108;
-/// The shade copy's atlas window, in static storage: the `mTextureRect` setter takes a pointer to
-/// four floats and the copy has no authored source in game memory to point at. An `AtomicU32` is one
-/// `u32`, so this array has the layout of four floats. `write_shade` writes it every frame before the
-/// copy draws; the fill line prints what the copy drew with.
-static SHADE_WINDOW: [AtomicU32; 4] = const { [const { AtomicU32::new(0) }; 4] };
 static DIM: AtomicU32 = AtomicU32::new(0);
 /// The shade's clip mask node, 0 when the shade has no clip.
 static CLIP: AtomicU32 = AtomicU32::new(0);
@@ -498,16 +495,10 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     // Constructed: the native destructor owns the block from here. A failure calls the
     // destructor and never the allocator's free - the destructor frees through this allocator.
     let owned = memory::method(node, 0x04);
-    // The copy's first window: the bar's own live band. Every frame after this writes the box's
-    // columns into `SHADE_WINDOW` at the mask's enter, before the copy draws.
-    let seed = window_at(bar, NODE_TEXTURE_RECT);
-    for (edge, value) in seed.iter().enumerate() {
-        SHADE_WINDOW[edge].store(value.to_bits(), Ordering::Relaxed);
-    }
     // The Key Quest Markers order: identity and ownership, the quad, the flags, the style setters,
     // the colours, the texture id last (its first test is the resource at +0x78, so it runs after
-    // that word is written), then the atlas rectangle through its setter, with a pointer to
-    // `SHADE_WINDOW`.
+    // that word is written), then the atlas rectangle through its setter, given the bar's own four
+    // floats at `+0x10c` so the copy starts on the band the bar is drawing.
     let ready = memory::write_word(node + TEX_MID, DIM_MARKER)
         && memory::write_word(node + TEX_GUI, gui)
         && memory::write_word(node + TEX_OWNER, owner)
@@ -536,12 +527,7 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         })
         && memory::call2(base() + TEXTURE_SETTER, node, texture)
             .is_some_and(|_| memory::word(node + TEX_TEXTURE_OBJECT).is_some_and(|p| p != 0))
-        && memory::call2(
-            base() + TEXTURE_RECT_SETTER,
-            node,
-            &SHADE_WINDOW as *const [AtomicU32; 4] as u32,
-        )
-        .is_some();
+        && memory::call2(base() + TEXTURE_RECT_SETTER, node, bar + NODE_TEXTURE_RECT).is_some();
     if !ready {
         if let Some(destructor) = owned {
             let _ = memory::call1(destructor, node);
@@ -554,25 +540,26 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
 /// Write the shade for this frame's cut. The clip mask's translation (`+0x40/+0x44`) is the shade
 /// box's left edge and the bar rect's top, and its authored pair (`+0xa8/+0xac`) is the box's width
 /// and height, so the box it builds spans the part of the blade past the cut, and the copy drawn
-/// inside it is clipped to that. The mask's authored pair scales the copy under it, so the copy's
-/// window `u` pair is the columns the box covers: `core::shade_window` takes them from the box and
-/// the bar's own authored width, and `v` is the bar's live tier band. The copy's own quad, rect and
-/// flags are not touched: its rect is the bar's layout's output, and a node's rect does not gate its
-/// drawing - the scissor box is.
+/// inside it is clipped to that. The copy's atlas window is the bar's own four floats at `+0x10c`,
+/// given to their setter every frame, so the shade draws the tier frame the bar draws: the notched,
+/// worn blade at orange and red, the straight-bottomed one at yellow and above. The copy's own quad,
+/// rect and flags are not touched: its rect is the bar's layout's output, and a node's rect does not
+/// gate its drawing - the scissor box is.
 fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
-    let band = window_at(bar, NODE_TEXTURE_RECT);
-    let authored = window_at(bar, NODE_AUTHORED_WIDTH);
-    let window = shade_window(rect, ratio_bp, band, [authored[0], authored[1]]);
+    // The setter is the only way to the copy's window. main+0xa4fb58 stores the four floats at
+    // +0x10c and tail-calls slot 0x50 (main+0xa4fc68), the only writer of the +0xc0 bits 24..26;
+    // it returns at once when the floats already match, so the mark is set exactly when the bar's
+    // band moves. The texture's draw slot main+0xa4fc9c rebuilds its quad from +0x10c..+0x118 and
+    // the colours at +0xa4 only while (global+0x98 & (node+0xc0 >> 24) & 7) is nonzero, and clears
+    // those bits (main+0xa4feb4): the drawn quad carries the window as of its last rebuild, so a
+    // raw write to +0x10c marks nothing and never repaints - the copy keeps the band that was in
+    // +0x10c when its quad was first built.
+    let _ = memory::call2(base() + TEXTURE_RECT_SETTER, dim, bar + NODE_TEXTURE_RECT);
     let box_words = if ratio_bp == u32::MAX {
         [rect[2], rect[1], rect[2], rect[3]]
     } else {
         dim_box(rect, ratio_bp)
     };
-    for edge in 0..4usize {
-        let offset = edge as u32 * 4;
-        SHADE_WINDOW[edge].store(window[edge].to_bits(), Ordering::Relaxed);
-        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, window[edge].to_bits());
-    }
     let width = (box_words[2] - box_words[0]).max(1) as u32;
     let height = (rect[3] - rect[1]).max(1) as u32;
     // The box's corner is the mask node's own matrix translation: main+0xa4b390 reads the node's
@@ -747,8 +734,8 @@ pub fn enter(mask: u32) {
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
     // The shade follows the cut from here: its clip mask's translation goes to the full-sharpness
     // right edge, its authored width pulls the box's left edge back to the cut, and the copy's atlas
-    // window is the unworn frame. The read-back above measures what the game did with
-    // the clip of the previous frame.
+    // window goes through its setter as the bar's own live four floats. The read-back above measures
+    // what the game did with the clip of the previous frame.
     if dim != 0 && clip != 0 {
         write_shade(dim, clip, bar, rect, ratio);
     }

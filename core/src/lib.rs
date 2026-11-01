@@ -87,6 +87,19 @@ pub const NODE_KIND: u32 = 0x33;
 pub const NODE_AUTHORED_WIDTH: u32 = 0xb4;
 pub const NODE_RECT: u32 = 0xe0;
 pub const NODE_EFFECTIVE_RECT: u32 = 0xf0;
+/// The atlas window (`mTextureRect`), four floats on a `cGUIObjTexture`. The bar's band steps by
+/// tier: `(0,280,88,304)` at yellow and above, `(0,304,88,328)` at orange and `(0,328,88,352)` at
+/// red, the notched frames the tier keyframes write (`work/modern-sharpness-gauge/visual/hud00.png`
+/// rows 280, 304 and 328).
+///
+/// The setter main+0xa4fb58 is the only way these words reach the screen. It returns at once when
+/// the four floats already match; on a change it stores them here, calls vtable slot 0x28 when the
+/// style byte at `+0x108` has bits 4/5 set, and always tail-calls slot 0x50 (main+0xa4fc68), the
+/// only writer of the `+0xc0` bits 24..26. The texture's draw slot main+0xa4fc9c builds the quad
+/// from `+0x10c..+0x118` and the colours at `+0xa4` only while
+/// `(global+0x98 & (node+0xc0 >> 24) & 7)` is nonzero, and clears those `+0xc0` bits afterwards
+/// (main+0xa4feb4). The drawn quad therefore carries the window as of its last rebuild: a raw write
+/// here never repaints, and the node keeps drawing the band that was here when its quad was built.
 pub const NODE_TEXTURE_RECT: u32 = 0x10c;
 pub const NODE_CHILD: u32 = 0x68;
 pub const NODE_SIBLING: u32 = 0x6c;
@@ -162,14 +175,6 @@ pub struct Node {
 pub const CLIP_TOP: i32 = -6;
 pub const CLIP_HEIGHT: i32 = 32;
 
-/// The blade at 100%: `Txt_sharp`'s own authored atlas window, the `mTextureRect` (0,280,88,304) the
-/// record in `work/modern-sharpness-gauge/hud0-sharpness.json` gives it and the frame the yellow tier
-/// and above draw. The tier keyframes `sharp_2..6` and `sharp_2a..6a` replace it with the notched
-/// frames (0,304,88,328) and (0,328,88,352): their bottom outline is cut in by 2 px at columns
-/// 32-33, 44-47 and 58-69 (4 px at 60-61), measured on `visual/hud00.png`; their top outline is the
-/// same in columns 12..87.
-pub const UNWORN_TEXTURE_RECT: [f32; 4] = [0.0, 280.0, 88.0, 304.0];
-
 /// The accepted cut endpoints as pixels from the bar rect's left, measured on that rect's own
 /// 128 px width: 18 at 0% and 90 at 100%, i.e. screen 128 and 200 px on the 110..238 bar.
 const CUT_START: i32 = 18;
@@ -222,29 +227,6 @@ pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
         rect[1],
         (rect[0] + full).min(rect[2]),
         rect[3],
-    ]
-}
-
-/// The shade copy's atlas window for this cut: the columns of the bar's live band that the shade
-/// box covers, in the bar's own texture units.
-///
-/// The copy is the clip mask's child, so the mask's authored pair scales it: the copy's authored
-/// width lands in the box's pixels and its window's `u` pair is stretched with it. With `u` at
-/// `0..88` the whole blade is squeezed into the box, and the tier frames' 2 px notches collapse -
-/// measured on the 2026-11-01 crops (at yellow, orange and red): a flat bottom edge
-/// at atlas row 18.5 with the tip slope (columns 70..86) compressed into the last 12 px of a 71 px
-/// box, which is the unworn blade's outline. Writing `u` as the box's own columns makes the copy
-/// sample exactly what the bar samples there at the bar's own scale, so the worn blade's notches and
-/// tip line up with the kept part: `12.4..61.9` at 0% on the measured 128 px bar, and `u`'s span
-/// times the bar's scale is the box's width.
-pub fn shade_window(rect: [i32; 4], ratio_bp: u32, band: [f32; 4], authored: [f32; 2]) -> [f32; 4] {
-    let box_words = dim_box(rect, ratio_bp);
-    let scale = (rect[2] - rect[0]).max(1) as f32 / authored[0].max(1.0);
-    [
-        (box_words[0] - rect[0]) as f32 / scale,
-        band[1],
-        (box_words[2] - rect[0]) as f32 / scale,
-        band[3],
     ]
 }
 

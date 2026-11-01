@@ -3,45 +3,36 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r61
+## What to check on r62
 
-Run r61. The cut and the shade's placement, colour and sampler are accepted r59's. The shade's atlas
-window changed: it now carries the columns of the bar's own tier band that the shade covers, so the dark
-part is the worn blade at your tier, at the same scale as the coloured part.
-
-Your two crops of 2026-11-01 settled the mechanism. Measuring the dark part's bottom outline in them, at
-yellow, orange and red: a flat edge at the band's row 18.5, then rising to 13 and 7 over the last 12 px.
-That is the shape of the whole blade squeezed into the shade's box - the copy is the clip mask's child, so
-the mask's authored pair scales it, and the window's u pair `0..88` (what r59 and r60 wrote) stretches the
-full 88 columns, tip slope included, into the box's 71 px. The tier frames' 2 px notches collapse under
-that squeeze, so the dark part read as the unworn blade at every tier. Both versions changed only the
-colour row `v`, which is why the shape never changed.
-
-r61 writes the window's u pair as the columns the box covers: on your bar `12.4..61.9` at empty
-sharpness, `61.9..61.9` at full. The copy then samples exactly the columns the bar samples in that
-region, 1:1, with the tier's own band.
+Run r62. The cut, and the shade's placement, colour and sampler, are accepted r59's, and the shade's
+atlas window is the bar's own `0..88` columns with your live tier's rows. What changed is how that
+window reaches the screen: the mod calls the game's own rectangle setter every frame instead of
+writing the window into the node by hand. The game keeps its own copy of the window for drawing and
+refreshes that copy only when the setter marks it dirty, which is why r59 and r60 kept drawing the
+band that was there when the copy first drew, at every tier.
 
 What to look at:
 
-1. At orange and at red: the dark part from the cut to the tip is the worn blade - its bottom outline
-   shows the same notch cut-ins as the coloured part, at the same columns, and its tip is the tip you
-   see on the coloured part.
-2. No long diagonal at the dark part's right end: the tip is where the cut's edge is, not a squeezed
-   tip slope at the box's right.
-3. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
+1. At orange: the dark part's bottom edge is worn like the coloured part's - the chips line up at the
+   same columns (about 46, 58 and 70 units from the blade's left), so the worn outline runs on past
+   the cut instead of stopping at it.
+2. At red: more chips, and the tail of the blade rises.
+3. At yellow and above: a straight bottom edge, as the game draws it.
+4. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
    sharpen, it shrinks back. Full sharpness: no dark part.
-4. The kept part is untouched: the game's own colour, pulse, glow and edge glyph.
-5. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
-6. If the game faults, send the log.
+5. The kept part is untouched: the game's own colour, pulse, glow and edge glyph.
+6. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
+7. If the game faults, send the log.
 
 Crops wanted: one at orange, one at red, and one across a sharpening from red to yellow.
 
-The log line to match a crop against is the fill line's `shade_tex=`: the window the copy drew with.
-Expect the last two numbers to be your live tier's band (`304.0 328.0` at orange, `328.0 352.0` at red)
-and the first two to move with the cut - at red and 0% sharpness `12.4 ... 61.9`, at 50% about `34 ...
-61.9`, at 100% `61.9 ... 61.9`. `shade_box=`, `bar_sampler=` and `dim_sampler=` are as in the accepted
-run, and `entries=7 records=13` is the same tree. The lines that matter start with `MSG r61`.
-
+The log line to match a crop against is the fill line's `shade_tex=`: the window the copy is drawing
+with. It is expected to equal `tex=` on every fill line: `0.0 280.0 88.0 304.0` at yellow,
+`0.0 304.0 88.0 328.0` at orange, `0.0 328.0 88.0 352.0` at red. If `shade_tex=` follows `tex=` and
+the dark part's bottom edge stays straight at orange, say so in the report: that is an answer, not a
+partial pass. `shade_box=`, `bar_sampler=` and `dim_sampler=` are as in the accepted run, and
+`entries=7 records=13` is the same tree. The lines that matter start with `MSG r62`.
 
 By design the coloured part keeps the glow's halo - about 3 px above the blade, 2 px below it and 4 px
 past the tip - and the dark part has no glow. Say whether the dark part's missing halo bothers you.
@@ -80,7 +71,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-Lines that matter start with `MSG r60`.
+lines that matter start with `MSG r62`.
 
 ## The log lines
 
@@ -94,8 +85,10 @@ line reads `tex=0.0 280.0 88.0 304.0` in the top band and steps to `304.0 328.0`
 with the tiers. Match your screenshot to the line
 with the ratio you had at that moment.
 
-`shade_tex=` is the atlas window the copy - the dark part - drew with, read at the mask's draw step
-before the mod writes. It is the unworn frame, `0.0 280.0 88.0 304.0`, at every tier.
+`shade_tex=` is the atlas window the copy - the dark part - is drawing with, read at the mask's draw
+step before the mod writes. It is expected to equal `tex=` on every line: the copy draws the bar's own
+window, so it steps with the tiers, `0.0 280.0 88.0 304.0` at yellow, `0.0 304.0 88.0 328.0` at orange
+and `0.0 328.0 88.0 352.0` at red.
 
 `scissor mask inserted` means the mask went into the gauge, with the addresses it
 published, the record count, and for the copy: `dim=0x...` its node, `dim_tex=0x...` the sprite it

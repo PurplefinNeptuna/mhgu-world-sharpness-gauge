@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r61",
+  "version": "r62",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -124,19 +124,25 @@
       "nro_sha256": "8094f8f534440a0bc27be547770f7a506da56f944b944445e59614e035afd3f2",
       "archive_sha256": "2c51ae62dfdd9cba3669c1465abceb18d0e0385ae4f9ca7fa06a64165cc48c50",
       "runtime": "RAN on Eden 2026-11-01 and REJECTED on screen: log runs/r60-eden-2026-11-01.txt sha256 128906c530982e01e997f9d0457d4757af578111a331c9f265a2f4323eef711a, installed NRO 8094f8f534440a0bc27be547770f7a506da56f944b944445e59614e035afd3f2 = the packaged payload, 78 MSG lines with 73 fill lines, shade_tex=0.0 280.0 88.0 304.0 on every fill line (the write landed), no fault in the log, crops visual/r60/r60-1.webp and r60-2.webp. The dark part's outline is unchanged from r59, which refuted the axis: the shape follows the window's u pair under the clip mask's scale, not the colour band v",
-      "adds": "core::UNWORN_TEXTURE_RECT as the copy's window at every tier, SHADE_TEXTURE_RECT in static storage for the setter, shade_tex= on the fill line, one fixture. Superseded by r61: kept for the record are UNWORN_TEXTURE_RECT and the shade_tex= read-back"
+      "adds": "core::UNWORN_TEXTURE_RECT as the copy's window at every tier, SHADE_TEXTURE_RECT in static storage for the setter, shade_tex= on the fill line, one fixture. Superseded by r61, and r62 deletes UNWORN_TEXTURE_RECT and that fixture with the requirement wording it was built from; the shade_tex= read-back is kept and is now the instrument for the cache"
     },
     "r61": {
       "nro_sha256": "fd90862d908e579d68c25df22a2b7cf9804c39be7ab915cd01eb3fb804326488",
       "archive_sha256": "e9f1af62902f4fba7d3404eaa452f9278764f22ad30568af135fc645442526db",
-      "runtime": "NOT RUN: the copy draws the box\u2019s own columns of the bar\u2019s live band",
-      "adds": "core::shade_window (the box's edges over the bar's rect/authored scale, the bar's live band for v); write_shade writes the window per frame to the copy's +0x10c and to SHADE_WINDOW; build_dim's mTextureRect setter pointer is SHADE_WINDOW, seeded with the bar's live band. One fixture replaces r60's (the window carries the box's columns). 24 fixtures, 33 windows"
+      "runtime": "WITHDRAWN, never run: packaged, never installed, do not ship. Its premise - that the clip mask\u2019s authored pair squeezes the copy\u2019s 88 columns into the box - is refuted",
+      "adds": "core::shade_window, SHADE_WINDOW and the box-column u pair, all deleted in r62 with the premise. Kept for the record: the shade_tex= read-back it used proved the window write lands while the shape stayed, which is what pointed at the vertex cache"
+    },
+    "r62": {
+      "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
+      "archive_sha256": "34673e6f81f3c5124278954613835e5c3924cc71b646a630c762141760931df8",
+      "runtime": "NOT RUN: the shade is to draw the bar\u2019s current tier frame - worn at orange and red - because the window is published through the setter, which marks the vertex cache dirty",
+      "adds": "write_shade calls the mTextureRect setter (main+0xa4fb58) with bar + 0x10c every frame, and build_dim hands the same pointer to the setter at the build; r59\u2019s geometry is restored, so u is 0..88 and v is the bar\u2019s live band. core::UNWORN_TEXTURE_RECT, core::shade_window and SHADE_WINDOW are deleted, with r60\u2019s requirement wording. 23 fixtures, 33 windows"
     }
   },
   "build": {
-    "version": "r61",
+    "version": "r62",
     "status": "BUILT",
-    "nro_sha256": "fd90862d908e579d68c25df22a2b7cf9804c39be7ab915cd01eb3fb804326488",
+    "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -148,14 +154,14 @@
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
       "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
       "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "9bdcba1fc3acff802ae151eaa5661b673549eb12a6415ce99ba96a36fdea503f",
+      "src/insert.rs": "c45be944acd4837091b353e332ee35b9c5cdcc2fe26ccba77fed566401a14633",
       "src/lib.rs": "f50cc0e2304cf50ba068b14085db9f0cead91283cc2c5613917dbe474a11f46b",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
       "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "7c6d9356ce1ada1578aacdf00eb840b8e8706a36cad66c8fcfc62755aa38c91d",
-      "core/tests/behavior.rs": "331eda9eabe2a5821aa236c35f5023c59798c7893084b043ad30459bec90544d",
+      "core/src/lib.rs": "a9948f757b8120421076b464fa0af01ac02df997cc67e698d5acdac6d192427e",
+      "core/tests/behavior.rs": "5e1d2b475f57d6058b5073cbabcce1a6b6ae151c253581459ffa3c5bcabb6c4f",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -163,8 +169,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "fd90862d908e579d68c25df22a2b7cf9804c39be7ab915cd01eb3fb804326488",
-    "elf_sha256": "af97fb0bcd6e6cf2d9416b18a74e7506437018c85ac22020136c95d5a5805e91",
+    "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
+    "elf_sha256": "79faeb8fb3155f2ede577fcdd11f203aad5ecdf1985cb1203db54ca25e56d1fd",
     "exports": [
       "fini",
       "forge_onInit",
@@ -246,7 +252,7 @@
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 24,
+    "count": 23,
     "covers": [
       "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
       "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
@@ -269,11 +275,11 @@
       "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right",
       "the dim blade (Phase 5): its rect from the cut's right edge to the bar rect's right edge and its atlas u as the same fraction of the authored 88 columns, at 0 / 25 / 50 / 100% on the measured bar and on a 64 px rect",
       "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in",
-      "the shade window carries the box\u2019s own columns of the bar band: its u span times the bar\u2019s scale is the box width, 12.4..61.9 at 0% on the measured bar, v is the live band, for all three bands"
+      "no fixture is possible for the native vertex cache - it is game code, and the host suite has no game; the fill line\u2019s shade_tex= and the crops are the instruments. r61\u2019s shade_window fixture is deleted with its refuted squeeze premise"
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and scaling, the box's linearity and bounds, the sample's named slots, the 5-node tree with the mask as the controller's first child and the shadow as its sibling, the walker plan, the cache and object-array sizing, the shadow's rect, and the gauge reading.",
-    "nro_sha256": "fd90862d908e579d68c25df22a2b7cf9804c39be7ab915cd01eb3fb804326488"
+    "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416"
   },
   "runs": [
     {
@@ -1152,7 +1158,7 @@
         "the user's words: 'r59 works well'. The crops show the dark part from the cut to the tip with the notched tier frame at orange (r59-2.webp) and red (r59-3.webp), and smooth at yellow (r59-1.webp)",
         "the only PANIC (847.765359) is 7 ms after 'ForceStop: Force stopping EmuThread' (847.758341) with 'nn::hid::VibrationNode::Update()' in the backtrace: the emulator stopping, not the mod"
       ],
-      "meaning": "the transform bit and the sampler are accepted behaviour on these bytes on Eden; the shade copying the bar's live band is the remaining fault, fixed in r60 by drawing core's UNWORN_TEXTURE_RECT"
+      "meaning": "the transform bit and the sampler are accepted behaviour on these bytes on Eden. The remaining fault is that the dark part drew the yellow frame's straight bottom edge at orange and red: the shade is to draw the bar's CURRENT tier frame, the worn blade, exactly like the kept part. The r60 task text that said the shade 'always draws the unworn blade' had this backwards, and r62 withdraws that wording with core::UNWORN_TEXTURE_RECT"
     },
     {
       "date": "2026-11-01",
@@ -1176,7 +1182,7 @@
         "the write lands: 'shade_tex=0.0 280.0 88.0 304.0' on all 73 fill lines, beside the bar's own 'tex=0.0 280.0 88.0 304.0' 40 times, 'tex=0.0 304.0 88.0 328.0' 13 times (orange) and 'tex=0.0 328.0 88.0 352.0' 20 times (red)",
         "measuring the dark part's bottom outline in the crops (atlas rows divided by the bar's 128/88 scale): flat at row 18.5 across the box, then 17.1, 15.8 - the same numbers in r60-1.webp (yellow), r60-2.webp (red), r59-2.webp (orange) and r59-3.webp (red). The unworn frame's tip slope (columns 70..86, bottom edge 19 to 5) compressed into the last 12 px of the 71 px box, the rest of the band flat"
       ],
-      "meaning": "the window's v row is not the lever: the copy is the clip mask's child, so the mask's authored pair scales the copy's authored 88 columns into the box's pixels and stretches the window's u pair with them. 88 columns in 71 px squeezes the tier frames' 2 px notch cut-ins away, so the dark part reads as the unworn blade at every tier. r61 writes u as the box's own columns (core::shade_window)"
+      "meaning": "the write lands and the shape does not follow, at any tier, because the drawn quad's UVs are a cache: the draw slot main+0xa4fc9c calls main+0xa4feb4, which reads +0x10c..+0x118 and the colours at +0xa4 only when (global+0x98 & (node+0xc0 >> 24) & 7) is set and then clears those bits, and only vtable slot 0x50 (main+0xa4fc68) sets them - the mTextureRect setter (main+0xa4fb58) tail-calls it on a change. r59 and r60 wrote +0x10c by hand, so the copy kept drawing the band it was built with, yellow 0.0 280.0 88.0 304.0, which is the unworn frame the tester reported at every tier. The squeeze reading of these crops (88 columns in the 71 px box) is refuted with r61: a scissor clips at 1:1 and the orange crops show no spiral inside the dark part at half sharpness"
     }
   ],
   "not_proven": [
@@ -1220,10 +1226,11 @@
     "that setting bit 17 on the shade's clip mask puts the copy on the gauge from the first hit: the bit is the walk's gate in main+0xa4969c and the r57 copy state lines show the uncomposed matrix, which is a static reading and the screen result is unproven until r59 runs",
     "that the copy's sampler equals the bar's on screen: bar_sampler= and dim_sampler= read the style byte at +0x108, and filtering is a screenshot question",
     "whether the dark part needs a dark copy of the glow Txt_sharpefx (PosX 6, PosY -6, 88x32, alpha 120): the halo is a Phase 5 design decision, recorded as the user's question, and unchanged",
-    "that the worn blade shows on screen at orange and red with the box's own columns in the window: the squeeze is measured on the crops and the u mapping is pinned by a fixture, and shade_tex= is the instrument"
+    "that the worn tier frame shows on screen at orange and red once the window goes through the setter: the cache facts are read from the bytes (main+0xa4fb58, 0xa4fc68, 0xa4fc9c, 0xa4feb4) and no host fixture can reach them, so shade_tex= - expected to equal tex= - and the crops are the instruments",
+    "that the worn tier frame shows on screen at orange and red once the window goes through the setter: the cache facts are read from the bytes (main+0xa4fb58, 0xa4fc68, 0xa4fc9c, 0xa4feb4) and no host fixture can reach them, so shade_tex= - expected to equal tex= - and the crops are the instruments"
   ],
   "runtime": {
-    "status": "r59 ACCEPTED ON SCREEN 2026-11-01 on Eden (log, installed NRO, photos, the user's words), scoped to those bytes on that emulator. r60 ran the same day on Eden and was rejected on screen; its crops settled the axis. r61 has not been run. r44 remains the accepted shipped cut",
+    "status": "The accepted shape is r44's cut plus r59's shade: placement, colour, transform and sampler accepted on Eden 2026-11-01. r60 ran the same day and was rejected on screen; r61 was packaged, never run, and is withdrawn with its squeeze premise refuted. r62 publishes the copy's atlas window through the native setter so the drawn quad's UV cache is marked dirty when the bar's band changes, and has not been run.",
     "date": "2026-11-01",
     "binary_sha256": "8094f8f534440a0bc27be547770f7a506da56f944b944445e59614e035afd3f2",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
@@ -1262,5 +1269,5 @@
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   },
-  "static_summary": "r61: pinned toolchain build; 24 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. core::shade_window takes the copy's window from the accepted dim_box edges and the bar's own rect/authored scale, so the copy samples exactly the columns the bar samples in the shaded region, 1:1, with the bar's live tier band: 12.4..61.9 at 0% on the measured 128 px bar. write_shade writes it to the copy's +0x10c and to SHADE_WINDOW every frame; the mTextureRect setter (main+0xa4fb58) is given a pointer to SHADE_WINDOW at build, seeded with the bar's live band. The r60 run proved the write lands (shade_tex on all 73 fill lines) and refuted the v axis. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
+  "static_summary": "r62: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The change is how the copy's atlas window is published: write_shade calls the mTextureRect setter (main+0xa4fb58) with the bar's own live four floats at bar+0x10c every frame, and build_dim hands the setter the same pointer. The setter returns at once while the floats match and, on a change, stores +0x10c, calls slot 0x28 when +0x108 & 0x30, and tail-calls slot 0x50 (main+0xa4fc68) - the only writer of the +0xc0 bits 24..26, which the draw slot main+0xa4fc9c's builder main+0xa4feb4 consumes and clears. The raw writes of r59, r60 and r61 marked nothing, so those three drew the band in +0x10c when the quad was first built (yellow 0.0 280.0 88.0 304.0). r61 is withdrawn unrun and its squeeze premise, and r58's, is refuted: a scissor clips at 1:1 and the orange crops show no spiral inside the dark part at half sharpness. Geometry is r59's: u = 0..88, v = the live band. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
 }
