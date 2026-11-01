@@ -225,6 +225,29 @@ pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
     ]
 }
 
+/// The shade copy's atlas window for this cut: the columns of the bar's live band that the shade
+/// box covers, in the bar's own texture units.
+///
+/// The copy is the clip mask's child, so the mask's authored pair scales it: the copy's authored
+/// width lands in the box's pixels and its window's `u` pair is stretched with it. With `u` at
+/// `0..88` the whole blade is squeezed into the box, and the tier frames' 2 px notches collapse -
+/// measured on the 2026-11-01 crops (at yellow, orange and red): a flat bottom edge
+/// at atlas row 18.5 with the tip slope (columns 70..86) compressed into the last 12 px of a 71 px
+/// box, which is the unworn blade's outline. Writing `u` as the box's own columns makes the copy
+/// sample exactly what the bar samples there at the bar's own scale, so the worn blade's notches and
+/// tip line up with the kept part: `12.4..61.9` at 0% on the measured 128 px bar, and `u`'s span
+/// times the bar's scale is the box's width.
+pub fn shade_window(rect: [i32; 4], ratio_bp: u32, band: [f32; 4], authored: [f32; 2]) -> [f32; 4] {
+    let box_words = dim_box(rect, ratio_bp);
+    let scale = (rect[2] - rect[0]).max(1) as f32 / authored[0].max(1.0);
+    [
+        (box_words[0] - rect[0]) as f32 / scale,
+        band[1],
+        (box_words[2] - rect[0]) as f32 / scale,
+        band[3],
+    ]
+}
+
 /// The rectangle a scissor mask builds for itself when its enter runs with the rebuild bit set:
 /// main+0xa4ba94 turns the authored pair at `+0xa8/+0xac` into floats, hands it with the node to
 /// main+0xa4b390, and folds the four resulting corners into `+0xb0..+0xbc` (min, min, max, max).

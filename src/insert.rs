@@ -26,7 +26,7 @@ use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
     basis_points, cut_box, dim_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
-    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, UNWORN_TEXTURE_RECT,
+    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, shade_window,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -132,10 +132,11 @@ const TEX_TEXTURE_OBJECT: u32 = 0x104; // the object the setter resolves from th
 /// The style byte the `SamplerState` setter (main+0xa4fa5c) writes its value into, low nibble, and
 /// whose bits 4/5 the `mTextureRect` setter tests. The bar's own value is what its draw filters with.
 const TEX_SAMPLER: u32 = 0x108;
-/// The shade's atlas window, in static storage: the `mTextureRect` setter takes a pointer to four
-/// floats, and the copy draws with the unworn frame at every tier, so there is no game node to point
-/// at. `write_shade` writes the same four words every frame.
-static SHADE_TEXTURE_RECT: [f32; 4] = sharpness_gauge_core::UNWORN_TEXTURE_RECT;
+/// The shade copy's atlas window, in static storage: the `mTextureRect` setter takes a pointer to
+/// four floats and the copy has no authored source in game memory to point at. An `AtomicU32` is one
+/// `u32`, so this array has the layout of four floats. `write_shade` writes it every frame before the
+/// copy draws; the fill line prints what the copy drew with.
+static SHADE_WINDOW: [AtomicU32; 4] = const { [const { AtomicU32::new(0) }; 4] };
 static DIM: AtomicU32 = AtomicU32::new(0);
 /// The shade's clip mask node, 0 when the shade has no clip.
 static CLIP: AtomicU32 = AtomicU32::new(0);
@@ -497,10 +498,16 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     // Constructed: the native destructor owns the block from here. A failure calls the
     // destructor and never the allocator's free - the destructor frees through this allocator.
     let owned = memory::method(node, 0x04);
+    // The copy's first window: the bar's own live band. Every frame after this writes the box's
+    // columns into `SHADE_WINDOW` at the mask's enter, before the copy draws.
+    let seed = window_at(bar, NODE_TEXTURE_RECT);
+    for (edge, value) in seed.iter().enumerate() {
+        SHADE_WINDOW[edge].store(value.to_bits(), Ordering::Relaxed);
+    }
     // The Key Quest Markers order: identity and ownership, the quad, the flags, the style setters,
     // the colours, the texture id last (its first test is the resource at +0x78, so it runs after
-    // that word is written), then the atlas rectangle through its setter, with a pointer to the
-    // unworn frame in `SHADE_TEXTURE_RECT`.
+    // that word is written), then the atlas rectangle through its setter, with a pointer to
+    // `SHADE_WINDOW`.
     let ready = memory::write_word(node + TEX_MID, DIM_MARKER)
         && memory::write_word(node + TEX_GUI, gui)
         && memory::write_word(node + TEX_OWNER, owner)
@@ -532,7 +539,7 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         && memory::call2(
             base() + TEXTURE_RECT_SETTER,
             node,
-            &SHADE_TEXTURE_RECT as *const [f32; 4] as u32,
+            &SHADE_WINDOW as *const [AtomicU32; 4] as u32,
         )
         .is_some();
     if !ready {
@@ -547,12 +554,15 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
 /// Write the shade for this frame's cut. The clip mask's translation (`+0x40/+0x44`) is the shade
 /// box's left edge and the bar rect's top, and its authored pair (`+0xa8/+0xac`) is the box's width
 /// and height, so the box it builds spans the part of the blade past the cut, and the copy drawn
-/// inside it is clipped to that. The copy's atlas window is core's `UNWORN_TEXTURE_RECT`, the frame
-/// the game draws at full sharpness, so the shade is the unworn blade at every tier: the bar keeps
-/// its own tier frames and their notches, and the two parts meet only at the cut. The copy's own
-/// quad, rect and flags are not touched: its rect is the bar's layout's output, and a node's rect
-/// does not gate its drawing - the scissor box is.
-fn write_shade(dim: u32, clip: u32, rect: [i32; 4], ratio_bp: u32) {
+/// inside it is clipped to that. The mask's authored pair scales the copy under it, so the copy's
+/// window `u` pair is the columns the box covers: `core::shade_window` takes them from the box and
+/// the bar's own authored width, and `v` is the bar's live tier band. The copy's own quad, rect and
+/// flags are not touched: its rect is the bar's layout's output, and a node's rect does not gate its
+/// drawing - the scissor box is.
+fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
+    let band = window_at(bar, NODE_TEXTURE_RECT);
+    let authored = window_at(bar, NODE_AUTHORED_WIDTH);
+    let window = shade_window(rect, ratio_bp, band, [authored[0], authored[1]]);
     let box_words = if ratio_bp == u32::MAX {
         [rect[2], rect[1], rect[2], rect[3]]
     } else {
@@ -560,7 +570,8 @@ fn write_shade(dim: u32, clip: u32, rect: [i32; 4], ratio_bp: u32) {
     };
     for edge in 0..4usize {
         let offset = edge as u32 * 4;
-        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, UNWORN_TEXTURE_RECT[edge].to_bits());
+        SHADE_WINDOW[edge].store(window[edge].to_bits(), Ordering::Relaxed);
+        let _ = memory::write_word(dim + NODE_TEXTURE_RECT + offset, window[edge].to_bits());
     }
     let width = (box_words[2] - box_words[0]).max(1) as u32;
     let height = (rect[3] - rect[1]).max(1) as u32;
@@ -639,7 +650,7 @@ pub fn enter(mask: u32) {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
             if dim != 0 && clip != 0 {
-                write_shade(dim, clip, rect_at(bar, NODE_RECT), u32::MAX);
+                write_shade(dim, clip, bar, rect_at(bar, NODE_RECT), u32::MAX);
             }
             return;
         }
@@ -739,7 +750,7 @@ pub fn enter(mask: u32) {
     // window is the unworn frame. The read-back above measures what the game did with
     // the clip of the previous frame.
     if dim != 0 && clip != 0 {
-        write_shade(dim, clip, rect, ratio);
+        write_shade(dim, clip, bar, rect, ratio);
     }
 }
 

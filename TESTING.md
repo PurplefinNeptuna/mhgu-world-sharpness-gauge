@@ -3,23 +3,31 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r60
+## What to check on r61
 
-Run r60. The cut is accepted r44's and the shade's placement, colour and sampler are accepted r59's.
-One thing changed: the shade always draws the unworn blade.
+Run r61. The cut and the shade's placement, colour and sampler are accepted r59's. The shade's atlas
+window changed: it now carries the columns of the bar's own tier band that the shade covers, so the dark
+part is the worn blade at your tier, at the same scale as the coloured part.
 
-The copy copied the bar's live atlas band every frame, so at orange `[0,304,88,328]` and red
-`[0,328,88,352]` it drew those tiers' notched frames, which is what the r59 crops show. It now draws
-`Txt_sharp`'s authored window `[0,280,88,304]` - the frame the game shows at yellow and above - at
-every tier, and the bar keeps its own frames. The u pair is the same 0..88 columns, so nothing about
-the geometry changes.
+Your two crops of 2026-11-01 settled the mechanism. Measuring the dark part's bottom outline in them, at
+yellow, orange and red: a flat edge at the band's row 18.5, then rising to 13 and 7 over the last 12 px.
+That is the shape of the whole blade squeezed into the shade's box - the copy is the clip mask's child, so
+the mask's authored pair scales it, and the window's u pair `0..88` (what r59 and r60 wrote) stretches the
+full 88 columns, tip slope included, into the box's 71 px. The tier frames' 2 px notches collapse under
+that squeeze, so the dark part read as the unworn blade at every tier. Both versions changed only the
+colour row `v`, which is why the shape never changed.
+
+r61 writes the window's u pair as the columns the box covers: on your bar `12.4..61.9` at empty
+sharpness, `61.9..61.9` at full. The copy then samples exactly the columns the bar samples in that
+region, 1:1, with the tier's own band.
 
 What to look at:
 
-1. At orange and at red: the dark part from the cut to the tip is the smooth unworn blade, with no
-   notches. The coloured part keeps its notches, so the notches stop at the cut.
-2. The dark part's tip and outline match the blade you see at full sharpness, in dark grey-blue.
-   Steady: no glow, no pulse.
+1. At orange and at red: the dark part from the cut to the tip is the worn blade - its bottom outline
+   shows the same notch cut-ins as the coloured part, at the same columns, and its tip is the tip you
+   see on the coloured part.
+2. No long diagonal at the dark part's right end: the tip is where the cut's edge is, not a squeezed
+   tip slope at the box's right.
 3. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
    sharpen, it shrinks back. Full sharpness: no dark part.
 4. The kept part is untouched: the game's own colour, pulse, glow and edge glyph.
@@ -28,18 +36,12 @@ What to look at:
 
 Crops wanted: one at orange, one at red, and one across a sharpening from red to yellow.
 
-The log changed in one place: the `copy state` and `bar state` lines are gone, because the accepted run
-answered the question they asked. The fill line gained `shade_tex=`, the window the copy drew with:
-expect `shade_tex=0.0 280.0 88.0 304.0` at every tier, beside the bar's own
-`tex=0.0 304.0 88.0 328.0` (orange) and `tex=0.0 328.0 88.0 352.0` (red). `shade_box=`, `bar_sampler=`
-and `dim_sampler=` stay as in the accepted run, and `entries=7 records=13` is the same tree. The lines
-that matter start with `MSG r60`.
+The log line to match a crop against is the fill line's `shade_tex=`: the window the copy drew with.
+Expect the last two numbers to be your live tier's band (`304.0 328.0` at orange, `328.0 352.0` at red)
+and the first two to move with the cut - at red and 0% sharpness `12.4 ... 61.9`, at 50% about `34 ...
+61.9`, at 100% `61.9 ... 61.9`. `shade_box=`, `bar_sampler=` and `dim_sampler=` are as in the accepted
+run, and `entries=7 records=13` is the same tree. The lines that matter start with `MSG r61`.
 
-For reference, the static check on `visual/hud00.png`: over columns 12..87 the three frames' alpha
-silhouettes differ only in the bottom outline - orange at columns 46,47,58,59 and red at
-32,33,44,45,46,47,58,59,60,61,62,63 (60,61 by 4 px) - and their top outlines are identical there. The
-unworn frame is taller at those columns, so the difference can only appear where the two parts meet,
-at the cut seam.
 
 By design the coloured part keeps the glow's halo - about 3 px above the blade, 2 px below it and 4 px
 past the tip - and the dark part has no glow. Say whether the dark part's missing halo bothers you.
