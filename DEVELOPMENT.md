@@ -29,7 +29,7 @@ release ships bytes that were never run; what they draw is the accepted r62's pi
 Payload NRO `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f` (53248 bytes, against the
 accepted r62's 90112: the formatting strings and the reads behind them are what shrank). Release
 `build/modern-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip` sha256
-`b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441`, candidate zip
+`998462185db66966042c05df818828b0d2387f659a7c8fa98bc2f2f9e267f452` (README-only support refresh on 2026-11-01; the first r63 archive was `b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441`, same NRO), candidate zip
 `d8b156a7feb958c61474cd2f2d7bbb7c572519aa76cb638961f21f321db4e3d7`.
 
 r62 DEVELOPMENT (2026-11-01), ACCEPTED on Eden and PINNED as the release candidate: r59's geometry for

@@ -143,7 +143,8 @@
       "archive_sha256": "d8b156a7feb958c61474cd2f2d7bbb7c572519aa76cb638961f21f321db4e3d7",
       "runtime": "NOT RUN: the user approved the promotion on static validation, so these bytes were never played. The drawing is accepted r62\u2019s and the byte change is logging only",
       "adds": "the consolidation of accepted r62: deleted the fill line (27 words a line: ratio_bp, box, bar rect, effective rect, atlas rect, authored width, feed, shade box, shade window), the 35-word gauge row facts line with its names, the copy\u2019s texture-object/flags/sampler read-backs, the six-word link snapshot at a teardown, the walker-call and instance-fire counters, the log clock, and the queue, atomics and hot-hook reads that fed all of them. One line per lifecycle event is kept: scissor mask inserted (mask, map, entries, cache, records, dim, clip), shade blade not added at stage, mask insertion failed at stage, gauge row check stopped at stage, gauge row root destroyed, inserted mask\u2019s links lost. src/ 2417 \u2192 2083 lines, core/src unchanged at 609, 23 fixtures as before, 33 signature windows",
-      "release_zip_sha256": "b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441",
+      "release_zip_sha256": "998462185db66966042c05df818828b0d2387f659a7c8fa98bc2f2f9e267f452",
+      "release_zip_sha256_before_readme_refresh": "b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441",
       "release": "build/modern-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip"
     }
   },

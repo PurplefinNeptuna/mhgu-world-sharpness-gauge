@@ -1,22 +1,14 @@
 # Modern Sharpness Gauge
 
-The mod clips the game's sharpness bar. A mask over the bar cuts it back from the right, so the
-part you see starts at the hilt. The glow around the bar and the glyph at its edge keep drawing,
-inside the same cut. Nothing else on the HUD changes.
+The mod turns the sharpness bar into a continuous gauge. Full sharpness shows the whole blade.
+Every hit cuts the blade back a little from the tip toward the hilt, and empty sharpness leaves
+only the hilt. Sharpening moves the cut back toward the tip. The coloured part keeps the game's
+own colour, pulse, glow and edge glyph.
 
-This build cuts the bar at your own sharpness: full sharpness shows the whole blade, every hit
-takes the cut a little further from the tip toward the hilt, in a straight line, and empty sharpness
-leaves the hilt. The colours, the pulse and the glow stay the game's own on the part you see. There
-is nothing to set up: the cut follows the sharpness the game reports.
-
-The part of the blade past the cut is drawn as a shadow in a dark grey-blue, the colour of the unlit
-side of the blade: it fills the space from the cut's edge to the tip, in the gauge's own band. It has
-no glow and does not pulse, and it grows and shrinks with the cut as the blade dulls and recovers. At
-full sharpness nothing is left to shade, so the gauge shows the whole blade as the game draws it.
-
-The mod writes into the game's gauge, and Forge has no plugin unload step, so the mask stays in
-the gauge until the game rebuilds it. A quest is split into areas with a loading screen between
-them, and each area builds its own gauge, so the mask goes into each area's gauge as it appears.
+The part of the blade past the cut is drawn in dark grey-blue, in the same blade shape. At orange
+and red it shows the same worn notches as the coloured part. It has no glow and does not pulse.
+At full sharpness there is nothing past the cut, so the gauge looks as the game draws it. Nothing
+else on the HUD changes, and there is nothing to set up.
 
 ## Requirements
 
@@ -26,7 +18,7 @@ them, and each area builds its own gauge, so the mask goes into each area's gaug
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r63-candidate.zip`.
+2. Extract `modern-sharpness-gauge-r63.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
@@ -38,31 +30,28 @@ should be listed.
 
 ## Usage
 
-Start a quest with a melee weapon that has sharpness, and play normally. Watch the gauge as the
-blade dulls and as you sharpen it: the cut stays at the hilt, moves a step toward it with each
-hit, and moves back toward the tip when the blade recovers.
+Start a quest with a melee weapon that has sharpness, and play normally. As the blade dulls, the
+coloured part gets shorter and the dark part grows from the tip. When you sharpen, the coloured
+part grows back.
 
-A weapon with no sharpness gauge, a bowgun or the prowler rig, and the hub draw the bar as the
-game draws it. The mod leaves the gauge alone there.
+Each area of a quest builds its own gauge behind its loading screen, and the mod sets up each new
+gauge as it appears.
+
+With a bowgun or the prowler, and in the hub, there is no sharpness gauge, and the mod changes
+nothing.
 
 ## Update and removal
 
 Close the emulator before updating or removing the mod. To update, replace the
 `modern-sharpness-gauge` folder with the one from the new ZIP. To remove it, disable
-the package or delete the folder from the emulator's mod directory. Restart the game
-after removing it: the mask is built inside the game's own gauge, so it stays until
-the gauge is rebuilt. The mod writes no save data. Removing it while the game runs
-leaves the hooks in place until you restart, because the game's plugin loader has no
-unload step.
+the package or delete the folder from the emulator's mod directory. The mod writes no
+save data. Forge has no unload step, so if you remove the mod while the game runs, the
+changed gauge stays until you restart the game.
 
 ## Compatibility and known issues
 
-Works with the base game; the MHGU HD Project is optional. Native Switch
-compatibility is unconfirmed.
-
-A bar that vanishes mid-quest is the known failure of this build, at an area's
-loading screen in particular. Report it with your log, and the drawing can be taken
-out again.
+Works with the base game. The MHGU HD Project is optional. Tested on Eden only:
+Ryujinx and Switch hardware are untested.
 
 Linked components: MHGU Forge by Fexty; Original Forge by Jeffi and the Skyline
 Project; forge-rs by Fexty; libnx by Hydrosphere Developers.
