@@ -79,7 +79,7 @@ bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0xa49b28` | animation controller setup; sizes the draw cache from the halfwords at row+8 | decompile in `ghidra-batch1/` |
 | `0xa39300` | instance draw; hands the controller to the walker at `0xa39664`; a hook site | same batch |
 | `0xa37c1c` | scissor routine: writes the render target's scissor and stores the request at context `+0xd0..+0xdc` | batch 1 |
-| `0xa4e628` | `cGUIObjTexture` slot 0x38, its enter: intersects the live scissor with its rect only when `+0xcc`'s low nibble is 3 or 6 and `+0x56` bit 6 is clear | vtable word, bytes |
+| `0xa4e628` | `cGUIObjTexture` slot 0x38, its enter: unions the live scissor with its rect only when `+0xcc`'s low nibble is 3 or 6 and `+0x56` bit 6 is clear | vtable word, bytes |
 | `0xa4fc9c`, `0xa4feb4` | texture draw slot 0x3c; rebuilds the quad's UVs and colours only on the `+0xc0` mark | batch 1, bytes |
 | `0xa4fc68` | texture slot 0x50: sets the `+0xc0` bits 24..26 | bytes |
 | `0xa4964c`, `0xa4915c` | transform walk (slot 0x44 only with bit 17); row update with the bit 19 child re-sort on `+0x60` | bytes |
@@ -163,8 +163,10 @@ concluded at the time, so read it through this list.
 3. **r55's explanation is wrong, its result stands.** `0xa4e628` is the texture's own enter,
    not the mask class's path. It did not clip r55's copy because its scissor branch needs
    `+0xcc`'s low nibble to be 3 or 6. The "not safe to arm" verdict on `ScissorSize`
-   disassembled `0x86420`, so that route is unread, not closed. The `+0x33` "kind word" of
-   the r3 read is that same field read at the wrong offset (`obj[0x33]` is `+0xcc`).
+   disassembled `0x86420`. The route was read properly on 2026-11-02 and stays closed for
+   other reasons: see native-gui-extensions.md in the forge-modding skill. That nibble is the
+   `Mask` property. The `+0x33` "kind word" of the r3 read is that same field read at the
+   wrong offset (`obj[0x33]` is `+0xcc`).
 4. **`Enable` honours its argument.** `0xa4ba20` is `bfc r2,#0,#1; bfi r2,r1,#0,#1`. r25's
    "ignores its second argument" misread it. Every call here passes 0, so behaviour is unaffected.
 5. **Flag bits.** `0x00400000` is byte `+0x56` bit 6, which the texture's enter tests, not a
@@ -184,6 +186,19 @@ concluded at the time, so read it through this list.
     on the 110..238 rect. No mapping was derived. The accepted cut is a measured fraction of the rect.
 11. **The old map block.** `FUN_01401bc0` allocates a row's map and `setAnimationId` frees it
     through the same allocator, so the leak `grow_map` keeps is no longer needed for ownership.
+    The allocation (`0xa38c14`, slot 0x1c, align 16), the frees in `setAnimationId` (`0xa38880`)
+    and the destructor (`0xa382c8`, slot 0x34) all load GOT slot `0x18422b4`, the DTI registered
+    as `cGUIInstance` at `0xa3c03c`. That is what `grow_map` allocates through. Releasing the
+    block was also not r26's failure: r27 removed the release and the row still did not rebuild.
+    Still unread: the walker's thread. Insertion runs from `forge_onUpdate`, and native readers
+    such as `0x5456e4` and `0xa4915c` load the map pointer and index it straight away, so a
+    second thread could read the block just after the release. `grow_cache` already releases
+    its old block the same way in every accepted run. The fix saves 16 bytes per gauge row, so
+    make it only as part of a runtime version that gets a run with an area change.
+12. **Two comments in `insert.rs` are wrong, left until the next runtime version.** The header
+    says the insertion runs inside a native callback on the GUI thread; `gui::tick` runs from
+    `forge_onUpdate`. The `CLIP_MARKER` comment says only a scissor mask's enter writes the box
+    through `0xa37c1c`; a texture's enter does too under `Mask` 3 or 6.
 
 ## History
 
