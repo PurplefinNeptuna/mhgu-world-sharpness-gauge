@@ -85,10 +85,3 @@ pub fn live_gauge() -> Option<Gauge> {
 pub fn gauge_present() -> bool {
     GAUGE_PRESENT.load(Ordering::Relaxed)
 }
-
-pub fn stats() -> (u32, bool) {
-    (
-        CALLS.load(Ordering::Relaxed),
-        CTRL.load(Ordering::Relaxed) != 0,
-    )
-}

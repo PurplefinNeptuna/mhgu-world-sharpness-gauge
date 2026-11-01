@@ -86,7 +86,6 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
         return;
     }
     if msg_instance_active.load(Ordering::Acquire) {
-        FIRES.fetch_add(1, Ordering::Relaxed);
         let gauge = sampling::gauge_controller();
         if gauge != 0 {
             if let Some(controller) = memory::word(instance.wrapping_add(0xdc)) {
@@ -146,7 +145,7 @@ pub unsafe extern "C" fn msg_mask_enter(mask: u32, _context: u32) {
 }
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
-/// instance capture, the row facts and the insertion all start over on the HUD the game builds
+/// instance capture and the insertion all start over on the HUD the game builds
 /// next. Quests are split into areas with a loading screen between them, and each area's HUD is
 /// a row of its own, so a row's death is a normal event of a hunt, not an edge case. Two paths
 /// reach this: the root destructor hook, and the inserted mask's own link check.
@@ -156,16 +155,12 @@ pub fn teardown_gauge_row(controller: u32) {
     sampling::clear_controller();
 }
 
-/// Times the root destructor ran, and times the instance draw entry fired. Both counts are
-/// diagnostics: a HUD that is never rebuilt shows zero instance fires after a row's drop.
+/// Times the root destructor of a gauge row ran. It is one of the two teardown paths; the inserted
+/// mask's own link check (insert's `misses`) is the other.
 pub fn teardowns() -> u32 {
     TEARDOWNS.load(Ordering::Relaxed)
 }
-pub fn instance_fires() -> u32 {
-    FIRES.load(Ordering::Relaxed)
-}
 static TEARDOWNS: AtomicU32 = AtomicU32::new(0);
-static FIRES: AtomicU32 = AtomicU32::new(0);
 
 /// The recorded pair, for the log line; zeros mean it was never captured.
 pub fn capture() -> (u32, u32) {

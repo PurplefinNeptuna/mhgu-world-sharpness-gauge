@@ -22,11 +22,11 @@
 //! kept past the callback: addresses are plain integers, cleared by the root destructor hook
 //! and by the mask's own liveness check in `enter`.
 use crate::{gui, memory, sampling};
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_box, NODE_AUTHORED_WIDTH, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT,
-    NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT,
+    basis_points, cut_box, dim_box, NODE_CHILD, NODE_DRAWABLE, NODE_PARENT, NODE_RECT, NODE_SIBLING,
+    NODE_TEXTURE_RECT,
 };
 
 /// Written to the mask's mId at +0x50, where the factory leaves -1: it identifies our mask in
@@ -44,13 +44,11 @@ const ENABLE_SETTER: u32 = 0xa4ba20;
 const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
-const MASK_BOX: u32 = 0xb0; // the rectangle the enter handler folds in: min x, min y, max x, max y
-/// bit 1 set asks the game's enter handler to rebuild the rectangle from the node's quad, and
 /// bit 0 applies it. The rebuild is the game's own arithmetic, and its inputs are the fields
 /// written above it.
 const REBUILD_AND_APPLY: u32 = 3;
-/// The halfwords main+0xa49b28 sizes from: objects at row+8, sequences at row+8+2. The facts
-/// line's `counts` is the pair at row+4, which the sizer does not read.
+/// The halfwords main+0xa49b28 sizes the draw cache from: objects at row+8, sequences at
+/// row+8+2. The pair at row+4 is the row's own reported counts; the sizer does not read it.
 const ROW_SIZING: u32 = 0x08;
 
 // The dim blade (plan Phase 5): a second copy of the blade sprite, outside the mask, in a flat
@@ -148,49 +146,13 @@ fn window_at(node: u32, offset: u32) -> [f32; 4] {
     out
 }
 
-/// Times the enter hook found the mask's links gone: the count the log prints, and the only
-/// teardown signal this build can prove (the root destructor hook has fired zero times).
+/// Times the enter hook found the mask's links gone. This is the teardown signal the build can
+/// prove: a mask left over from a row whose scene ended keeps being entered, so its enter hook is
+/// the one place the game proves the mask is live while its links are already gone.
 static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
-
-/// The plugin thread's own update tick, used only to rate-limit the cut's log line.
-/// shortcut: pacing the log by update count, not seconds; 30 updates is a fraction of a second.
-static UPDATES: AtomicU32 = AtomicU32::new(0);
-
-/// One tick of the log clock, called from `forge_onUpdate`: a plain counter, no game pointer,
-/// no allocation and no formatting.
-pub fn tick_clock() {
-    UPDATES.fetch_add(1, Ordering::Relaxed);
-}
-
-/// The cut line queued by `enter`: ratio_bp, the box written, the bar's own rect at
-/// +0xe0, its effective rect at +0xf0, its atlas rect at +0x10c (core's NODE_RECT,
-/// NODE_EFFECTIVE_RECT and NODE_TEXTURE_RECT), the authored width read at +0xb4 and the rect
-/// width the box was built from, and the shade's clip box read from the clip mask's
-/// `+0xb0..+0xbc` at the bar mask's enter - the box the game folded on the clip mask's previous
-/// enter, which is what the copy's draw is clipped to, and the copy's own atlas window at `+0x10c`.
-pub const CUT_WORDS: usize = 27;
-static CUT: [AtomicU32; CUT_WORDS] = const { [const { AtomicU32::new(0) }; CUT_WORDS] };
-static CUT_READY: AtomicBool = AtomicBool::new(false);
-/// u32::MAX is not a ratio (they are 0..=10_000), so the first box written queues a line.
-static CUT_RATIO: AtomicU32 = AtomicU32::new(u32::MAX);
-/// The last clock tick that queued a line, for the rate limit above.
-static CUT_LOG_AT: AtomicU32 = AtomicU32::new(0);
-
-/// The queued line, taken once per change of the cut's ratio. `forge_onUpdate` prints it, so
-/// nothing is formatted in the hook and nothing is logged per frame.
-pub fn take_cut_line() -> Option<[u32; CUT_WORDS]> {
-    if !CUT_READY.swap(false, Ordering::Acquire) {
-        return None;
-    }
-    let mut out = [0u32; CUT_WORDS];
-    for (index, slot) in out.iter_mut().enumerate() {
-        *slot = CUT[index].load(Ordering::Relaxed);
-    }
-    Some(out)
-}
 
 /// The four words of a rectangle field as signed pixels (the bar's screen rect).
 fn rect_at(node: u32, offset: u32) -> [i32; 4] {
@@ -201,38 +163,7 @@ fn rect_at(node: u32, offset: u32) -> [i32; 4] {
     out
 }
 
-/// The link state as the game left it at a drop: mask marker, mask.parent, mask.child,
-/// bar.parent, bar.sibling, root.child. Which link broke is the fact the log line names, and
-/// no later read can recover it.
-static LINK_LOST: [AtomicU32; 6] = const { [const { AtomicU32::new(0) }; 6] };
-const SNAPSHOT: [(usize, u32); 6] = [
-    (0, MASK_ID),       // the mask's own marker word
-    (0, NODE_PARENT),   // mask.parent
-    (0, NODE_CHILD),    // mask.child
-    (1, NODE_PARENT),   // bar.parent
-    (1, NODE_SIBLING),  // bar.sibling
-    (2, NODE_CHILD),    // root.child
-];
-
-/// Read the link state at the drop, and keep the addresses to re-read it later. Read-only.
-fn snapshot(mask: u32, bar: u32, root: u32) {
-    let bases = [mask, bar, root];
-    for (index, (which, offset)) in SNAPSHOT.iter().enumerate() {
-        let value = memory::word(bases[*which].wrapping_add(*offset)).unwrap_or(0);
-        LINK_LOST[index].store(value, Ordering::Relaxed);
-    }
-}
-
-/// The snapshot: mask marker, mask.parent, mask.child, bar.parent, bar.sibling, root.child.
-pub fn link_lost() -> [u32; 6] {
-    let mut out = [0u32; 6];
-    for (index, slot) in LINK_LOST.iter().enumerate() {
-        out[index] = slot.load(Ordering::Relaxed);
-    }
-    out
-}
-
-/// What one insertion published, as integers for the log line.
+/// What one insertion published: the nodes, the map and cache sizes, and the stage a failed shade build stopped at.
 pub struct Outcome {
     pub mask: u32,
     pub map: u32,
@@ -248,14 +179,6 @@ pub struct Outcome {
     /// The stage its build stopped at, 0 when it was built: 50 the allocation, 51 the
     /// constructor and class test, 52 the fields. A failed build leaves the accepted cut alone.
     pub dim_stage: u32,
-    /// The texture object the copy resolved, and its flag word: what the log needs to tell a
-    /// missing copy apart from a copy that is present and not drawn.
-    pub dim_texture: u32,
-    pub dim_flags: u32,
-    /// The sampler state the bar draws with and the one the copy ended with, each the low nibble of
-    /// `+0x108`: the log line shows whether the copy filters its edges like the bar.
-    pub bar_sampler: u32,
-    pub dim_sampler: u32,
 }
 
 /// The row is going away: the game owns the mask, the map and the cache. Called from the root
@@ -596,7 +519,6 @@ pub fn check_liveness() {
         return;
     }
     MISSES.fetch_add(1, Ordering::Relaxed);
-    snapshot(mask, BAR.load(Ordering::Relaxed), root);
     crate::hooks::teardown_gauge_row(root);
 }
 
@@ -621,8 +543,7 @@ pub fn enter(mask: u32) {
         // it to stop clipping here is the one disable this build can prove safe. Left alone, the
         // mask applies its last rectangle into the next area.
         MISSES.fetch_add(1, Ordering::Relaxed);
-        snapshot(mask, bar, root);
-        let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
+            let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
         crate::hooks::teardown_gauge_row(root);
         return;
     }
@@ -642,7 +563,6 @@ pub fn enter(mask: u32) {
             return;
         }
     };
-    let updates = UPDATES.load(Ordering::Relaxed);
     let rect = rect_at(bar, NODE_RECT);
     // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
     // enter, so it reads 0 here and a box built from it cuts the blade near the tip. The bar's
@@ -650,57 +570,9 @@ pub fn enter(mask: u32) {
     if rect[2] <= rect[0] {
         return;
     }
-    let authored = memory::word(bar + NODE_AUTHORED_WIDTH)
-        .map(|word| f32::from_bits(word) as i32)
-        .unwrap_or(0);
     // The box runs between the accepted endpoints, which core scales by this rect's width, so a
-    // bar laid out wider or narrower cuts the same fraction of its blade. The authored read
-    // stays in the log line as the proof of that difference.
+    // bar laid out wider or narrower cuts the same fraction of its blade.
     let box_words = cut_box(rect, ratio);
-    // One line per change of the driving ratio, rate-limited so a fast sequence of ratio
-    // changes prints one line, not one per frame.
-    if ratio != CUT_RATIO.swap(ratio, Ordering::Relaxed)
-        && updates.wrapping_sub(CUT_LOG_AT.load(Ordering::Relaxed)) >= 30
-    {
-        CUT_LOG_AT.store(updates, Ordering::Relaxed);
-        // Queued for the plugin thread to print: the box written, then the bar's own rect, the
-        // rect prepaint leaves after the clip intersection, the rect inside the atlas, and the
-        // width the box was built from.
-        let effective = rect_at(bar, NODE_EFFECTIVE_RECT);
-        let texture = rect_at(bar, NODE_TEXTURE_RECT);
-        CUT[0].store(ratio, Ordering::Relaxed);
-        for (edge, word) in box_words
-            .iter()
-            .chain(rect.iter())
-            .chain(effective.iter())
-            .chain(texture.iter())
-            .enumerate()
-        {
-            CUT[1 + edge].store(*word as u32, Ordering::Relaxed);
-        }
-        CUT[17].store(authored as u32, Ordering::Relaxed);
-        CUT[18].store((rect[2] - rect[0]) as u32, Ordering::Relaxed);
-        // The shade's clip box as the game folded it on its own last enter: the box the copy's
-        // draw is clipped to, straight from `+0xb0..+0xbc`.
-        let shade_box = if clip == 0 {
-            [0i32; 4]
-        } else {
-            rect_at(clip, MASK_BOX)
-        };
-        for (edge, word) in shade_box.iter().enumerate() {
-            CUT[19 + edge].store(*word as u32, Ordering::Relaxed);
-        }
-        // The window the copy drew with, read before this call writes anything.
-        let shade_tex = if dim == 0 {
-            [0.0f32; 4]
-        } else {
-            window_at(dim, NODE_TEXTURE_RECT)
-        };
-        for (edge, value) in shade_tex.iter().enumerate() {
-            CUT[23 + edge].store(value.to_bits(), Ordering::Relaxed);
-        }
-        CUT_READY.store(true, Ordering::Release);
-    }
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
     // are the writes that matter. A rectangle read as width 0, height 32 at the parent's origin
     // (110,38), against authored 128x32, pins each input:
@@ -877,22 +749,6 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
         dim,
         dim_stage,
         clip,
-        dim_texture: if dim == 0 {
-            0
-        } else {
-            memory::word(dim + TEX_TEXTURE_OBJECT).unwrap_or(0)
-        },
-        dim_flags: if dim == 0 {
-            0
-        } else {
-            memory::word(dim + TEX_FLAGS).unwrap_or(0)
-        },
-        dim_sampler: if dim == 0 {
-            0
-        } else {
-            memory::word(dim + TEX_SAMPLER).unwrap_or(0) & 0xf
-        },
-        bar_sampler: memory::word(row.bar + TEX_SAMPLER).unwrap_or(0) & 0xf,
     })
 }
 

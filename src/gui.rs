@@ -1,8 +1,8 @@
-//! Find the gauge row, validate it, and publish the row/map facts the insertion needs.
+//! Find the gauge row, validate it, and publish the row the insertion needs.
 //!
 //! The gauge row is the animation controller the walker reports, its root at `root+0x68`, and
 //! the bar, glow and edge as its child/sibling chain, identified by authored size. What the
-//! gates and facts rest on, from the decompiles recorded in
+//! gates rest on, from the decompiles recorded in
 //! work/modern-sharpness-gauge/PHASE2_RESEARCH.md:
 //! - main+0xa494a0 writes 8-byte records (kind, node) into `controller+0x80`; main+0xa49b28
 //!   sizes that area from the halfwords at **row+8** as `objects * 16 + 8 + sequences * 12` and
@@ -37,8 +37,8 @@ const OBJECT_BYTES: usize = 304;
 const INSTANCE_BYTES: usize = 224;
 const ROOT_BYTES: usize = 176;
 
-/// 0 = nothing reported for the current gauge row, 1 = the facts line was printed.
-/// Reset by `on_teardown`, so the next quest's HUD is reported again.
+/// 0 = no insertion made for the current gauge row, 1 = the row was read and the insertion
+/// attempted. Reset by `on_teardown`, so the next quest's HUD is inserted again.
 static STATE: AtomicU8 = AtomicU8::new(0);
 static FAILURE: AtomicU32 = AtomicU32::new(0);
 
@@ -46,25 +46,6 @@ pub fn take_failure() -> u32 {
     FAILURE.swap(0, Ordering::Relaxed)
 }
 
-/// The row, map and object facts, in `FACT_NAMES` order. Pointers are words as read;
-/// the authored sizes are printed as the integers the game's floats hold. `tree_nodes`
-/// is main+0xa47d2c's count for this controller: main+0xa38ffc adds one to it and
-/// main+0x5456e4 uses that sum as the length of the instance's object array at +0xd8.
-pub const FACTS_WORDS: usize = 35;
-pub const FACT_NAMES: [&str; FACTS_WORDS] = [
-    "ctrl", "tree_root", "cache", "ctrl_flags", "row", "instance", "cache_alloc", "anim", "counts",
-    "counts8", "first_object", "row14", "obj_list", "inst_ctrl", "bar_id", "bar_w", "bar_h", "glow_id",
-    "glow_w", "glow_h", "edge_id", "edge_w", "edge_h", "bar_flags", "bar_c_lt", "bar_c_rt", "bar_c_lb",
-    "bar_c_rb", "obj0", "obj1", "obj2", "obj3", "obj4", "obj5", "tree_nodes",
-];
-pub const FACT_HEX: [&str; 12] = [
-    "ctrl", "tree_root", "cache", "row", "instance", "cache_alloc", "row14", "obj_list", "obj0",
-    "obj1", "obj2", "obj3",
-];
-
-fn word(address: u32) -> u32 {
-    memory::word(address).unwrap_or(0)
-}
 
 fn is_type(object: u32, dti: u32) -> bool {
     let Some(f) = memory::method(object, 0x14) else {
@@ -234,94 +215,14 @@ fn read_row() -> Result<Row, u32> {
     })
 }
 
-struct Read;
-impl sharpness_gauge_core::Memory for Read {
-    fn word(&self, address: u32) -> Option<u32> {
-        memory::word(address)
-    }
-}
 
-/// Copy the row, map and object words out, read-only. The array at `instance+0xd8` is
-/// read for its four entries: main+0x5456e4 indexes it with `main+0xa47d2c`'s node count
-/// plus one, so this line prints both numbers. The gauge row's count is 3 nodes against
-/// its 4 objects. `+0xd8` is an array only on the captured HUD instance: the same field on
-/// the controller's owner at `root+0xa0` is a different object.
-fn facts(row: &Row, instance: u32) -> [u32; FACTS_WORDS] {
-    let root = row.root;
-    let row_word = word(root + 0x9c);
-    let bar = row.bar;
-    let list = word(instance + 0xd8);
-    let objects = readable_words(list);
-    let nodes = sharpness_gauge_core::count_nodes(&Read, root).0;
-    let authored = |object: u32| -> (u32, u32, u32) {
-        (
-            word(object + 0x50),
-            (f32::from_bits(word(object + 0xb4)) as i32) as u32,
-            (f32::from_bits(word(object + 0xb8)) as i32) as u32,
-        )
-    };
-    let (bar_id, bar_w, bar_h) = authored(bar);
-    let (glow_id, glow_w, glow_h) = authored(row.effect);
-    let (edge_id, edge_w, edge_h) = authored(row.edge);
-    [
-        root,
-        word(root + sharpness_gauge_core::NODE_CHILD),
-        word(root + 0x80),
-        word(root + 0x8c),
-        row_word,
-        instance,
-        word(root + 0xa4),
-        word(row_word),
-        word(row_word + 4),
-        word(row_word + 0x08),
-        word(row_word + 0x0c),
-        word(row_word + 0x14),
-        list,
-        word(instance + 0xdc),
-        bar_id,
-        bar_w,
-        bar_h,
-        glow_id,
-        glow_w,
-        glow_h,
-        edge_id,
-        edge_w,
-        edge_h,
-        word(bar + sharpness_gauge_core::NODE_FLAGS),
-        // The bar's four corner colours: the animation writes them, so the run shows the colour
-        // word's packing next to the colour on screen, which is what the dim blade copies.
-        word(bar + 0xa4),
-        word(bar + 0xa8),
-        word(bar + 0xac),
-        word(bar + 0xb0),
-        objects[0],
-        objects[1],
-        objects[2],
-        objects[3],
-        objects[4],
-        objects[5],
-        nodes,
-    ]
-}
 
-fn readable_words(list: u32) -> [u32; 6] {
-    let mut out = [0u32; 6];
-    if list == 0 || !memory::readable(list, 24) {
-        return out;
-    }
-    for (index, slot) in out.iter_mut().enumerate() {
-        *slot = word(list + 4 * index as u32);
-    }
-    out
-}
 
-/// One row read: the facts, and the insertion's outcome. `stage` is 0 when the mask was
-/// inserted, and a 40..49 code when it was not, so one run says which of the two paths
-/// stopped and why. A row that is not present yet is not a failure: the gauge HUD row
-/// exists only while a weapon-owning player is in a quest, so stage 21 reports and keeps
-/// retrying at a slow cadence.
+/// One row read: the insertion's outcome. Its stage is 0 when the mask was inserted, and a
+/// 40..49 code when it was not, so one report says which of the two paths stopped and why. A
+/// row that is not present yet is not a failure: the gauge HUD row exists only while a
+/// weapon-owning player is in a quest, so stage 21 reports and keeps retrying at a slow cadence.
 pub struct Reading {
-    pub facts: [u32; FACTS_WORDS],
     pub outcome: Result<insert::Outcome, u32>,
 }
 const RETRY_EVERY: u32 = 240;
@@ -354,18 +255,14 @@ pub fn tick() -> Option<Reading> {
     let Some((instance, _)) = hooks::gauge_instance() else {
         return None;
     };
-    let words = facts(&row, instance);
     let outcome = insert::run(&row, instance);
     STATE.store(1, Ordering::Release);
-    Some(Reading {
-        facts: words,
-        outcome,
-    })
+    Some(Reading { outcome })
 }
 
 /// The gauge row is going away. The game owns the tree, the mask, the map and the cache
-/// from here on: this clears this build's own state, so the facts line is printed once per
-/// gauge HUD and the sampler stops comparing walker arguments against a freed address.
+/// from here on: this clears this build's own state, so one insertion is made per gauge HUD and
+/// the sampler stops comparing walker arguments against a freed address.
 pub fn on_teardown() {
     insert::on_teardown();
     STATE.store(0, Ordering::Release);

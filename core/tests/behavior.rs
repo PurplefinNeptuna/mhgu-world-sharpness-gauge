@@ -636,7 +636,8 @@ fn the_shade_box_and_its_clip_width_follow_the_cut() {
 
 #[test]
 fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
-    // The r55/r56 report: the shade landed on the blade's left, over the filled part. The builder
+    // The malformation this guards: the shade landing on the blade's left, over the filled part.
+    // The builder
     // main+0xa4b390 reads the mask node's own transform and nothing else, so a mask's box is
     // `corner .. corner + authored` with the corner the node's translation at +0x40/+0x44. Every
     // mask from the class factory carries the gauge's corner (110,38): the accepted mask's box
@@ -650,7 +651,7 @@ fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
         let shade = dim_box(rect, bp);
         (shade[2] - shade[0]).max(1)
     };
-    // What r56 wrote: the authored pair, with the translation left at the factory's corner.
+    // The authored pair with the translation left at the factory's corner, the bad case:
     let left: Vec<[i32; 4]> = ratios
         .iter()
         .map(|bp| mask_box(template, [authored_width(*bp), rect[3] - rect[1]]))
@@ -658,10 +659,10 @@ fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
     assert_eq!(
         left.iter().map(|b| [b[0], b[2]]).collect::<Vec<_>>(),
         [[110, 182], [110, 164], [110, 146], [110, 128], [110, 111]],
-        "the shade starts at the bar's left corner: the malformation the run showed"
+        "the shade starts at the bar's left corner: the malformation this guards"
     );
-    // r57 writes the mask's own translation, the box's left edge, so the authored width spans from
-    // the cut to the full-sharpness right edge: the box is the part of the blade past the cut.
+    // The mask's own translation is the box's left edge, so the authored width spans from the cut
+    // to the full-sharpness right edge: the box is the part of the blade past the cut.
     let shade_boxes: Vec<[i32; 4]> = ratios
         .iter()
         .map(|bp| {
@@ -684,13 +685,14 @@ fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
         "the box is the blade past the cut, one px of nothing at full sharpness"
     );
     assert_eq!(authored_width(10_000), 1, "the zero-width scissor is never asked for");
-    // The accepted cut's own box through the same fold, at the r56 log's ratio_bp=6800 (kept 66).
+    // The accepted cut's own box through the same fold at ratio_bp=6800, kept 66, the ratio the
+    // DEVELOPMENT.md history records.
     assert_eq!(mask_box(template, [66, 128]), [110, 38, 176, 166]);
 }
 
 #[test]
 fn the_shade_clip_node_fits_the_grown_tree_exactly() {
-    // r57's tree: the mask as the controller's first child over bar, glow and edge (accepted), and
+    // The accepted tree: the mask as the controller's first child over bar, glow and edge, and
     // the shade's clip mask as the mask's sibling with the copy as its child, so the copy is walked
     // last, outside the accepted scissor, and inside the clip mask's scope.
     let mut fake = gauge_fixture();

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r62",
+  "version": "r63",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -137,12 +137,20 @@
       "archive_sha256": "c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1",
       "runtime": "ACCEPTED on Eden 2026-11-01: the dark part draws the worn tier frame at the red tier (crop sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb). PINNED as the release candidate: the installed NRO is 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416, the packaged payload, and the r62 bytes are frozen - no rebuild, since the archive hash moves with the packaging mtimes",
       "adds": "write_shade calls the mTextureRect setter (main+0xa4fb58) with bar + 0x10c every frame, and build_dim hands the same pointer to the setter at the build; r59\u2019s geometry is restored, so u is 0..88 and v is the bar\u2019s live band. core::UNWORN_TEXTURE_RECT, core::shade_window and SHADE_WINDOW are deleted, with r60\u2019s requirement wording. 23 fixtures, 33 windows"
+    },
+    "r63": {
+      "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f",
+      "archive_sha256": "d8b156a7feb958c61474cd2f2d7bbb7c572519aa76cb638961f21f321db4e3d7",
+      "runtime": "NOT RUN: the user approved the promotion on static validation, so these bytes were never played. The drawing is accepted r62\u2019s and the byte change is logging only",
+      "adds": "the consolidation of accepted r62: deleted the fill line (27 words a line: ratio_bp, box, bar rect, effective rect, atlas rect, authored width, feed, shade box, shade window), the 35-word gauge row facts line with its names, the copy\u2019s texture-object/flags/sampler read-backs, the six-word link snapshot at a teardown, the walker-call and instance-fire counters, the log clock, and the queue, atomics and hot-hook reads that fed all of them. One line per lifecycle event is kept: scissor mask inserted (mask, map, entries, cache, records, dim, clip), shade blade not added at stage, mask insertion failed at stage, gauge row check stopped at stage, gauge row root destroyed, inserted mask\u2019s links lost. src/ 2417 \u2192 2083 lines, core/src unchanged at 609, 23 fixtures as before, 33 signature windows",
+      "release_zip_sha256": "b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441",
+      "release": "build/modern-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip"
     }
   },
   "build": {
-    "version": "r62",
+    "version": "r63",
     "status": "BUILT",
-    "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
+    "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -152,16 +160,16 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "8481222713a21152aaaa2fbf35e23c8ebd1492c0377c0691ab372b54183e4fa6",
-      "src/hooks.rs": "1d28cfd85e8099592dd2c4e910166200385a2b979ffa7ddbe9f050e30af7e831",
-      "src/insert.rs": "c45be944acd4837091b353e332ee35b9c5cdcc2fe26ccba77fed566401a14633",
-      "src/lib.rs": "f50cc0e2304cf50ba068b14085db9f0cead91283cc2c5613917dbe474a11f46b",
+      "src/gui.rs": "f65305a0057e57ef44548a62a1b9bb5ff61615b126ea3b4850cfe6feac9abe3b",
+      "src/hooks.rs": "47f0c03f738012fde4d80b3002a14a391a0bc24a1cfd420517dffbf7a39cf545",
+      "src/insert.rs": "bb09933af38107af4352f77957e7c8568d868dea4d01ca1cb8b31e83d0e77253",
+      "src/lib.rs": "3295fa9284509030e12c57540c9b051117af1a5b1dc0150c53e787247b0ad555",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
-      "src/sampling.rs": "6b195ae9ea8d57db852c3fa3521d9370131aca502621363efa95bb065396f429",
+      "src/sampling.rs": "0ab041627f712dd46e7023892a66d45793d339f9c8b1cb5eb385d523df0b3b97",
       "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
       "core/src/lib.rs": "a9948f757b8120421076b464fa0af01ac02df997cc67e698d5acdac6d192427e",
-      "core/tests/behavior.rs": "5e1d2b475f57d6058b5073cbabcce1a6b6ae151c253581459ffa3c5bcabb6c4f",
+      "core/tests/behavior.rs": "68fa908aad1d830da3f3bdadef0f2bbe9b4ebc49e79676ca41ecb168086acbdb",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -169,8 +177,8 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
-    "elf_sha256": "79faeb8fb3155f2ede577fcdd11f203aad5ecdf1985cb1203db54ca25e56d1fd",
+    "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f",
+    "elf_sha256": "eb70725e24752bf8245866bfa91f105a8068e978b159c25eb526b3ba4f68bc36",
     "exports": [
       "fini",
       "forge_onInit",
@@ -179,7 +187,6 @@
       "init"
     ],
     "strong_imports": [
-      "__aeabi_unwind_cpp_pr0",
       "forge_hook_create",
       "forge_log",
       "forge_log_getLevel",
@@ -187,10 +194,7 @@
       "forge_patch_create",
       "forge_patch_destroy",
       "forge_patch_disable",
-      "forge_patch_enable",
-      "free",
-      "malloc",
-      "realloc"
+      "forge_patch_enable"
     ],
     "signature_windows": [
       "0xa494a0",
@@ -275,11 +279,11 @@
       "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right",
       "the dim blade (Phase 5): its rect from the cut's right edge to the bar rect's right edge and its atlas u as the same fraction of the authored 88 columns, at 0 / 25 / 50 / 100% on the measured bar and on a 64 px rect",
       "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in",
-      "no fixture is possible for the native vertex cache - it is game code, and the host suite has no game; the fill line\u2019s shade_tex= and the crops are the instruments. r61\u2019s shade_window fixture is deleted with its refuted squeeze premise"
+      "the native vertex cache has no fixture - it is game code, and the host suite has no game. The 23 fixtures are accepted r62\u2019s, kept whole through the logging removal: the cut, the box fold, the tree walk, the cache layout, the sampling and the tier maths"
     ],
     "words_per_sample": 11,
     "note": "22 fixtures: the accepted cut's endpoints and scaling, the box's linearity and bounds, the sample's named slots, the 5-node tree with the mask as the controller's first child and the shadow as its sibling, the walker plan, the cache and object-array sizing, the shadow's rect, and the gauge reading.",
-    "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416"
+    "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f"
   },
   "runs": [
     {
@@ -1255,15 +1259,16 @@
     "that the copy's sampler equals the bar's on screen: bar_sampler= and dim_sampler= read the style byte at +0x108, and filtering is a screenshot question",
     "whether the dark part needs a dark copy of the glow Txt_sharpefx (PosX 6, PosY -6, 88x32, alpha 120): the halo is a Phase 5 design decision, recorded as the user's question, and unchanged",
     "the worn blade at the orange tier: the accepted crop is the red tier, and the retained Eden log window has no orange tex= line, so orange is inferred from the same setter path, not seen",
-    "the shade over a full session: the accepted run is one quest with one insertion, two scene teardowns and 578 fill lines, all at the yellow band; the crop's tier is outside the retained log window"
+    "the shade over a full session: the accepted run is one quest with one insertion, two scene teardowns and 578 fill lines, all at the yellow band; the crop's tier is outside the retained log window",
+    "r63's bytes on screen: the release is approved on static validation only. What is proven is that the drawing comes from accepted r62's bytes and that r63's change removes logging and the reads behind it; that the released NRO draws the same picture is inference from the diff, not a run"
   ],
   "runtime": {
-    "status": "The accepted shape is r44's cut plus r59's shade, and r62's window publication: placement, colour, transform, sampler and the worn tier frame accepted on Eden 2026-11-01. r60 ran the same day and was rejected on screen; r61 was packaged, never run, and is withdrawn with its squeeze premise refuted. r62 is the pinned release candidate: the installed NRO matches the packaged payload and the bytes are frozen.",
+    "status": "The accepted drawing is r44's cut, r59's shade placement, colour, transform and sampler, and r62's window publication: accepted on Eden 2026-11-01, where the crop of the red tier shows the worn blade and the installed NRO matched the packaged payload 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416. r61 was packaged, never run, and is withdrawn. r63 - the same drawing with the run instruments deleted - is the released version and has NOT been run: the user approved its promotion on static validation. r62 stays pinned and frozen at backups/accepted/modern-sharpness-gauge/r62-screen-accepted/.",
     "date": "2026-11-01",
     "binary_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
-    "previous_runs": "r44 is the accepted cut (one Eden run of 2026-10-30). r59 was accepted on Eden 2026-11-01 for the shade's transform, colour and sampler. r60 ran the same day, rejected on screen. r61 was packaged, never run, withdrawn. r62 ran on Eden 2026-11-01 and is accepted on screen for the worn blade at the red tier."
+    "previous_runs": "r44 is the accepted cut (one Eden run of 2026-10-30). r59 was accepted on Eden 2026-11-01 for the shade's transform, colour and sampler. r60 ran the same day, rejected on screen. r61 was packaged, never run, withdrawn. r62 ran on Eden 2026-11-01, accepted on screen for the worn blade at the red tier, and pinned. r63 has no run of its own."
   },
   "sharpness_chain_research": {
     "writer": "uPlayerQuest::adjustSharpness main+0x2ad288: applies the amount as a short, clamps to 0 and mMaxSharpness, recomputes the tier, stores mSharpnessType, fires events 0x1c/0x1d/0x1e through vft+0x3ac",
@@ -1297,5 +1302,5 @@
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   },
-  "static_summary": "r62: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The change is how the copy's atlas window is published: write_shade calls the mTextureRect setter (main+0xa4fb58) with the bar's own live four floats at bar+0x10c every frame, and build_dim hands the setter the same pointer. The setter returns at once while the floats match and, on a change, stores +0x10c, calls slot 0x28 when +0x108 & 0x30, and tail-calls slot 0x50 (main+0xa4fc68) - the only writer of the +0xc0 bits 24..26, which the draw slot main+0xa4fc9c's builder main+0xa4feb4 consumes and clears. The raw writes of r59, r60 and r61 marked nothing, so those three drew the band in +0x10c when the quad was first built (yellow 0.0 280.0 88.0 304.0). r61 is withdrawn unrun and its squeeze premise, and r58's, is refuted: a scissor clips at 1:1 and the orange crops show no spiral inside the dark part at half sharpness. Geometry is r59's: u = 0..88, v = the live band. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
+  "static_summary": "r63: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. r63 is accepted r62 with the run instruments removed: the fill line, the 35-word gauge row facts line, the copy's texture-object/flags/sampler read-backs, the link snapshot, the walker and instance counters and the log clock, plus the queue and hot-hook reads behind them. The contract that makes the shade draw the worn tier frame is untouched: write_shade publishes the bar's own live four floats through the mTextureRect setter (main+0xa4fb58), which stores +0x10c, calls slot 0x28 when +0x108 & 0x30, and tail-calls vtable slot 0x50 (main+0xa4fc68), the writer of the +0xc0 bits 24..26 that the draw slot main+0xa4fc9c's builder main+0xa4feb4 consumes and clears. 6 tree nodes, 7-word object array, (6 << 4) | 8 = 104 bytes = 13 records, and the walk emits exactly 13. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md."
 }

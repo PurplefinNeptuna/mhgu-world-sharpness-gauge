@@ -1,51 +1,45 @@
-Current state: r62 DEVELOPMENT candidate, the plan's Phase 5. The accepted shape is r59's, unchanged:
-mask as the controller's first child over bar, glow and edge, `core::dim_box` for the box per frame, the
-shade as the mask's sibling (one clip mask with the copy as its child), `#202326` = `0xFF262320`, the
-clip mask carrying bit 17, the copy carrying the bar's sampler, and r59's geometry for the copy's atlas
-window - the bar's own four floats, `u` = `0..88` and `v` = the live tier band. What r62 changes is how
-those floats reach the screen: `write_shade` calls the `mTextureRect` setter (main+0xa4fb58) with
-`bar + 0x10c` every frame, where r59, r60 and r61 wrote the copy's `+0x10c` by hand.
-
-The requirement is the tester's, from the r60 report: "r59 and r60 both failed to shown worn blade for
-orange or red color sharpness" - the shade must draw the bar's CURRENT tier frame, the worn blade at
-orange and red, exactly like the kept part. The r60 task text ("the shade always draws the unworn blade")
-had it backwards, so that wording is withdrawn and `core::UNWORN_TEXTURE_RECT`, which was built from it,
-is deleted.
-
-The raw writes could not work because the drawn quad's UVs are a cache. The texture's draw slot
-main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner colours
-from `+0xa4` only when `(global+0x98 & (node+0xc0 >> 24) & 7)` is nonzero, and clears those `+0xc0` bits
-afterwards. The only writer of the `+0xc0` bits 24..26 is vtable slot 0x50 (main+0xa4fc68, `bfi r1, r3,
-#24, #3`). The setter is the path to it: it returns at once when the four floats already match, and on a
-change it stores them at `+0x10c`, calls slot 0x28 when `+0x108 & 0x30`, and tail-calls slot 0x50
-unconditionally. So a raw write marks nothing, and the copy keeps drawing the window its quad was built
-with - the band in `+0x10c` on its first draws after the build, which is yellow `0.0 280.0 88.0 304.0`.
-That is what the three versions' logs show: the r60 run's 73 fill lines all read
-`shade_tex=0.0 280.0 88.0 304.0` while the bar's own `tex=` played all three bands, and the r57 run's
-copy carried `0.0 280.0 88.0 304.0` down to `ratio_bp=6000` and then `0.0 304.0 88.0 328.0` from 5800
-only because r57 wrote no window at all after the build. `PHASE5_RESEARCH.md` records the three facts
-with their addresses, read from the bytes and the decompiles.
-
-r61 (52be4a7) is WITHDRAWN: packaged, never run, do not ship. Its premise and r58's - that the clip
-mask's authored pair squeezes the copy's 88 columns into the box, so the window's `u` pair has to carry
-the box's columns - is refuted: the copy is clipped by the box at 1:1, the orange photos show no spiral
-inside the dark part at half sharpness, and the `u` pair stays `0..88`. `core::shade_window`,
-`core::UNWORN_TEXTURE_RECT` and insert's `SHADE_WINDOW` are deleted with those premises.
-
+Current state: r63, the mod as it ships: the accepted cut (r44's, unchanged) and the accepted shade
+(r59's placement, colour, transform and sampler), whose atlas window is the bar's own live four floats -
+`u` = `0..88` of the authored 88, `v` = the bar's current tier band - published through the
+`mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy as
+its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's sampler.
 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits
-exactly 13. 23 host fixtures pass, verify PASSED with 33 signature windows, distribution check PASS. No
-host fixture is possible for the change r62 makes: the vertex cache is game code, and the host suite has
-no game - the instruments are the fill line's `shade_tex=` and the crops. The fill line keeps `tex=`,
-`bar_w=`, `feed=`, `shade_box=` and `shade_tex=` (the copy's `+0x10c` as floats). r62 ran on Eden on
-2026-11-01 and is accepted on screen, and the tester pinned it as the release candidate: the bytes are
-frozen, the payload NRO is the identity (the archive hash moves with the mtimes the packaging step
-stores), and the snapshot is `backups/accepted/modern-sharpness-gauge/r62-screen-accepted/`.
-Candidate
-`build/modern-sharpness-gauge/candidates/r62/delivery/modern-sharpness-gauge-r62-candidate.zip` sha256
-`c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1`, payload NRO
-`51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`.
+exactly 13. 23 host fixtures pass; verify PASSED with 33 signature windows; distribution check PASS.
 
-r62 DEVELOPMENT (2026-11-01), ACCEPTED on Eden and PINNED as the release candidate. The tester's crop
+The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
+slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner
+colours from `+0xa4` only while `(global+0x98 & (node+0xc0 >> 24) & 7)` is nonzero and clears those bits
+afterwards, and the setter main+0xa4fb58 - early return while the four floats match, store, slot 0x28 when
+`+0x108 & 0x30`, tail-call of vtable slot 0x50 (main+0xa4fc68) - is the only path to that mark. A raw
+write to the copy's `+0x10c` marks nothing and never repaints. `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`
+carries the three facts with their bytes, and the history below has the runs that proved them.
+
+r63 DEVELOPMENT (2026-11-01), the consolidation of the accepted r62, promoted on static validation.
+Deleted, with the queue, atomics and hot-hook reads that fed them: the fill line (ratio, box, bar rect,
+effective rect, atlas rect, authored width, feed, shade box, shade window - 27 words per queued line),
+the 35-word gauge row facts line with its names, the copy's texture-object, flags and sampler read-backs,
+the six-word link snapshot taken at a teardown, the walker-call and instance-fire counters, and the log
+clock. Kept, one line per lifecycle event: `scissor mask inserted` (mask, map, entries, cache, records,
+dim, clip), `shade blade not added at stage`, `mask insertion failed at stage`, `gauge row check stopped
+at stage`, `gauge row root destroyed`, `inserted mask's links lost`. The window publish, the clip writes
+and the teardown paths are untouched, so r63 draws what the accepted r62 drew. src/ 2417 → 2083 lines,
+core/src unchanged at 609, the same 23 host fixtures - none is possible for the native vertex cache,
+which is game code. r63 Gameplay NOT RUN: the user approved the promotion on static validation, so the
+release ships bytes that were never run; what they draw is the accepted r62's picture, minus logging.
+Payload NRO `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f` (53248 bytes, against the
+accepted r62's 90112: the formatting strings and the reads behind them are what shrank). Release
+`build/modern-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip` sha256
+`b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441`, candidate zip
+`d8b156a7feb958c61474cd2f2d7bbb7c572519aa76cb638961f21f321db4e3d7`.
+
+r62 DEVELOPMENT (2026-11-01), ACCEPTED on Eden and PINNED as the release candidate: r59's geometry for
+the copy's window - `u` = `0..88`, `v` = the bar's live tier band - published through the setter, with the
+fill line's `shade_tex=` as the instrument. Its requirement was the tester's words from the earlier
+report, "r59 and r60 both failed to shown worn blade for orange or red color sharpness"; the r60 task
+text, "the shade always draws the unworn blade", had it backwards, and `core::UNWORN_TEXTURE_RECT` was
+deleted with that wording. r61 (52be4a7) was withdrawn the same day, packaged, never run, do not ship:
+its premise and r58's, that the clip mask squeezes the copy's 88 columns into the box, is refuted - a
+scissor clips at 1:1, and the orange crops show no spiral inside the dark part at half sharpness. The tester's crop
 `work/modern-sharpness-gauge/visual/r62/r62-red-1.png` sha256
 `bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb` is the tier r59 and r60 failed on: the
 kept part is red, pixels `(108,25,14)`, `(107,25,14)`, `(102,25,14)` at columns 25..30. Its dark part

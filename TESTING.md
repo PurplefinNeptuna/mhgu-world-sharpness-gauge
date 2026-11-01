@@ -3,6 +3,31 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
+## What to check on r63
+
+r63 is the accepted r62 with the diagnostic lines taken out. Nothing about the drawing changed: the cut,
+the shade, its worn tier frame at orange and red, its colour, transform and sampler are the accepted
+r62's. The point of the run is that removing the logging does not disturb the picture.
+
+1. One melee quest: dull the blade from full to empty and sharpen it back. The dark part grows from the
+   tip side, keeps touching the cut, and shows the worn outline at orange and red, straight bottom edge
+   at yellow and above.
+2. Cross an area's loading screen and change weapon: the shade comes back with the new gauge.
+3. The log should now carry only the lifecycle lines, one per event: `MSG r63 scissor mask inserted:
+   mask=... map=... entries=7 ... records=13 dim=... clip=...`, and on the way `shade blade not added at
+   stage`, `mask insertion failed at stage`, `gauge row check stopped at stage`, `gauge row root
+   destroyed (N times); captured addresses cleared`, `inserted mask's links lost (N times); captured
+   addresses cleared`. No fill line and no row facts line: their numbers live in DEVELOPMENT.md history.
+   `entries=7` and `records=13` are the same tree as the accepted run.
+4. If the game faults, send the log.
+
+r63 was released on static validation: the tester approved the promotion without a run, so r63 has no
+gameplay acceptance of its own - the picture it draws is the accepted r62's, and the byte change is
+logging only. The open items carried from r62 stand: an orange crop (the accepted crop is red), the
+shade across a sharpening in one crop, the dark part's missing halo as a design question, and Ryujinx
+and a real Switch.
+
+
 ## What r62 answered (2026-11-01, accepted on Eden, pinned as the release candidate)
 
 The crop `work/modern-sharpness-gauge/visual/r62/r62-red-1.png` is the red tier - its kept part is red, `(108,25,14)` - and the dark part carries the worn outline: chips in its bottom edge and the tail rising at the right. The tester's words: "looks correct now". The retained Eden log's 578 fill lines all read `shade_tex=` equal to `tex=`, both `0.0 280.0 88.0 304.0`, at `ratio_bp=3400` to `9942`, with one insertion at `entries=7 records=13` and no panic in the window.
@@ -79,30 +104,20 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r62`.
+lines that matter start with `MSG r63`.
 
 ## The log lines
 
-`fill ratio_bp` lines are printed when the cut moves: `0` to `10000` basis points
-of your sharpness. The line carries the box the mod wrote (`box=`), the bar's own
-rectangle (`bar=`), the rectangle the game draws inside (`eff=`), the part of the
-sword picture the bar uses (`tex=`), the bar's authored width (`bar_w=`, 88) and
-the width the box is built from (`feed=`, 128). `tex=` is the part of the sword picture the bar
-uses, printed as numbers now: the gauge's window is one whole tier band, 88 columns wide, so the
-line reads `tex=0.0 280.0 88.0 304.0` in the top band and steps to `304.0 328.0` and `328.0 352.0`
-with the tiers. Match your screenshot to the line
-with the ratio you had at that moment.
+The per-frame instruments are gone in r63, on purpose: the `fill ratio_bp` line (the box written, the
+bar's rect, `eff=`, `tex=`, `bar_w=`, `feed=`), the `shade_box=` and `shade_tex=` read-backs and the
+`gauge row facts:` line carried the numbers that located the game's vertex cache, and what they printed
+lives in DEVELOPMENT.md history and EVIDENCE.json. Their removal is the whole byte change from r62.
 
-`shade_tex=` is the atlas window the copy - the dark part - is drawing with, read at the mask's draw
-step before the mod writes. It is expected to equal `tex=` on every line: the copy draws the bar's own
-window, so it steps with the tiers, `0.0 280.0 88.0 304.0` at yellow, `0.0 304.0 88.0 328.0` at orange
-and `0.0 328.0 88.0 352.0` at red.
-
-`scissor mask inserted` means the mask went into the gauge, with the addresses it
-published, the record count, and for the copy: `dim=0x...` its node, `dim_tex=0x...` the sprite it
-resolved, and `dim_flags=` its flag word - that word is the class constructor's default
-(0x20a0001), so it says the copy was built, not that it draws. `dim=0x0` with `dim blade not added at stage 52` means the
-copy was refused, and the gauge is exactly the shipped look. Report all three. `mask insertion failed at stage` plus a number from 40 to 49 means it
+`scissor mask inserted` means the mask went into the gauge: `mask=` and `map=` the
+nodes, `entries=` the map entries (7), `cache=` and `records=` the draw cache (13 records on a
+six-node tree), `dim=` the dark copy's node and `clip=` its clip mask. `dim=0x0` with
+`shade blade not added at stage 52` means the copy was refused, and the gauge is exactly the shipped
+look. Report both. `mask insertion failed at stage` plus a number from 40 to 49 means it
 did not go in, and the number says which step stopped it: 40 the mask object, 41
 the fields it borrows from the bar, 42 the map allocation, 43 copying the map, 44
 the game's cache methods, 45 the cache allocation, 46 publishing the cache, 47 the
@@ -110,16 +125,10 @@ tree links, 48 the row's counts disagreeing with its tree, in which case the gau
 draws unmodified, 49 the gauge already carries a mask from an earlier quest.
 Report the number exactly as printed.
 
-`inserted mask's links lost (N times)` means the game took a gauge row away at
-an area's loading screen: the mod turns the old mask off and looks for the new
-area's gauge. The line carries the tree links as the game left them and a count of
-gauge draws it still sees. Report how many areas you crossed and whether the bar
-behaved the same in each.
-
-`gauge row facts:` is one line per gauge HUD: the controller, its draw cache, the
-animation row and both of its count pairs, the HUD instance, the instance's object
-list with its entries, each gauge texture's id and authored size, and
-`tree_nodes`, the number of nodes the game finds under the controller.
+`inserted mask's links lost (N times); captured addresses cleared` means the game
+took a gauge row away at an area's loading screen: the mod turns the old mask off and looks for the
+new area's gauge. `gauge row root destroyed (N times)` is the same event by the row's own destructor.
+Report how many areas you crossed and whether the bar behaved the same in each.
 
 `gauge row check stopped at stage` plus a number from 21 to 34 says the gauge HUD
 was not readable: 21 means no gauge HUD (the hub, a finished quest, a weapon with
@@ -129,9 +138,10 @@ the glow beside the bar, 29 the edge beside the glow, 30 a chain that does not
 close back on its parent, 31 the bar's class, 32 the bar's authored width, 33 a
 missing class record, 34 no sharpness gauge to read.
 
-`gauge controller observed` marks the first gauge HUD of the session, and
-`no sharpness gauge controller seen in N walker calls` marks a stretch where the
-game draws no gauge HUD at all: the hub, a finished quest, a weapon without
-sharpness. `gauge row root destroyed (N times)` is the game's own teardown of the
-gauge row; it has been seen zero times, which is why the mod relies on its own
-link check.
+The gauge HUD exists only while a weapon-owning player is in a quest: the hub, a finished quest and a
+weapon without sharpness draw no gauge at all, and the mod waits there and retries, reporting only
+`gauge row check stopped at stage 21`. The two lines that used to narrate that - `gauge controller
+observed` and `no sharpness gauge controller seen in N walker calls` - are gone in r63. `gauge row root
+destroyed (N times)` is the game's own teardown of a gauge row; `inserted mask's links lost` is the
+teardown the mod can prove, because a mask left over from a finished area keeps being entered after its
+links are gone, and writing into it then would write into freed memory.
