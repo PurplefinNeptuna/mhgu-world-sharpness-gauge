@@ -17,82 +17,22 @@ r62's. The point of the run is that removing the logging does not disturb the pi
    mask=... map=... entries=7 ... records=13 dim=... clip=...`, and on the way `shade blade not added at
    stage`, `mask insertion failed at stage`, `gauge row check stopped at stage`, `gauge row root
    destroyed (N times); captured addresses cleared`, `inserted mask's links lost (N times); captured
-   addresses cleared`. No fill line and no row facts line: their numbers live in DEVELOPMENT.md history.
+   addresses cleared`. No fill line and no row facts line.
    `entries=7` and `records=13` are the same tree as the accepted run.
 4. If the game faults, send the log.
 
 r63 was released on static validation: the tester approved the promotion without a run, so r63 has no
 gameplay acceptance of its own - the picture it draws is the accepted r62's, and the byte change is
-logging only. The open items carried from r62 stand: an orange crop (the accepted crop is red), the
-shade across a sharpening in one crop, the dark part's missing halo as a design question, and Ryujinx
-and a real Switch.
+logging only. Still open: an orange crop (the accepted crop is red), the shade across a sharpening in
+one crop, the dark part's missing halo as a design question, and Ryujinx and a real Switch.
 
+By design the coloured part keeps the glow's halo, about 3 px above the blade, 2 px below it and 4 px past
+the tip, and the dark part has no glow. The box rights on the bar's measured 110..238 rect are 128 / 146 /
+164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
 
-## What r62 answered (2026-11-01, accepted on Eden, pinned as the release candidate)
-
-The crop `work/modern-sharpness-gauge/visual/r62/r62-red-1.png` is the red tier - its kept part is red, `(108,25,14)` - and the dark part carries the worn outline: chips in its bottom edge and the tail rising at the right. The tester's words: "looks correct now". The retained Eden log's 578 fill lines all read `shade_tex=` equal to `tex=`, both `0.0 280.0 88.0 304.0`, at `ratio_bp=3400` to `9942`, with one insertion at `entries=7 records=13` and no panic in the window.
-
-What is still open, and what to photograph if you go looking: an orange crop (the accepted crop is red, and the retained log window kept no orange band line, so orange rides the same setter path unseen); a sharpening from red to yellow in one crop; the shade coming back after an area's loading screen and a weapon change; the dark part's missing halo, which is a design question, not a fault; Ryujinx and a real Switch, both unconfirmed.
-
-## What the r62 plan asked for
-
-Run r62. The cut, and the shade's placement, colour and sampler, are accepted r59's, and the shade's
-atlas window is the bar's own `0..88` columns with your live tier's rows. What changed is how that
-window reaches the screen: the mod calls the game's own rectangle setter every frame instead of
-writing the window into the node by hand. The game keeps its own copy of the window for drawing and
-refreshes that copy only when the setter marks it dirty, which is why r59 and r60 kept drawing the
-band that was there when the copy first drew, at every tier.
-
-What to look at:
-
-1. At orange: the dark part's bottom edge is worn like the coloured part's - the chips line up at the
-   same columns (about 46, 58 and 70 units from the blade's left), so the worn outline runs on past
-   the cut instead of stopping at it.
-2. At red: more chips, and the tail of the blade rises.
-3. At yellow and above: a straight bottom edge, as the game draws it.
-4. As the blade dulls, the dark part grows from the tip side and keeps touching the cut's edge; as you
-   sharpen, it shrinks back. Full sharpness: no dark part.
-5. The kept part is untouched: the game's own colour, pulse, glow and edge glyph.
-6. Across an area's loading screen and a weapon change, the shade comes back with the new gauge.
-7. If the game faults, send the log.
-
-Crops wanted: one at orange, one at red, and one across a sharpening from red to yellow.
-
-The log line to match a crop against is the fill line's `shade_tex=`: the window the copy is drawing
-with. It is expected to equal `tex=` on every fill line: `0.0 280.0 88.0 304.0` at yellow,
-`0.0 304.0 88.0 328.0` at orange, `0.0 328.0 88.0 352.0` at red. The one line that can lag is the first
-fill line after an insertion, which reads the band the copy was built with before that enter's setter
-runs; from the next line the two numbers are the same. If `shade_tex=` follows `tex=` and
-the dark part's bottom edge stays straight at orange, say so in the report: that is an answer, not a
-partial pass. `shade_box=`, `bar_sampler=` and `dim_sampler=` are as in the accepted run, and
-`entries=7 records=13` is the same tree. The lines that matter start with `MSG r62`.
-
-By design the coloured part keeps the glow's halo - about 3 px above the blade, 2 px below it and 4 px
-past the tip - and the dark part has no glow. Say whether the dark part's missing halo bothers you.
-
-The accepted cut itself is unchanged from r44, and its box maths is identical on the bar's measured
-110..238 rect (128 px): rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
-
-1. One melee quest: full sharpness, a few hits down to a low level, empty, then
-   sharpen back. The cut should land where r43 landed at the same sharpness. Take
-   screenshots at full, low and empty.
-2. One run with the MHGU HD Project mod on. That is the case where the bar's rect
-   is not 110..238, so it is the place where the offsets scaled by the rect's width
-   can disagree with r43's absolute pixels. Say where the cut sits at full and at
-   empty.
-3. One quest that crosses an area's loading screen and ends on the results screen.
-
-Tell me if any of these happen:
-
-- the bar is missing, in whole or in part, at any point in the quest;
-- a blank, black or wrongly-coloured box appears over the gauge;
-- the cut is in the wrong place, for example it leaves the middle of the bar and
-  cuts the ends, or it cuts the bar from the left;
-- the glow next to the bar, or the glyph at the bar's edge, is missing;
-- the game stops responding, at the quest end in particular.
-
-Say which weapon the quest started with (MHGU changes weapons at the box between
-quests, not during one) and whether it ended on the results screen.
+Tell me if the bar is missing at any point, a blank or wrongly coloured box appears over the gauge, the cut
+is in the wrong place, the glow or the edge glyph is missing, or the game stops responding. Say which weapon
+the quest started with and whether it ended on the results screen.
 
 ## Which log to send
 
@@ -110,8 +50,8 @@ lines that matter start with `MSG r63`.
 
 The per-frame instruments are gone in r63, on purpose: the `fill ratio_bp` line (the box written, the
 bar's rect, `eff=`, `tex=`, `bar_w=`, `feed=`), the `shade_box=` and `shade_tex=` read-backs and the
-`gauge row facts:` line carried the numbers that located the game's vertex cache, and what they printed
-lives in DEVELOPMENT.md history and EVIDENCE.json. Their removal is the whole byte change from r62.
+`gauge row facts:` line located the game's vertex cache, and `EVIDENCE.json` keeps what they printed.
+Their removal is the whole byte change from r62.
 
 `scissor mask inserted` means the mask went into the gauge: `mask=` and `map=` the
 nodes, `entries=` the map entries (7), `cache=` and `records=` the draw cache (13 records on a
