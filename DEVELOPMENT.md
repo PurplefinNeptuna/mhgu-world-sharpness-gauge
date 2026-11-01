@@ -173,7 +173,9 @@ above and is read through the mapping query at runtime.
   cut, 0% leaves only the hilt glyph and 100% ends at the measured tip.
 - **Measured art.** Ink in hud00 rows 280, 304 and 328 is columns 18..79 and rows +6..+17 of the authored 88x24:
   hilt 18..27, blade 28..79. On screen the ink runs 124..200 px and the hilt glyph starts near 125. On the crops
-  1.5 image px is 1 GUI px. These describe the art; the clip's numbers come from the photographs.
+  1.5 image px is 1 GUI px. These describe the art; the clip's numbers come from the photographs. Hilt columns:
+  18-19 left edge, 20-21 empty, 22-25 hook, 26-27 empty; the tip tapers at 76..79. The glow's bloom reads 3..9 px
+  past the box in a photo, which is not a misplaced cut. Screenshot measurements carry a few px of noise.
 - **Shade.** Each frame the clip mask's translation (`+0x40/+0x44`) is the cut's right edge and the bar's
   rect top; its authored width is the blade past the cut and its height the bar's rect height. r62 logged
   `shade_box=128 38 200 166` at `ratio_bp=0`. The copy keeps the bar's quad from the build, and only its
