@@ -10,8 +10,8 @@ windows; distribution check PASS.
 
 r63 itself has never been run: it is r62 with the run instruments removed, promoted on static validation
 by the user's choice. Runtime evidence is r62, accepted on Eden on 2026-11-01 at the red tier ("looks
-correct now, please pin this version as candidate for release"), frozen in
-`backups/accepted/modern-sharpness-gauge/r62-screen-accepted/`. Payload NRO
+correct now, please pin this version as candidate for release"), at
+`build/modern-sharpness-gauge/candidates/r62/` (NRO `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`). Payload NRO
 `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`. `DISTRIBUTION.json` holds the status
 and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log lines.
 

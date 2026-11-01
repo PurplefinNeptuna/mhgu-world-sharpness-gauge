@@ -76,7 +76,7 @@
     "r43 has not been run. 128 px at 0% is proven by the r42 log (the tester dragged the start there); 200 px at 100% is the tester's measurement, and that run's box ended at 201.",
     "The thread that runs the draw walker at main+0xa494a0 is unproven, and the run did not change that: no bl site, stored word or DTI property in main names that entry.",
     "The MT `color` word's byte order is unproven, so the dim blade's alpha byte position is an inference. The facts line now prints the bar's four corner colours, so a run pins it next to the colour on screen.",
-    "The r44 release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/, runtime UNCHANGED; r45 through r52 are superseded, r52 with its copy seen on screen; r53 is a new candidate and carries no distribution approval.",
+    "The r44 build is at build/modern-sharpness-gauge/candidates/r44/, runtime UNCHANGED; r45 through r52 are superseded, r52 with its copy seen on screen; r53 is a new candidate and carries no distribution approval.",
     "the bar's eff=0 0 0 0 in the r53, r55, r56 and r57 runs, where accepted r44 logged a non-zero eff: accepted r44 measured the bar at its own prepaint, these runs read it at the mask's enter",
     "the coloured part keeps the glow's halo (Txt_sharpefx at PosX 6, PosY -6, 88x32, alpha 120) and the dark part has none: the Phase 5 design question, asked and left open",
     "the worn blade at the orange tier: the accepted crop is the red tier and the retained Eden log window keeps no orange band line, so orange rides the same setter path without being seen",
