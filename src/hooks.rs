@@ -126,10 +126,10 @@ pub unsafe extern "C" fn msg_root_dtor(root: u32) {
 
 /// The mask's own enter handler (main+0xa4ba94), reached through the class vtable during the
 /// draw walk: the call that reads the mask's rectangle at +0xb0..+0xbc and applies the scissor.
-/// The game's layout rebuilds that rectangle from the node's own quad, and a node the animation
-/// row has no entry for comes out with width 0, which is a gauge clipped away by a mask that was
-/// asked for a real box. The box is written here, in this same call, immediately before the
-/// original reads it. Only the mask carrying this plugin's marker is touched; every other
+/// The handler rebuilds that rectangle from the node's own transform and authored pair, and a
+/// factory-built mask carries recycled anchor bits and no x scale, which is a gauge clipped away by
+/// a mask that was asked for a real box. Those inputs are written here, in this same call, before
+/// the original reads them. Only the mask carrying this plugin's marker is touched; every other
 /// scissor mask pays one word read and a compare.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn msg_mask_enter(mask: u32, _context: u32) {

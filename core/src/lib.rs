@@ -64,26 +64,26 @@ pub const CONTROLLER_ROW: u32 = 0x9c;
 // offset 0x38 * 4 = 0xE0; explicit `param_1 + 0x54` arithmetic is a byte
 // offset. The object's own fields:
 //   +0x54 u32   bytes +0x54..+0x57: bit 0 visible (the walker skips the whole
-//               subtree when clear), 0x0200_0000 drawable (byte 2 bit 5, and the
-//               same word bit as byte 0x57 bit 1, which is the bit the walker
+//               subtree when clear), 0x0200_0000 drawable (the same word bit as
+//               byte 0x57 bit 1, which is the bit the walker
 //               tests twice: to emit the enter record, and to emit a childless
-//               node's exit record inline), 0x0001_0000 cleared by the consumer
-//               after each exit record, 0x0000_4000 byte 2 (+0x56) bit 6 prepaint
+//               node's exit record inline), 0x0004_0000 cleared by the consumer
+//               after each exit record, 0x0040_0000 byte 2 (+0x56) bit 6 prepaint
 //               skip
-//   +0x33 u32   low nibble is the object kind; kinds 6 and 3 take the clip path
-//   +0xE0..0xEC four signed ints: own screen rect (left, top, right, bottom)
+//   +0xCC u32   low nibble: 6 and 3 take the clip path (`param_1[0x33]`, so NODE_KIND is a word index)
+//   +0xE0..0xEC four signed ints: layout rect (left, top, right, bottom), not the sprite
 //   +0xF0..0xFC four signed ints: that rect after prepaint intersects it with
-//               the live clip, i.e. exactly what native code draws
-//   +0x100 u32  texture id, +0x104 texture object, +0x10C..0x118 four ints: the
+//               the live clip, written only on the clip path
+//   +0x100 u32  texture id, +0x104 texture object, +0x10C..0x118 four floats: the
 //               rectangle inside the atlas, which identifies the glyph drawn
-//   +0x42 byte  & 0x30 draw-dirty flag, +0xD0 u32 bit 0 rect-dirty, bit 1 clip
-//               applied
+//   +0x108 byte low nibble sampler, & 0x30 tested by the rect setter, +0xD0 u32 bit 0
+//               rect-dirty, bit 1 clip applied
 pub const NODE_FLAGS: u32 = 0x54;
 pub const NODE_KIND: u32 = 0x33;
 /// The authored size pair's width word, written by the layout pass through the DTI `Size`
 /// setter (main+0xa4ba40) and read by gui.rs's stage 32 gate: 88x24 for the bar, 88x32 for the
-/// glow. It is not the draw width: the bar's transform x scale is 1.0, so the sprite fills the
-/// node's screen rect at `+0xE0`, and that rect is what the fill's geometry is measured on.
+/// glow. It is not the draw width, and neither is the node's 128x128 rect at `+0xE0`. That rect
+/// is a layout box, and the fill's geometry is measured on it, with no derived sprite mapping.
 pub const NODE_AUTHORED_WIDTH: u32 = 0xb4;
 pub const NODE_RECT: u32 = 0xe0;
 pub const NODE_EFFECTIVE_RECT: u32 = 0xf0;
@@ -218,7 +218,7 @@ pub fn span_box(rect: [i32; 4], ratio_bp: u32, start: i32, end: i32) -> [i32; 4]
 ///
 /// The clip mask's authored width is `box[2] - box[0]` and its box's right edge is `box[2]`: the
 /// mask builds `corner .. corner + authored` (see `mask_box`), so its transform translation is
-/// written at `box[2]` and the authored width pulls the left edge back to `box[0]`.
+/// written at `box[0]` and the authored width spans forward from there to `box[2]`.
 pub fn dim_box(rect: [i32; 4], ratio_bp: u32) -> [i32; 4] {
     let kept = cut_box(rect, ratio_bp)[2];
     let full = cut_box(rect, FULL_SHARPNESS_BP)[2];

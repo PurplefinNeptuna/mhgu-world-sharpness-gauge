@@ -14,6 +14,179 @@ afterwards, and the setter main+0xa4fb58 - early return while the four floats ma
 write to the copy's `+0x10c` marks nothing and never repaints. `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`
 carries the three facts with their bytes, and the history below has the runs that proved them.
 
+## Constraints
+
+`DISTRIBUTION.json` is authoritative; runtime changes need a new version.
+Rust plus vendored forge-rs, PIC target JSON, `-nostartfiles -Wl,-z,text`. No
+game ARC/GUI edits, no asset replacement: mod-owned resources only, under
+`romfs/nativeNX/plugins/modern-sharpness-gauge/` via `forge::fs::romfs::mount_point()`.
+No settings means no panel. Preparing this mod never installs, activates,
+launches, edits saves, publishes or pushes.
+
+## Commands
+
+`./build.sh doctor|build|test|verify|package|export --output DEST`. There is no
+`prepare`: this mod ships no resources, assets or INI, and has no settings,
+so no Plugin UI panel: the build exports `forge_onLoad`, `forge_onInit`,
+`forge_onUpdate`, `init` and `fini`, and `verify.py` requires exactly that set.
+Inputs come from `build.local.json` (`main`, `sdk`, `forge` under `inputs`,
+copied from `work/shared/game-exefs/`); `build.local.example.json` documents
+the keys. Outputs go to `build/modern-sharpness-gauge/candidates/VERSION/` and
+scratch to `work/modern-sharpness-gauge/candidates/VERSION/`, where VERSION is
+`scripts/paths.py`'s current version. `package` refuses to run for a
+`READY_TO_DISTRIBUTE` spec: no distribution approval exists.
+
+r63's source comments were corrected on 2026-11-01, after its release, with no
+line added or moved. A scratch rebuild of the corrected source gives the released
+NRO `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`, so the bytes
+are unchanged, while the `source_sha256` values in r63's `build.json` still name the
+source as it stood at the build.
+
+## Files
+
+- `core/src/lib.rs`: `#![no_std]` decisions only: the local-player chain, the
+  gauge read, the fill math in basis points, the gauge-HUD identity, the cut
+  box from the accepted rect offsets, the node count and cache sizing the
+  insertion gates on, the walker ports the fixtures pin, and the copied `Sample`
+  with its 11 field names. No Forge, no FFI, no `unsafe`.
+- `core/tests/behavior.rs`: 23 host fixtures over a fake memory map.
+- `src/hooks.rs`: the four Forge hooks (walker, instance draw, row root
+  destructor, mask enter), their signature gate and rollback.
+- `src/sampling.rs`: discovery in the walker's hot path: the slow attempt
+  cadence, the captured controller and player, the gauge-present gate, and the
+  capture's teardown.
+- `src/gui.rs`: the row gates 21..34 and the retry cadence.
+- `src/insert.rs`: the mask, clip mask and copy, the map and cache growth, the
+  per-frame writes at the mask's enter handler, and the liveness checks.
+- `src/memory.rs`, `src/svc.S`: mapping-checked reads and the three SVC
+  wrappers Forge does not expose (query memory, GetInfo program id, process
+  cache flush). Gap documented beside each use.
+- `src/signatures.rs`: 33 32-byte windows taken from the original main NSO.
+- `src/lib.rs`: metadata record, install, and the log lines outside the hooks.
+
+## Offsets, units and proof
+
+All values are main-module relative. Ghidra's base is `0x009c9000`; subtract it
+for addresses from Ghidra, never for vtable words or DTI `get`/`set` values, which
+are already main-relative. Disassembly prints words byte-swapped: the word
+`e92d4830` is the memory bytes `30 48 2d e9`, so a 12-word window is written in
+memory order as `30482de9 0140a0e1 ...`. `scripts/verify.py` compares memory-order
+bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
+
+| Address | Meaning | Proof |
+| --- | --- | --- |
+| `0xa494a0` | draw walker entry; a hook site | 12-word window, unique in main; `bl` from `0xa39664`, tail branch from `0xa56a20` (`research xref`) |
+| `0xa49b28` | animation controller setup; sizes the draw cache from the halfwords at row+8 | decompile in `ghidra-batch1/` |
+| `0xa39300` | instance draw; hands the controller to the walker at `0xa39664`; a hook site | same batch |
+| `0xa37c1c` | scissor routine: writes the render target's scissor and stores the request at context `+0xd0..+0xdc` | batch 1 |
+| `0xa4e628` | `cGUIObjTexture` slot 0x38, its enter: intersects the live scissor with its rect only when `+0xcc`'s low nibble is 3 or 6 and `+0x56` bit 6 is clear | vtable word, bytes |
+| `0xa4fc9c`, `0xa4feb4` | texture draw slot 0x3c; rebuilds the quad's UVs and colours only on the `+0xc0` mark | batch 1, bytes |
+| `0xa4fc68` | texture slot 0x50: sets the `+0xc0` bits 24..26 | bytes |
+| `0xa4964c`, `0xa4915c` | transform walk (slot 0x44 only with bit 17); row update with the bit 19 child re-sort on `+0x60` | bytes |
+| `0x61912c` | HUD widget driver, gauge case 8 reads the tier | batch 2 |
+| `0x26893c` | `uPlayerBase::getSharpnessType`, returns `mSharpnessType` | batch 2 |
+| `0x29cdfc` | `uPlayerBase::calculateSharpnessType` | batch 2 |
+| `0x2ad288` | `uPlayerQuest::adjustSharpness`, the writer of `mSharpness` | batch 2 |
+| `0x3f8398` | local hunter index reader over the session singleton | batch 3 |
+| `0x276278` | `sPlayer::getMainPlayer` | batch 3 |
+| `0xa4faf0`, `0xa4fb58` | `cGUIObjTexture` setTexture / setTextureRect | batch 3, bytes |
+| `0xa4ba20`, `0xa4ba40` | `cGUIObjScissorMask` Enable (bit 0 of `+0xa4` from its argument) / Size setters | bytes |
+| `0xa48460`, `0xa4844c` | native child / sibling linkers, each writes the attached node's parent | bytes; `bl` from `0xa38dd8` and `0xa38dfc` |
+| `0xa4ba94` | mask enter: builds `+0xb0..+0xbc` when `+0xa4 & 2`, applies the scissor when `+0xa4 & 1`; a hook site | vtable word at `0x178fb3c`, batch 7 |
+| `0xa4bcdc` | mask exit: restores the clip saved at `+0xc0..+0xcc`, returns unless `+0xa4 & 1` | vtable word at `0x178fb44`, bytes |
+| `0xa486fc` | `cGUIObjRoot` destructor (slot 0x04): frees the row cache, then deletes the root's child chain; a hook site that has fired in no saved log | vtable word, bytes |
+| `0xa56758` | `cGUIObjScissorMask` destructor (slot 0x04): deletes its own child chain | vtable word, bytes |
+| `0xa4b6cc` | `cGUIObjScissorMask` factory: 0xd0 bytes through the mask DTI's MT allocator | batch 7 decompile |
+| `0xa38828` | `setAnimationId`: destroys a row's controller and map, builds new ones; `bl` from `0x54504c` and `0x5451fc` | batch 1 |
+
+Runtime state read by the hook:
+
+| Location | Meaning |
+| --- | --- |
+| `main+0x188ca48` | session singleton; `+0x30` is the local hunter index, valid 0..3 |
+| `main+0x1885b58` | `sPlayer` singleton; `+0x1c + 4*index` is the local player pointer |
+| player `+10100` | `uPlayerQuest::mSharpness`, signed points |
+| player `+10104` | `uPlayerQuest::mMaxSharpness`, signed points |
+| player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index: 0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple (mapping from the tester, 2026-10-22). A tier is a per-weapon segment of points |
+| controller `+0x68/+0x80/+0x8c/+0x9c/+0xa0` | tree root, draw cache, rebuild flags, animation row, map alias |
+| row `+0/+4/+0xc/+0x14` | animation id; counts packed in one word (objects low u16, sequences high u16); first object row; the word at `+0x14` is a pointer into the sequence block, not a row index |
+| node `+0x54` | flag word: `.agents/skills/mhgu-understanding/references/native-gui.md` has the bits |
+| node `+0x68/+0x6c/+0x70` | first child, next sibling, parent |
+| node `+0xE0..+0xEC` / `+0xF0..+0xFC` | layout rect, 128x128 here and not the sprite (4 signed ints), then the effective rect |
+| node `+0x100/+0x104/+0x10C..+0x118` | texture id, texture object, atlas rect (4 floats) |
+| context `+0xD0..+0xDC` | the live clip |
+
+The gauge identity tuple, identical in every language and in HD: animation id 4,
+4 objects, first object row 29, 15 sequences. Stamina and `pl_gauge0` rows differ,
+so the identity test is the cheap filter in front of every read. The singletons live
+in `.bss`, past the NSO file image, which is why `verify.py` checks the `.data/.bss`
+split instead of their bytes; the chain itself is proven from the decompilations
+above and is read through the mapping query at runtime.
+
+## Hot path rules
+
+- Four hooks, each `e51ff004` + target. Forge copies the first 8 bytes without
+  relocating them, so each entry is checked for position independence; install
+  validates the 16-byte continuation (original bytes, branch opcode, `target+8`)
+  and rolls back on any mismatch. Hook struct size 24, `context` at 12, `ctx_cell`
+  at 16 (compile-time asserts).
+- No `MSR` anywhere in the plugin (`verify.py` disassembly gate). The walker's
+  relocated window keeps `cmp r1,#0` with the flag-consuming `popeq`, and holds no
+  SEL/USAD8/MRS/MSR, so no `APSR_g`/`APSR_nzcvqg` producer is separated from
+  its consumer.
+- Inside the hooks: no allocation, formatting, file access or logging. Reads go
+  through `memory::word`, which queries the mapping per access.
+- Discovery cadence: one attempt every 60 walker calls, so a few fractions of a
+  second per HUD. Nothing is queued, and `FIELDS` names the copied words;
+  formatting and logging happen only in `forge_onUpdate`.
+- Fill math, in `core`: require a live player and a maximum `> 0`, compute in
+  `i64` basis points, clamp to 0..=10000. A zero, negative, missing or
+  above-maximum state yields no ratio; above maximum draws full, depletion
+  floors at empty. Nothing is ever divided by an unverified maximum.
+
+## Corrections to the history below
+
+Checked against the original bytes on 2026-11-01. The history keeps what each run
+concluded at the time, so read it through this list.
+
+1. **"No `bl` site" claims are void.** `work/modern-sharpness-gauge/scripts/xref.py`
+   tested `word & 0xFE000000 == 0xEB000000`, which can never be true, so it printed
+   nothing for any target. `find_word.py` by default searched for the address plus the
+   Ghidra base, while vtables hold it without one. With `research xref`: the walker has
+   `bl` `0xa39664` and tail branch `0xa56a20`, the linkers `0xa38dd8` and `0xa38dfc`,
+   `setAnimationId` `0x54504c` and `0x5451fc`. Still no direct branch to the Priority
+   accessors, the mask factory, the root destructor or the mask's enter. The draw walker's
+   thread (open item 2, r44) stays unknown, and that search was not evidence.
+2. **`main+0x85628`, `0x86420`, `0x866a4` and `0x8677c` are the wrong addresses.** Those
+   are vtable words with the Ghidra base subtracted again. The texture's slots are 0x38
+   `0xa4e628`, 0x74 `0xa4f420`, 0x00 `0xa4f6a4` and 0x04 `0xa4f77c`.
+3. **r55's explanation is wrong, its result stands.** `0xa4e628` is the texture's own enter,
+   not the mask class's path. It did not clip r55's copy because its scissor branch needs
+   `+0xcc`'s low nibble to be 3 or 6. The "not safe to arm" verdict on `ScissorSize`
+   disassembled `0x86420`, so that route is unread, not closed. The `+0x33` "kind word" of
+   the r3 read is that same field read at the wrong offset (`obj[0x33]` is `+0xcc`).
+4. **`Enable` honours its argument.** `0xa4ba20` is `bfc r2,#0,#1; bfi r2,r1,#0,#1`. r25's
+   "ignores its second argument" misread it. Every call here passes 0, so behaviour is unaffected.
+5. **Flag bits.** `0x00400000` is byte `+0x56` bit 6, which the texture's enter tests, not a
+   leaf exit. The walker's exit call clears bit 18 (`0xfffbffff`), not `0x200000` or
+   `0x10000`. Byte `+0x57` bit 1 is the drawable bit 25.
+6. **The zero-width causes.** The width was lost to recycled anchor bits (r23), an empty x row
+   (r24) and a width fed from `bar+0xa8` (r30). Removing the remembered box in r21 did not
+   fix it: r22 still read 225 of 225 lines at width 0. r24's "the layout zeroes the width" was
+   the zero the plugin fed itself.
+7. **Priority is not build-time only.** `0xa4915c`, with 32 direct callers, re-sorts a node's
+   children by the halfword at `+0x60` while bit 19 is set. The walker itself does not read it.
+8. **Anchor modes.** `& 3` applies to `+0xa8` and `& 0xc` to `+0xac`; the notes had the axes swapped.
+9. **Colour byte order.** Magenta `0xFFFF00FF` looks the same with red and blue swapped, so
+   r52's photo cannot prove the order. The bar's yellow `0xff5efaff` does: `0xAABBGGRR`.
+10. **The bar's scale.** r33 (88 px at 1:1), r34 (the rect is the draw scale) and r53's
+    `px * 88 / rect width` do not agree with r35's measurement of the ink ending at 200 px
+    on the 110..238 rect. No mapping was derived. The accepted cut is a measured fraction of the rect.
+11. **The old map block.** `FUN_01401bc0` allocates a row's map and `setAnimationId` frees it
+    through the same allocator, so the leak `grow_map` keeps is no longer needed for ownership.
+
+## History
+
 r63 DEVELOPMENT (2026-11-01), the consolidation of the accepted r62, promoted on static validation.
 Deleted, with the queue, atomics and hot-hook reads that fed them: the fill line (ratio, box, bar rect,
 effective rect, atlas rect, authored width, feed, shade box, shade window - 27 words per queued line),
@@ -711,124 +884,6 @@ plugin unload step, so nothing is undone at plugin removal: the game's own teard
 the row is the only cleanup, which is what the destructor hook is for. Host fixtures
 cover the tree before the insertion, the tree after it, the record counts and the
 r13 shape; the ARM fixtures for insertion and allocation failure are not written.
-
-## Commands
-
-`./build.sh doctor|build|test|verify|package|export --output DEST`. There is no
-`prepare`: this mod ships no resources, assets or INI, and has no settings,
-so no Plugin UI panel: the build exports `forge_onLoad`, `forge_onInit`,
-`forge_onUpdate`, `init` and `fini`, and `verify.py` requires exactly that set.
-Inputs come from `build.local.json` (`main`, `sdk`, `forge` under `inputs`,
-copied from `work/shared/game-exefs/`); `build.local.example.json` documents
-the keys. Outputs go to `build/modern-sharpness-gauge/candidates/VERSION/` and
-scratch to `work/modern-sharpness-gauge/candidates/VERSION/`, where VERSION is
-`scripts/paths.py`'s current version. `package` refuses to run for a
-`READY_TO_DISTRIBUTE` spec: no distribution approval exists.
-
-## Files
-
-- `core/src/lib.rs` — `#![no_std]` decisions only: the local-player chain, the
-  gauge read, the fill math in basis points, the gauge-HUD identity, the cut
-  box from the accepted rect offsets, the node count and cache sizing the
-  insertion gates on, the walker ports the fixtures pin, and the copied `Sample`
-  with its 11 field names. No Forge, no FFI, no `unsafe`.
-- `core/tests/behavior.rs` — host fixtures over a fake memory map.
-- `src/hooks.rs` — the four Forge hooks (walker, instance draw, row root
-  destructor, mask enter), their signature gate and rollback.
-- `src/sampling.rs` — discovery in the walker's hot path: the slow attempt
-  cadence, the captured controller and player, the gauge-present gate, and the
-  capture's teardown.
-- `src/gui.rs` — the row gates 21..34, the row facts, the retry cadence.
-- `src/insert.rs` — the mask insertion, the map and cache growth, the cut box
-  write at the mask's enter handler, and the liveness check.
-- `src/memory.rs`, `src/svc.S` — mapping-checked reads and the three SVC
-  wrappers Forge does not expose (query memory, GetInfo program id, process
-  cache flush). Gap documented beside each use.
-- `src/signatures.rs` — 32-byte windows taken from the original main NSO.
-- `src/lib.rs` — metadata record, install, and the log lines outside the hooks.
-
-## Offsets, units and proof
-
-All values are main-module relative. Ghidra's base is `0x009c9000`; subtract it
-for these. Disassembly prints words byte-swapped: the word `e92d4830` is the
-memory bytes `30 48 2d e9`, so a 12-word window is written in memory order as
-`30482de9 0140a0e1 ...`. `scripts/verify.py` compares memory-order bytes
-against the supplied NSO; nothing here is a Ghidra-imported byte.
-
-| Address | Meaning | Proof |
-| --- | --- | --- |
-| `0xa494a0` | draw walker entry; the hook site | 12-word window, unique in main (verified count 1); GE/NZCVQ audit in Phase 0 |
-| `0xa49b28` | animation controller setup; sizes the draw cache from row counts | decompiled `function_00a494a0.c`/callers in `work/modern-sharpness-gauge/ghidra-batch1/` |
-| `0xa39300` | instance draw; hands the controller to the walker | same batch |
-| `0xa37c1c` | scissor routine writing the effective clip | batch 1 |
-| `0xa4e628` | sprite prepaint; intersects live scissor with sprite rect | batch 1 |
-| `0x61912c` | HUD widget driver, gauge case 8 reads the tier | batch 2 |
-| `0x26893c` | `uPlayerBase::getSharpnessType`, returns `mSharpnessType` | batch 2 |
-| `0x29cdfc` | `uPlayerBase::calculateSharpnessType` | batch 2 |
-| `0x2ad288` | `uPlayerQuest::adjustSharpness`, the writer of `mSharpness` | batch 2 |
-| `0x3f8398` | local hunter index reader over the session singleton | batch 3 |
-| `0x276278` | `sPlayer::getMainPlayer` | batch 3 |
-| `0xa4faf0`, `0xa4fb58` | `cGUIObjTexture` setTexture / setTextureRect | batch 3 |
-| `0xa4ba20`, `0xa4ba40` | `cGUIObjScissorMask` Enable / Size setters | batch 3; Enable writes bit 0 of `+0xa4` (`bfc r2,#0,#1` + `bfi r2,r1,#0,#1`), Size stores `+0xa8`/`+0xac` |
-| `0xa4844c`, `0xa48460` | native sibling / child linkers, each supplies the attached node's parent | instruction words in `PHASE2_RESEARCH.md`; no `bl` and no stored word for either address in main (`scripts/xref.py`, `scripts/find_word.py`) |
-| `0xa4ba94` | mask enter record handler: builds the mask rect at `+0xb0..+0xbc` when `+0xa4 & 2`, applies the scissor when `+0xa4 & 1` | vftable word at `0x178fb3c` (= `cGUIObjScissorMask` slot 0x38), batch 7 |
-| `0xa4bcdc` | mask exit record handler: restores the clip saved at `+0xc0..+0xcc`, returns unless `+0xa4 & 1` | vftable word at `0x178fb44` (slot 0x40), instruction words in `PHASE2_RESEARCH.md` |
-| `0xa486fc` | `cGUIObjRoot` destructor (slot 0x04 of `0x178f9bc`): frees the row cache, then deletes the root's child chain. The r14 hook | instruction words, `find_word.py`; window signature |
-| `0xa56758` | `cGUIObjScissorMask` destructor: deletes its own child chain, so the game frees the mask and the three textures together | instruction words in `PHASE2_RESEARCH.md` |
-| `0xa4b6cc` | `cGUIObjScissorMask` factory: 0xd0 bytes through the mask DTI's MT allocator, `+0x5c` (sibling) zeroed | batch 7 decompile |
-
-Runtime state read by the hook:
-
-| Location | Meaning |
-| --- | --- |
-| `main+0x188ca48` | session singleton; `+0x30` is the local hunter index, valid 0..3 |
-| `main+0x1885b58` | `sPlayer` singleton; `+0x1c + 4*index` is the local player pointer |
-| player `+10100` | `uPlayerQuest::mSharpness`, signed points |
-| player `+10104` | `uPlayerQuest::mMaxSharpness`, signed points |
-| player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index: 0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple (mapping from the tester, 2026-10-22). A tier is a per-weapon segment of points |
-| controller `+0x68/+0x80/+0x8c/+0x9c/+0xa0` | tree root, draw cache, rebuild flag, animation row, owner |
-| row `+0/+4/+0xc/+0x14` | animation id; counts packed in one word (objects low u16, sequences high u16); first object row; the word at `+0x14` is a pointer into the sequence block, not a row index |
-| node `+0x33` / `+0x42` / `+0x54` | kind word (`& 0xf`), draw-dirty byte (`& 0x30`), flag word `+0x54..+0x57` |
-| node `+0x68/+0x6c/+0x70` | first child, next sibling, parent |
-| node `+0xE0..+0xEC` / `+0xF0..+0xFC` | own screen rect (4 signed ints), then the rect prepaint leaves after the live-clip intersection |
-| node `+0x100/+0x104/+0x10C..+0x118` | texture id, texture object, atlas rect (4 ints, identifies the glyph) |
-| context `+0xD0..+0xDC` | the live clip every drawable in this walk is intersected with |
-
-Ghidra indexes `int *` members in WORDS, so a decompiled `param_1[0x38]` sits
-at byte offset `0x38 * 4 = 0xE0`, while written pointer arithmetic (`param_1 + 0x54`)
-is already a byte offset; that is the rule behind the rect offsets above. The node
-flag word at `+0x54` covers bytes `+0x54..+0x57`: bit 0 visible (the walker skips an
-invisible subtree), `0x0200_0000` drawable, `0x0040_0000` leaf exit (byte `+0x57` bit
-1), `0x0000_4000` prepaint skip (byte `+0x56` bit 6). The r1 walk reported
-`drawable=0` because r1 tested `0x2000_0000`; r2 tests the value the walker itself
-uses. The gauge identity tuple,
-identical in every language and in HD: animation id 4, 4 objects, first object
-row 29, 15 sequences. Stamina and `pl_gauge0` rows differ, so the identity test
-is the cheap filter in front of every read. The singletons live in `.bss`, past
-the NSO file image, which is why `verify.py` checks the `.data/.bss` split
-instead of their bytes; the chain itself is proven from the decompilations
-above and is read through the mapping query at runtime.
-
-## Hot path rules
-
-- One hook, `e51ff004` + target, Forge relocates the first 8 bytes; install
-  validates the 16-byte continuation (original bytes, branch opcode,
-  `target+8`) and rolls back on any mismatch. Hook struct size 24,
-  `context` at 12, `ctx_cell` at 16 (compile-time asserts).
-- No `MSR` anywhere in the plugin (`verify.py` disassembly gate). The relocated
-  window keeps `cmp r1,#0` with the flag-consuming `popeq`, and holds no
-  SEL/USAD8/MRS/MSR, so no `APSR_g`/`APSR_nzcvqg` producer is separated from
-  its consumer.
-- Inside the hook: no allocation, formatting, file access, float, or logging.
-  Reads go through `memory::word`, which queries the mapping per access. Once
-  the row is known a walker call costs two atomic loads and one integer compare.
-- Discovery cadence: one attempt every 60 walker calls, so a few fractions of a
-  second per HUD. Nothing is queued, and `FIELDS` names the copied words;
-  formatting and logging happen only in `forge_onUpdate`.
-- Fill math, in `core`: require a live player and a maximum `> 0`, compute in
-  `i64` basis points, clamp to 0..=10000. A zero, negative, missing or
-  above-maximum state yields no ratio; above maximum draws full, depletion
-  floors at empty. Nothing is ever divided by an unverified maximum.
 
 ## Static evidence for r4
 
@@ -2581,23 +2636,3 @@ is given one, at the accepted chain position (as the mask's sibling, which r52 p
   mask's exit and inside the clip mask's enter/exit pair.
 - Teardown mirrors the proven shape: the controller's chain `[mask, anchor]`; the mask destroys bar, glow
   and edge, the anchor destroys the clip mask, the clip mask destroys the copy.
-
-## Rules to keep
-
-- The node's own rectangle (`+0xe0`, with the effective rect `+0xf0`) is what clips its drawing:
-  main+0xa4e628 copies the context's live scissor into `+0xf0`, intersects `+0xe0`, and main+0xa37c1c
-  writes the render state's clip box. The quad at `+0x80/+0xb4` is not that knob (the r53 log:
-  `pos=90.0 0.0 size=0.7 24.0` with `rect=110 38 238 166` unchanged).
-- Bit 17 of the flags word (0x20000) is transform dirty: the walk main+0xa4964c calls a node's
-  setMatrix, composing it with the parent's `+0x10` matrix, only while that bit is set (main+0xa4969c),
-  and pushes the bit to the children only of a node dirty itself (main+0xa496e0..0xa496f0). Every node
-  this mod links into the row needs it, the shade's clip mask included: without it the node keeps the
-  matrix its constructor left. Bit 19 (0x80000) is not a layout bit - main+0xa4915c uses it to re-sort
-  a node's children by Priority (+0x60) and clears it - and neither bit recomputes a rect from the quad.
-
-`DISTRIBUTION.json` is authoritative; runtime changes need a new version.
-Rust plus vendored forge-rs, PIC target JSON, `-nostartfiles -Wl,-z,text`. No
-game ARC/GUI edits, no asset replacement: mod-owned resources only, under
-`romfs/nativeNX/plugins/modern-sharpness-gauge/` via `forge::fs::romfs::mount_point()`.
-No settings means no panel. Preparing this mod never installs, activates,
-launches, edits saves, publishes or pushes.

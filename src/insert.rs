@@ -13,10 +13,10 @@
 //!   pointer at `alloc + sequences * 12`. This row is sized for 3 objects and 16 sequences, so
 //!   its record area holds 7 records, and the mask's tree emits 9: the insertion has to grow
 //!   the block.
-//! - The mask's rectangle at `+0xb0..+0xbc` is owned by the game's layout, which rebuilds it
-//!   from the node's own quad (position + authored size). A node the animation row has no entry
-//!   for comes out with width 0, so the box is written at the mask's enter handler
-//!   main+0xa4ba94 in the same call that reads it.
+//! - The mask's rectangle at `+0xb0..+0xbc` is derived: the enter handler main+0xa4ba94 rebuilds
+//!   it from the node's own transform and authored size while `+0xa4` bit 1 is set, then applies
+//!   it. So its inputs are written at that handler, in the same call that reads them, and the
+//!   rectangle words themselves are never written.
 //!
 //! Everything here runs inside a native callback on the game's GUI thread. No game pointer is
 //! kept past the callback: addresses are plain integers, cleared by the root destructor hook
@@ -41,7 +41,7 @@ const MASK_TRANSLATION: u32 = 0x40; // the transform's translation pair: the box
 /// The class's DTI `Enable` setter (main+0xa4ba20, from the DTI record), the native way to
 /// stop a scissor mask clipping.
 const ENABLE_SETTER: u32 = 0xa4ba20;
-const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 y anchor mode, bits 2-3 x anchor mode
+const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 anchor +0xa8, bits 2-3 anchor +0xac
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
 /// bit 0 applies it. The rebuild is the game's own arithmetic, and its inputs are the fields
@@ -69,8 +69,8 @@ const DIM_COLOUR: u32 = 0xFF26_2320;
 /// authored`, with the corner the node's translation at `+0x40/+0x44` (main+0xa4b390, called by the
 /// mask's enter handler main+0xa4ba94 with the node itself; it reads no parent field and no
 /// rectangle at `+0xe0`, which is past the 0xd0-byte mask object). So the corner is a write: the
-/// clip mask's translation goes to the full-sharpness right edge of the blade and its authored
-/// width pulls the box's left edge back to the cut, which clips the copy to the part of the blade
+/// clip mask's translation goes to the cut's right edge and its authored width spans forward from
+/// there to the blade's end, which clips the copy to the part of the blade
 /// past the cut.
 const CLIP_MARKER: u32 = 0x4d53_4734;
 const MASK_FACTORY: u32 = 0xa4b6cc;
@@ -146,9 +146,9 @@ fn window_at(node: u32, offset: u32) -> [f32; 4] {
     out
 }
 
-/// Times the enter hook found the mask's links gone. This is the teardown signal the build can
-/// prove: a mask left over from a row whose scene ended keeps being entered, so its enter hook is
-/// the one place the game proves the mask is live while its links are already gone.
+/// Times a check found the mask's links gone. The enter hook catches a mask still being entered
+/// after its row's links broke, the one place the game proves it live; the draw walker's check
+/// catches a mask freed with its row, whose enter is no longer called.
 static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
@@ -318,12 +318,12 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: [u32; 3]) 
         allocator.release(fresh);
         return Err(43);
     }
-    // shortcut: the old 4-word block leaks (16 bytes per insertion). No code read so far
-    // allocates it, and handing a block to an allocator that never owned it corrupts that
-    // allocator's free list. At a row's drop its objects read as freed-heap fill
-    // (0xffeaeaea/0xffe3e3e3), the memory is reused by the game within seconds, and no gauge
-    // controller is matched afterwards. If the game rebuilds its row in the next area again,
-    // read who allocated the old block and free it there.
+    // shortcut: the old 4-word block leaks (16 bytes per insertion). The game allocates a row's
+    // map through this DTI's allocator (FUN_01401bc0, align 16) and frees it the same way in
+    // setAnimationId main+0xa38828, so releasing it here should be sound. It was dropped while
+    // chasing a rebuild failure whose cause turned out to be a double destruction, and no run has
+    // tried it since. Upgrade: release it through `allocator` in a version that gets a run, with
+    // an area change in that run.
     Ok(fresh)
 }
 
@@ -383,8 +383,8 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
         return Err(52);
     }
     // The bar's live quad, in floats: its authored pair (88.0 x 24.0 on the measured bar) and its
-    // position pair. The shadow starts as the bar's own quad; the per-frame write in `enter` sizes
-    // it to the part past the cut.
+    // position pair. The shadow keeps this quad for its whole life; the per-frame write moves the
+    // clip mask over it, which is what limits the part that shows.
     let (authored, bar_position) = (window_at(bar, TEX_AUTHORED), window_at(bar, TEX_POSITION));
     let (copy_position, copy_size) = ([bar_position[0], bar_position[1]], [authored[0], authored[1]]);
     // The bar's own sampler state, the low nibble of the style byte at +0x108 where main+0xa4fa5c
@@ -524,9 +524,9 @@ pub fn check_liveness() {
 
 /// The mask's enter handler is about to read `+0xb0..+0xbc` and apply the scissor, so the box
 /// is written here, in this call. Returns without touching anything for a mask that is not
-/// ours, and drops the addresses when the links that made it ours are gone: a mask left over
-/// from a row whose scene ended keeps being entered, and writing into it then writes into
-/// freed memory.
+/// ours, and drops the addresses when the links that made it ours are gone: a mask whose row's
+/// links broke can still be entered, and it would keep applying its last box. A mask freed with
+/// its row is not entered at all, which is `check_liveness`'s case.
 pub fn enter(mask: u32) {
     if memory::word(mask + MASK_ID) != Some(MARKER) {
         return;
@@ -564,9 +564,9 @@ pub fn enter(mask: u32) {
         }
     };
     let rect = rect_at(bar, NODE_RECT);
-    // The bar's authored-size field (bar+0xa8) is animation-driven and layout-zeroed at mask
-    // enter, so it reads 0 here and a box built from it cuts the blade near the tip. The bar's
-    // screen rect is the proven draw width: 110..238, 128 px in the gauge row's tree.
+    // The box is a fraction of the bar's rect, a layout box and not the sprite: the accepted
+    // endpoints were measured on it. The bar's own size fields do not work as a width: +0xa8 is an
+    // animated word that reads 0 here, and the authored 88 at +0xb4 cuts the blade near the tip.
     if rect[2] <= rect[0] {
         return;
     }
@@ -574,10 +574,10 @@ pub fn enter(mask: u32) {
     // bar laid out wider or narrower cuts the same fraction of its blade.
     let box_words = cut_box(rect, ratio);
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
-    // are the writes that matter. A rectangle read as width 0, height 32 at the parent's origin
-    // (110,38), against authored 128x32, pins each input:
+    // are the writes that matter: the anchor modes, the transform's x row and the authored pair.
+    // The box's corner is the fourth input, this node's own translation, left as the walk fills it.
 
-    // 1. The anchor modes, bits 0-3 of +0xa0: `& 0xc` is x and `& 3` is y, mode 0 spans
+    // 1. The anchor modes, bits 0-3 of +0xa0: `& 3` is +0xa8's and `& 0xc` is +0xac's, mode 0 spans
     //    0..size, 1 centres, 2 spans -size..0, 3 collapses the axis. The factory writes
     //    (word & 0xfffff000) | 0xff0 and leaves bits 0-3 as the block came from the allocator,
     //    and the class has no Anchor property in its DTI record, so bits 0-3 are recycled. They
@@ -598,16 +598,16 @@ pub fn enter(mask: u32) {
     // 3. The authored pair. The height is the bar's own rect height, so the clip spans the bar
     //    top to bottom; the width is the ratio's share of it. The position at +0x80 is a DTI
     //    property that the row's layout resolves into the matrix for animated nodes, and this
-    //    node has no animation entry, so writing it does nothing: the rectangle's origin comes
-    //    from the parent's transform, which is the gauge's own corner (110,38).
+    //    node has no animation entry, so writing it does nothing: the rectangle's origin is this
+    //    node's translation at +0x40/+0x44, which the walk fills with the gauge's corner (110,38).
     let height = (rect[3] - rect[1]).max(1);
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
-    // The shade follows the cut from here: its clip mask's translation goes to the full-sharpness
-    // right edge, its authored width pulls the box's left edge back to the cut, and the copy's atlas
-    // window goes through its setter as the bar's own live four floats. The read-back above measures
-    // what the game did with the clip of the previous frame.
+    // The shade follows the cut from here: its clip mask's translation goes to the cut's right edge,
+    // its authored width spans forward from there to the blade's end, and the copy's atlas window
+    // goes through its setter as the bar's own live four floats. The copy's quad, rect and flags
+    // are not written.
     if dim != 0 && clip != 0 {
         write_shade(dim, clip, bar, rect, ratio);
     }

@@ -14,9 +14,9 @@ pub const INSTANCE_HOOK: u32 = 0xa39300;
 pub const ROOT_DESTRUCTOR_HOOK: u32 = 0xa486fc;
 /// The cGUIObjScissorMask enter handler main+0xa4ba94, reached through the class vtable
 /// during the draw walk. It is the call that reads the mask's rectangle at +0xb0..+0xbc and
-/// applies the scissor, and the game's layout overwrites that rectangle with the node's own
-/// quad (authored width 0 for a node the animation row has no entry for), so it is the only
-/// point where a written box is certain to be the box that gets applied.
+/// applies the scissor, rebuilding that rectangle first from the node's own transform and
+/// authored pair while `+0xa4` bit 1 is set, so it is the point where written inputs are
+/// certain to be the ones that get applied.
 pub const MASK_ENTER_HOOK: u32 = 0xa4ba94;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     // main+0xa494a0: draw walker entry; the hook target. A push of four saved

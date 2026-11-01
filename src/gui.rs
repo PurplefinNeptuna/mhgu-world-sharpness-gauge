@@ -15,10 +15,10 @@
 //!   controller, bar, glow and edge, so an inserted node needs a fifth entry: five indexed
 //!   reads through a four-word array run past it and end in that loop.
 //! - the root destructor main+0xa486fc frees `root+0xa4` and deletes the child chain.
-//! - the rectangle the game builds for a mask at `mask+0xb0..+0xbc` comes out of its own layout,
-//!   and a node the row has no entry for gives it width 0: a mask built from the walk's entry
-//!   clipped the gauge away. The geometry belongs to the game's layout, so the box is written at
-//!   the mask's enter handler: see `src/insert.rs`.
+//! - the rectangle the game builds for a mask at `mask+0xb0..+0xbc` is derived from the node's
+//!   own transform and authored pair, and a factory-built mask's anchors and x scale collapse it
+//!   to zero width, which clips the gauge away. Those inputs are written at the mask's enter
+//!   handler, not the rectangle: see `src/insert.rs`.
 use crate::{
     hooks,
     insert,
