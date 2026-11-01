@@ -36,11 +36,40 @@ inside the dark part at half sharpness, and the `u` pair stays `0..88`. `core::s
 exactly 13. 23 host fixtures pass, verify PASSED with 33 signature windows, distribution check PASS. No
 host fixture is possible for the change r62 makes: the vertex cache is game code, and the host suite has
 no game - the instruments are the fill line's `shade_tex=` and the crops. The fill line keeps `tex=`,
-`bar_w=`, `feed=`, `shade_box=` and `shade_tex=` (the copy's `+0x10c` as floats). r62 Gameplay NOT RUN.
+`bar_w=`, `feed=`, `shade_box=` and `shade_tex=` (the copy's `+0x10c` as floats). r62 ran on Eden on
+2026-11-01 and is accepted on screen, and the tester pinned it as the release candidate: the bytes are
+frozen, the payload NRO is the identity (the archive hash moves with the mtimes the packaging step
+stores), and the snapshot is `backups/accepted/modern-sharpness-gauge/r62-screen-accepted/`.
 Candidate
 `build/modern-sharpness-gauge/candidates/r62/delivery/modern-sharpness-gauge-r62-candidate.zip` sha256
 `c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1`, payload NRO
 `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`.
+
+r62 DEVELOPMENT (2026-11-01), ACCEPTED on Eden and PINNED as the release candidate. The tester's crop
+`work/modern-sharpness-gauge/visual/r62/r62-red-1.png` sha256
+`bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb` is the tier r59 and r60 failed on: the
+kept part is red, pixels `(108,25,14)`, `(107,25,14)`, `(102,25,14)` at columns 25..30. Its dark part
+spans columns 9..134 with a bottom edge at row 33 broken by chips - columns 51-59, 69-80 and 90-102 dip to
+28..32 - and a tail rising from column 114 to 7..13 at 127..134; with the bar's 128 px rect over the
+authored 88 columns from the blade's left at column 8, that is chips at columns ~30-35, ~42-50 and ~56-65
+and a raised bottom at ~65-72: the notched worn frame with the raised tail, not the straight bottom edge
+of the 100% frame. The tester's words: "looks correct now, please pin this version as candidate for
+release". The installed NRO `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416` is the
+packaged payload. Eden's log `~/.local/share/eden/log/eden_log.txt` sha256
+`c18b14d8a505f70f26fc408facfae222d0f862328ab2cc8af551b8f05fe0e4fd` keeps a 100 MiB window, timestamps
+2285.175548 to 10209.654031, so the MSG lines of r58..r61 are gone from it; the 600 `MSG r62` lines it
+does keep are saved as `work/modern-sharpness-gauge/runs/r62-eden-2026-11-01.msg-lines.txt` sha256
+`19b089cc0973b6032257963dd030943ca1b6097ef8cdcb87481abe492c15d1f5`: one insertion `MSG r62 scissor mask
+inserted: mask=0x48542490 map=0x47efc610 entries=7 cache=0x485353b0 records=13 dim=0x48526ba0
+dim_tex=0x5160bab0 dim_flags=0x20a0001 clip=0x48526d20 bar_sampler=2 dim_sampler=2`, 578 fill lines from
+`ratio_bp=3400` to `ratio_bp=9942` with `shade_tex=` equal to `tex=` on every one, both
+`0.0 280.0 88.0 304.0`, two `MSG r62 inserted mask's links lost (2 times)` at 8842.101 and `(3 times)` at
+9640.635, each followed by `no sharpness gauge controller seen in 6401192 / 7876272 walker calls (HUD
+absent?)`, and no panic, Guest Abort or ForceStop between 8700 and 9700. The 183 `maxwell_3d.cpp:392 ...
+assert method == executing_macro + 1` lines start at 2743.029, 6271 s before the insertion, so they are
+not this mod's. What the run leaves open: the retained window has no orange `tex=` line, so the orange
+tier rides the same setter path without being photographed, and the crop's tier falls outside the retained
+window - the `shade_tex=` equality is shown on the yellow band, 578 of 578 lines.
 
 r61 DEVELOPMENT (2026-11-01), withdrawn unrun, kept for its record: it wrote the window's `u` pair as
 the columns the box covers (`core::shade_window`, `12.4..61.9` at 0% on the measured 128 px bar) and

@@ -135,7 +135,7 @@
     "r62": {
       "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
       "archive_sha256": "c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1",
-      "runtime": "NOT RUN: the shade is to draw the bar\u2019s current tier frame - worn at orange and red - because the window is published through the setter, which marks the vertex cache dirty",
+      "runtime": "ACCEPTED on Eden 2026-11-01: the dark part draws the worn tier frame at the red tier (crop sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb). PINNED as the release candidate: the installed NRO is 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416, the packaged payload, and the r62 bytes are frozen - no rebuild, since the archive hash moves with the packaging mtimes",
       "adds": "write_shade calls the mTextureRect setter (main+0xa4fb58) with bar + 0x10c every frame, and build_dim hands the same pointer to the setter at the build; r59\u2019s geometry is restored, so u is 0..88 and v is the bar\u2019s live band. core::UNWORN_TEXTURE_RECT, core::shade_window and SHADE_WINDOW are deleted, with r60\u2019s requirement wording. 23 fixtures, 33 windows"
     }
   },
@@ -1183,6 +1183,34 @@
         "measuring the dark part's bottom outline in the crops (atlas rows divided by the bar's 128/88 scale): flat at row 18.5 across the box, then 17.1, 15.8 - the same numbers in r60-1.webp (yellow), r60-2.webp (red), r59-2.webp (orange) and r59-3.webp (red). The unworn frame's tip slope (columns 70..86, bottom edge 19 to 5) compressed into the last 12 px of the 71 px box, the rest of the band flat"
       ],
       "meaning": "the write lands and the shape does not follow, at any tier, because the drawn quad's UVs are a cache: the draw slot main+0xa4fc9c calls main+0xa4feb4, which reads +0x10c..+0x118 and the colours at +0xa4 only when (global+0x98 & (node+0xc0 >> 24) & 7) is set and then clears those bits, and only vtable slot 0x50 (main+0xa4fc68) sets them - the mTextureRect setter (main+0xa4fb58) tail-calls it on a change. r59 and r60 wrote +0x10c by hand, so the copy kept drawing the band it was built with, yellow 0.0 280.0 88.0 304.0, which is the unworn frame the tester reported at every tier. The squeeze reading of these crops (88 columns in the 71 px box) is refuted with r61: a scissor clips at 1:1 and the orange crops show no spiral inside the dark part at half sharpness"
+    },
+    {
+      "date": "2026-11-01",
+      "version": "r62",
+      "emulator": "Eden Development Build",
+      "installed_nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
+      "log": "work/modern-sharpness-gauge/runs/r62-eden-2026-11-01.msg-lines.txt",
+      "log_sha256": "19b089cc0973b6032257963dd030943ca1b6097ef8cdcb87481abe492c15d1f5",
+      "source_log": "~/.local/share/eden/log/eden_log.txt",
+      "source_log_sha256": "c18b14d8a505f70f26fc408facfae222d0f862328ab2cc8af551b8f05fe0e4fd",
+      "source_log_window": "104857665 bytes kept (Eden keeps a 100 MiB window), timestamps 2285.175548 to 10209.654031; the MSG lines of earlier versions are no longer in it",
+      "photos": [
+        "work/modern-sharpness-gauge/visual/r62/r62-red-1.png"
+      ],
+      "photo_sha256": {
+        "r62-red-1.png": "bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb"
+      },
+      "status": "ACCEPTED_ON_SCREEN: the user wrote \"looks correct now\" with the crop of the dark part at the red tier",
+      "observed": [
+        "the user's words: 'looks correct now, please pin this version as candidate for release'",
+        "the crop's kept part is red: pixels (108,25,14), (107,25,14), (102,25,14) at columns 25..30, so the photo is the tier r59 and r60 failed on",
+        "the crop's dark part spans columns 9..134 with a bottom edge at row 33 broken by chips (crop columns 51-59, 69-80, 90-102 dip to 28..32) and a raised tail from column 114 up to 7-13 at 127..134; mapped with the bar's 128 px rect over the authored 88 columns from the blade's left at crop column 8, that is chips at columns ~30-35, ~42-50, ~56-65 and a raised bottom at ~65-72: the notched worn frame with the raised tail, not the straight bottom edge of the 100% frame",
+        "600 MSG r62 lines in the retained window, one insertion \"MSG r62 scissor mask inserted: mask=0x48542490 map=0x47efc610 entries=7 cache=0x485353b0 records=13 dim=0x48526ba0 dim_tex=0x5160bab0 dim_flags=0x20a0001 clip=0x48526d20 bar_sampler=2 dim_sampler=2\" - 7 map entries and 13 cache records, 6 tree nodes, as the fixture predicts",
+        "578 fill lines, ratio_bp 3400 to 9942, and on every one shade_tex= equals tex=: both read \"0.0 280.0 88.0 304.0\". The retained window shows no orange or red tex= line, so the setter publish is confirmed on the yellow band only, and the red crop comes from a part of the run the 100 MiB log no longer keeps",
+        "two teardowns \"MSG r62 inserted mask's links lost (2 times)\" at 8842.101 and \"(3 times)\" at 9640.635, each followed by 'no sharpness gauge controller seen in 6401192 / 7876272 walker calls (HUD absent?)'",
+        "no panic, Guest Abort or ForceStop between 8700 and 9700; the 183 \"maxwell_3d.cpp:392: ... assert method == executing_macro + 1\" lines start at 2743.029, 6271 s before the insertion, so they are not this mod's"
+      ],
+      "meaning": "the worn blade shows on screen at the red tier, so publishing the copy's atlas window through the mTextureRect setter is the mechanism that was missing in r59, r60 and r61. The crop is the acceptance; the retained log covers the yellow band only"
     }
   ],
   "not_proven": [
@@ -1226,16 +1254,16 @@
     "that setting bit 17 on the shade's clip mask puts the copy on the gauge from the first hit: the bit is the walk's gate in main+0xa4969c and the r57 copy state lines show the uncomposed matrix, which is a static reading and the screen result is unproven until r59 runs",
     "that the copy's sampler equals the bar's on screen: bar_sampler= and dim_sampler= read the style byte at +0x108, and filtering is a screenshot question",
     "whether the dark part needs a dark copy of the glow Txt_sharpefx (PosX 6, PosY -6, 88x32, alpha 120): the halo is a Phase 5 design decision, recorded as the user's question, and unchanged",
-    "that the worn tier frame shows on screen at orange and red once the window goes through the setter: the cache facts are read from the bytes (main+0xa4fb58, 0xa4fc68, 0xa4fc9c, 0xa4feb4) and no host fixture can reach them, so shade_tex= - expected to equal tex= - and the crops are the instruments",
-    "that the worn tier frame shows on screen at orange and red once the window goes through the setter: the cache facts are read from the bytes (main+0xa4fb58, 0xa4fc68, 0xa4fc9c, 0xa4feb4) and no host fixture can reach them, so shade_tex= - expected to equal tex= - and the crops are the instruments"
+    "the worn blade at the orange tier: the accepted crop is the red tier, and the retained Eden log window has no orange tex= line, so orange is inferred from the same setter path, not seen",
+    "the shade over a full session: the accepted run is one quest with one insertion, two scene teardowns and 578 fill lines, all at the yellow band; the crop's tier is outside the retained log window"
   ],
   "runtime": {
-    "status": "The accepted shape is r44's cut plus r59's shade: placement, colour, transform and sampler accepted on Eden 2026-11-01. r60 ran the same day and was rejected on screen; r61 was packaged, never run, and is withdrawn with its squeeze premise refuted. r62 publishes the copy's atlas window through the native setter so the drawn quad's UV cache is marked dirty when the bar's band changes, and has not been run.",
+    "status": "The accepted shape is r44's cut plus r59's shade, and r62's window publication: placement, colour, transform, sampler and the worn tier frame accepted on Eden 2026-11-01. r60 ran the same day and was rejected on screen; r61 was packaged, never run, and is withdrawn with its squeeze premise refuted. r62 is the pinned release candidate: the installed NRO matches the packaged payload and the bytes are frozen.",
     "date": "2026-11-01",
-    "binary_sha256": "8094f8f534440a0bc27be547770f7a506da56f944b944445e59614e035afd3f2",
+    "binary_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
     "required": "Exact binary acceptance of the drawing change is the user's and has not been given: the one completed insertion (r18) hid the gauge, which is a failed acceptance, not an approval.",
     "correlate": "The r18 log's 563 plugin lines are that run's own output, the installed bytes matched the r18 payload, and the user's report (the gauge missing) is exactly what the 376 zero-width clip lines predict.",
-    "previous_runs": "r60 as above; r59 accepted as above; r57 in two sessions 2026-10-31; r58 packaged and never run (withdrawn); r52-r56 as recorded in the runs list; r44 accepted 2026-10-30"
+    "previous_runs": "r44 is the accepted cut (one Eden run of 2026-10-30). r59 was accepted on Eden 2026-11-01 for the shade's transform, colour and sampler. r60 ran the same day, rejected on screen. r61 was packaged, never run, withdrawn. r62 ran on Eden 2026-11-01 and is accepted on screen for the worn blade at the red tier."
   },
   "sharpness_chain_research": {
     "writer": "uPlayerQuest::adjustSharpness main+0x2ad288: applies the amount as a short, clamps to 0 and mMaxSharpness, recomputes the tier, stores mSharpnessType, fires events 0x1c/0x1d/0x1e through vft+0x3ac",

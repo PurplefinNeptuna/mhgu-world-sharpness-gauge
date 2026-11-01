@@ -3,7 +3,13 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r62
+## What r62 answered (2026-11-01, accepted on Eden, pinned as the release candidate)
+
+The crop `work/modern-sharpness-gauge/visual/r62/r62-red-1.png` is the red tier - its kept part is red, `(108,25,14)` - and the dark part carries the worn outline: chips in its bottom edge and the tail rising at the right. The tester's words: "looks correct now". The retained Eden log's 578 fill lines all read `shade_tex=` equal to `tex=`, both `0.0 280.0 88.0 304.0`, at `ratio_bp=3400` to `9942`, with one insertion at `entries=7 records=13` and no panic in the window.
+
+What is still open, and what to photograph if you go looking: an orange crop (the accepted crop is red, and the retained log window kept no orange band line, so orange rides the same setter path unseen); a sharpening from red to yellow in one crop; the shade coming back after an area's loading screen and a weapon change; the dark part's missing halo, which is a design question, not a fault; Ryujinx and a real Switch, both unconfirmed.
+
+## What the r62 plan asked for
 
 Run r62. The cut, and the shade's placement, colour and sampler, are accepted r59's, and the shade's
 atlas window is the bar's own `0..88` columns with your live tier's rows. What changed is how that
