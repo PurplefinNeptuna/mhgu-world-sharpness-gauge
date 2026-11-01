@@ -29,7 +29,9 @@ Crops wanted: one at orange, one at red, and one across a sharpening from red to
 
 The log line to match a crop against is the fill line's `shade_tex=`: the window the copy is drawing
 with. It is expected to equal `tex=` on every fill line: `0.0 280.0 88.0 304.0` at yellow,
-`0.0 304.0 88.0 328.0` at orange, `0.0 328.0 88.0 352.0` at red. If `shade_tex=` follows `tex=` and
+`0.0 304.0 88.0 328.0` at orange, `0.0 328.0 88.0 352.0` at red. The one line that can lag is the first
+fill line after an insertion, which reads the band the copy was built with before that enter's setter
+runs; from the next line the two numbers are the same. If `shade_tex=` follows `tex=` and
 the dark part's bottom edge stays straight at orange, say so in the report: that is an answer, not a
 partial pass. `shade_box=`, `bar_sampler=` and `dim_sampler=` are as in the accepted run, and
 `entries=7 records=13` is the same tree. The lines that matter start with `MSG r62`.

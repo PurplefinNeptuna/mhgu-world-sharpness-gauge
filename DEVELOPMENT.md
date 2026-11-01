@@ -39,7 +39,7 @@ no game - the instruments are the fill line's `shade_tex=` and the crops. The fi
 `bar_w=`, `feed=`, `shade_box=` and `shade_tex=` (the copy's `+0x10c` as floats). r62 Gameplay NOT RUN.
 Candidate
 `build/modern-sharpness-gauge/candidates/r62/delivery/modern-sharpness-gauge-r62-candidate.zip` sha256
-`34673e6f81f3c5124278954613835e5c3924cc71b646a630c762141760931df8`, payload NRO
+`c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1`, payload NRO
 `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`.
 
 r61 DEVELOPMENT (2026-11-01), withdrawn unrun, kept for its record: it wrote the window's `u` pair as

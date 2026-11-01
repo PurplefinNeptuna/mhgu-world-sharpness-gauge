@@ -134,7 +134,7 @@
     },
     "r62": {
       "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
-      "archive_sha256": "34673e6f81f3c5124278954613835e5c3924cc71b646a630c762141760931df8",
+      "archive_sha256": "c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1",
       "runtime": "NOT RUN: the shade is to draw the bar\u2019s current tier frame - worn at orange and red - because the window is published through the setter, which marks the vertex cache dirty",
       "adds": "write_shade calls the mTextureRect setter (main+0xa4fb58) with bar + 0x10c every frame, and build_dim hands the same pointer to the setter at the build; r59\u2019s geometry is restored, so u is 0..88 and v is the bar\u2019s live band. core::UNWORN_TEXTURE_RECT, core::shade_window and SHADE_WINDOW are deleted, with r60\u2019s requirement wording. 23 fixtures, 33 windows"
     }
