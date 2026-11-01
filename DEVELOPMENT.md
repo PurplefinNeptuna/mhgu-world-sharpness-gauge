@@ -169,13 +169,17 @@ above and is read through the mapping query at runtime.
   the clip mask, which destroys the copy.
 - **Cut.** Offsets 18 and 90 of the bar's 128 px rect, scaled by the live rect width, linear between them.
   On the measured 110..238 rect the box rights are 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
-  These are the tester's measurement (128 at 0%, 200 at 100%), not derived from the atlas.
+  These are the tester's measurement (128 at 0%, 200 at 100%), not derived from the atlas. At the accepted
+  cut, 0% leaves only the hilt glyph and 100% ends at the measured tip.
+- **Measured art.** Ink in hud00 rows 280, 304 and 328 is columns 18..79 and rows +6..+17 of the authored 88x24:
+  hilt 18..27, blade 28..79. On screen the ink runs 124..200 px and the hilt glyph starts near 125. On the crops
+  1.5 image px is 1 GUI px. These describe the art; the clip's numbers come from the photographs.
 - **Shade.** Each frame the clip mask's translation (`+0x40/+0x44`) is the cut's right edge and the bar's
   rect top; its authored width is the blade past the cut and its height the bar's rect height. r62 logged
   `shade_box=128 38 200 166` at `ratio_bp=0`. The copy keeps the bar's quad from the build, and only its
   window changes per frame. The dark part has no glow by design.
 - **Copy construction.** DTI allocator slot 0x20 with `(bytes, align, dti id)`, a zeroed 304-byte block,
-  constructor main+0xa4f60c, the bar's `+0x50/+0x64/+0x74/+0x78`, the twelve style setters in Key Quest
+  constructor main+0xa4f60c, the mod's marker at `+0x50`, the bar's `+0x64/+0x74/+0x78`, the twelve style setters in Key Quest
   Markers' order, `SamplerState` from the bar (authored 2, stored in the low nibble of `+0x108` by
   main+0xa4fa5c), the `Texture` id last, then the window through the setter. Stages 50..52 are additive: no
   copy, and the gauge looks like the plain cut.
@@ -199,10 +203,17 @@ The tier is weapon data. `calculateSharpnessType` (main+0x29cdfc) takes the equi
 `FUN_00aa8814(&mpPlParam->mStatusParam, 0)`, resolves the base data with `FUN_00b0803c` over the singleton
 pair at `DAT_00c65ec0 + 0xc65e54`, asks it at `vft+0xd8` with `(equip->field1_0x4 & 0x3ff) >> 5`, and the
 result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) names `Sharpness` +21,
-`SharpnessQuality` +22, `WeaponId` +58 and `WeaponNameId` +60. `mCmdTblId` at player `+9388` identifies the weapon.
+`SharpnessQuality` +22, `WeaponId` +58 and `WeaponNameId` +60. `mCmdTblId` at player `+9388` identifies the weapon: 1000 Long Sword, 2000..2033 Dual Blades, 9999 no weapon command (bowgun).
 
 ## Do not
 
+- **Leave the glow and edge outside the mask, or set only the rebuild bit.** A mask whose tree never closes has no exit record, so its scissor never ends; `a_mask_left_open_never_stops_clipping` pins that shape. `+0xa4` bit 1 only rebuilds, and bit 0 asks for the scissor.
+- **Publish a mask's links before the mask.** A parent chain that ends at 0 or a parent cycle is fatal to a rebuild on the draw thread, so publish the mask first. Grow map and cache before linking.
+- **Re-read the row after insertion with the gates written for the tree before it.** The per-frame path must accept the inserted tree, and `read_row` detects the marker for that.
+- **Treat stage 20 or 21 as terminal.** The HUD is simply absent before a quest. Retry; only factory, allocation and publish failures are terminal.
+- **Feed the box from the bar's authored 88 px.** That cut the blade near the tip at 190 ("worse than r33"). `bar_w=88` reads fine, but the rect's 128 is what the tester's cuts line up with.
+- **Trust `eff=` at the mask's enter.** The bar's effective rect is not written yet at that point and reads `0 0 0 0`.
+- **Quote a window that is not in a log.** `tex=0 156 87 440` was invented, and an axis theory was built on it. Decode the `+0x10c` floats.
 - **Trust `work/modern-sharpness-gauge/scripts/xref.py` or `find_word.py`.** Both are broken and their "no `bl`
   site" results are void. Use `research xref`, which still finds no direct branch to the Priority accessors,
   the mask factory, the root destructor or the mask's enter.
@@ -218,7 +229,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 - **Rely on a node's rect to clip it.** Zero-width `+0xe0/+0xf0` landed and the copy painted over the gauge anyway. Only the render state's scissor clips.
 - **Expect a scissor to scale.** It clips at 1:1. r58 and r61 rested on a squeeze premise that is refuted; r61 is withdrawn, do not ship it.
 - **Take a mask's corner from its parent's rect.** The builder main+0xa4b390 reads only the node's own transform, and the authored width spans forward from that corner.
-- **Move the copy with raw position, size or window writes after the build.** They read back and never repaint. Use the setter for the window and a mask for geometry.
+- **Move the copy with raw position, size or window writes after the build.** They read back and never repaint. Use the setter for the window and a mask for geometry. The only build writing the quad per frame also faulted in the game's own update (`strb r1,[r4,#0xcb00]` at main+0x1014604, `r4` = 0, called from main+0xf28238). The mechanism is unread, so do not retry that without reading it.
 - **Draw a fixed band.** The tester's requirement is the live tier frame: "r59 and r60 both failed to shown worn blade for orange or red color sharpness". The task wording "the shade always draws the unworn blade" had it backwards.
 - **Link anything ahead of the mask on the controller's chain.** The row's chain went 8 ms after insertion and the row never matched again. Paint order is walk order, and the sibling after the mask is the only proven position.
 - **Clear bit 17 on the clip mask, or call bit 19 a layout bit.** Without 17 the clip and copy keep their constructors' matrices. Bit 19 is main+0xa4915c's child re-sort on `+0x60`, so Priority is not build-time only.
