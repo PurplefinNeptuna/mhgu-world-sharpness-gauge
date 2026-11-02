@@ -7,7 +7,12 @@ report, and what the log lines mean.
 
 r64 changes one thing: the bar's length is measured inside the tier its points sit in, so the bar
 refills at every colour change. The cut, the dark part, the worn tier frame at orange and red, the
-colour, the transform and the sampler are accepted r62's, unchanged. r64 has never been run.
+colour, the transform and the sampler are accepted r62's, unchanged.
+
+r64 has been played on Eden (2026-11-02): "from playing and look at the visuals it looks right, but my current gameplay only
+satisfy no 1,2, and 5", so steps 1, 2 and 5 below are answered. Steps 3 and 4 are still open, and so is a log showing the gauge
+set up again after a mid-quest loading screen: that run built one gauge row, tore it down at a quest end, and inserted nothing
+after that.
 
 The requirement is the tester's own: "make the gauge works like mh world's gauge, which the bar is
 per tier, so for example, weapon with purple tier max, the bar will show the fill as between max
@@ -34,11 +39,11 @@ what the bar did, in the order you played it. Tell me if the bar is missing at a
 or wrongly coloured box appears over the gauge, if the cut is in the wrong place, if the glow or the
 edge glyph is missing, if the bar never refills at a colour change, or if the game stops responding.
 
-What is not proven yet and stays open after this run: a Sharpness skill has never appeared in a
-saved log, so step 3 is the first runtime check of the raised maximum; the accepted crop is the red
-tier, so orange is unseen; the order of the tier change against the draw is unread, so a tier drop
-may show one frame of a full bar in the old colour; the dark part has no glow, by design; Ryujinx
-and a real Switch are untested.
+What is not proven yet and stays open after this run: a Sharpness skill has never appeared in a saved log and the 2026-11-02 play
+did not use one, so step 3 is the first runtime check of the raised maximum; step 4, Heavy Polish, was not tried; the 2026-11-02
+play ended the quest rather than crossing a loading screen mid-quest, so a second area's gauge on these bytes is unrecorded; the
+accepted crop is the red tier, so orange is unseen; the order of the tier change against the draw is unread, so a tier drop may
+show one frame of a full bar in the old colour; the dark part has no glow, by design; Ryujinx and a real Switch are untested.
 
 ## Which log to send
 

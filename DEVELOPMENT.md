@@ -23,9 +23,20 @@ payload `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`); r63
 the run instruments removed, released on static validation, logged on Eden on 2026-11-02
 (`work/shared/runs/eden-2026-11-02.txt`, installed NRO matching): `MSG r63 scissor mask inserted` at
 130.479939 and 965.056722 with `entries=7` and `records=13`, `inserted mask's links lost` at
-475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after `ForceStop`. r64's
-fill has not been run. `DISTRIBUTION.json` holds the status and hashes, `EVIDENCE.json` the exact
-results, `TESTING.md` the tester steps and log lines.
+475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after `ForceStop`.
+
+r64 ran on Eden on 2026-11-02 with the packaged payload installed (`work/modern-sharpness-gauge/runs/r64-eden-2026-11-02.txt`,
+sha256 `dff4e64cd8191651f67e44762263c0f825c9c153e993d3e6b481d88efc7369b8`), and the player accepted the bar as played: "from
+playing and look at the visuals it looks right, but my current gameplay only satisfy no 1,2, and 5". Its three `MSG r64` lines are
+stage 21 at 13.035483 (the hub), `scissor mask inserted` at 155.176840 with `entries=7` `records=13` and `dim=`/`clip=` non-zero,
+and `inserted mask's links lost (1 times)` at 1101.645590 with the game's save commits at 1111.848609 placing that teardown at a
+quest end, and no insertion after it: this run built one gauge row, so the per-area re-insertion stays unexercised. The build logs
+no fill line, so no run carries a band number: the fill's runtime evidence is the player's eye. No guest exception; the only new
+host-side line against r63's session is `HW.Memory <Error> Unmapped @ 0x00000082609400 (size = 48)` at 1139.120422, inside Eden's
+exit path after the RomFS patch burst at 1138.743248 and 4.34 s before `ForceStop`, with two NVDRV pin-count warnings; the
+renderer Critical counts match r63's session (45 vs 57 maxwell, 10 vs 10 texture cache, 1 vs 1 each for hle_ipc and the software
+keyboard) and r64's log records no host SIGSEGV after `ForceStop`. `DISTRIBUTION.json` holds the status and hashes, `EVIDENCE.json`
+the exact results, `TESTING.md` the tester steps and log lines.
 
 The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
 slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner
@@ -266,7 +277,8 @@ ends tier 4 blue at 400, +1 gives 425 in tier 5 white, +2 gives 450 in tier 6 pu
 full at its maximum. Fixtures in `core/tests/behavior.rs` reproduce the tester's logged samples
 (150, 131, 130, 100, 90, 8, 0 at maximum 150 on kireaji row 10, fills 10000, 500, 10000, 2500, 10000,
 888, 0), the three buffed maxima, a `..., 450, 450` row at 450, and constant tier 0 as `current / maximum`.
-No saved log was identified as using a Sharpness skill, so the +1 and +2 paths have no runtime check.
+No saved log was identified as using a Sharpness skill, and r64's Eden run of 2026-11-02 did not reach testing step 3, so the +1
+and +2 paths have no runtime check. Heavy Polish over the banded bar (step 4) is likewise unexercised.
 
 ## Sharpness chain
 
@@ -342,6 +354,9 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 - **The fixed-tier state.** `0x27b918` (the low nibble of `player + 0x13cc`, bit 3) makes the tier
   rule answer 0 and the maximum 150 with no sharpness change; its meaning is unread. The band design
   handles it without knowing what it is.
+- **A gauge row in a second area of the same quest, on r64's bytes.** r63's log shows insert, teardown, insert, teardown. r64's
+  run built one row and tore it down at a quest end, with no second insertion in the 42 s left, so a mid-quest area crossing is
+  not covered by r64's bytes: ask for a hunt that crosses a loading screen and keeps playing after it.
 - The fill calls native code on the draw walker's thread, roughly 18 checked calls per frame while
   the gauge is visible: the thread is one thread by static reading, still unconfirmed at runtime, and
   the gates above are the mitigation. A test build comparing the current thread in the walker and in
