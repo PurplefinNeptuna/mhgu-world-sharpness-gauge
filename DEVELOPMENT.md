@@ -96,10 +96,12 @@ bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0xa4fc9c`, `0xa4feb4` | texture draw slot 0x3c; rebuilds the quad's UVs and colours only on the `+0xc0` mark | batch 1, bytes |
 | `0xa4fc68` | texture slot 0x50: sets the `+0xc0` bits 24..26 | bytes |
 | `0xa4964c`, `0xa4915c` | transform walk (slot 0x44 only with bit 17); row update with the bit 19 child re-sort on `+0x60` | bytes |
-| `0x61912c` | HUD widget driver, gauge case 8 reads the tier | batch 2 |
+| `0x61912c` | HUD widget driver, a required signature only; its case 8 reads `+0x2784` through vtable `+0x1a0`, not the tier | batch 2, bytes |
+| `0x62bb0c` | the gauge's sequence driver: tier through vtable `+0x1fc`, clamped to 6, indexes `0x1638ecc` or, with `player+0x2844 & 0x200`, `0x1638ee8` | vtable word `0x177633c`, bytes |
 | `0x26893c` | `uPlayerBase::getSharpnessType`, returns `mSharpnessType` | batch 2 |
 | `0x29cdfc` | `uPlayerBase::calculateSharpnessType` | batch 2 |
-| `0x2ad288` | `uPlayerQuest::adjustSharpness`, the writer of `mSharpness` | batch 2 |
+| `0x2ad288` | `uPlayerQuest::adjustSharpness`, the writer of `mSharpness` during a quest | batch 2 |
+| `0x29b7d4` | player init: the only non-zero writer of `mMaxSharpness`, and it sets `mSharpness` to it | bytes, scan of `.text` for the offset |
 | `0x3f8398` | local hunter index reader over the session singleton | batch 3 |
 | `0x276278` | `sPlayer::getMainPlayer` | batch 3 |
 | `0xa4faf0`, `0xa4fb58` | `cGUIObjTexture` setTexture / setTextureRect | batch 3, bytes |
@@ -196,8 +198,8 @@ above and is read through the mapping query at runtime.
 ## Sharpness chain
 
 `adjustSharpness` (main+0x2ad288) fires event `0x1c` (tier down), `0x1d` (tier up) or `0x1e` (reached the
-maximum) through `vft+0x3ac`. Decay, read in the same function: `HeavyPolish` zeroes it and calls `vft+0x1b0`
-with `0x200`; `RazorSharp`, `StonefistSoul`, `StonefistSoulX`, `SteadyHand`, `NightcloakSoul` and
+maximum) through `vft+0x3ac`. Decay, read in the same function: `HeavyPolish` zeroes it while `vft+0x1b0` with `0x200` reports its timer
+running; `RazorSharp`, `StonefistSoul`, `StonefistSoulX`, `SteadyHand`, `NightcloakSoul` and
 `NightcloakSoulX` halve it, with a 1-point loss nullified on a coin flip; `BluntEdge` doubles it. Gates at
 `0x27bcd0`, `0x27c7ec` and `0x27b918` are unexercised.
 
@@ -258,7 +260,8 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
   through the same allocator (GOT slot `0x18422b4`, the DTI registered as `cGUIInstance` at `0xa3c03c`; allocation
   `0xa38c14`, frees `0xa38880` and `0xa382c8`). Native readers such as `0x5456e4` and `0xa4915c` index the
   pointer straight away; `0x5456e4`'s thread is untraced. Fix it only in a runtime version that gets a run with an area change, after the walker's thread is confirmed.
-- Two comments in `insert.rs` are wrong, left until the next runtime version. The header says the insertion
+- Comments left wrong until the next runtime version. In `signatures.rs`, `0x61912c` does not read the tier
+  and `0x2ad288` is not the only writer of `mSharpness`. In `insert.rs`, the header says the insertion
   runs inside a native callback on the game's GUI thread, but `gui::tick` runs from `forge_onUpdate`, after the
   update entry returns. The `CLIP_MARKER` comment says only a scissor mask's enter writes the box through
   `0xa37c1c`; a texture's enter does too under `Mask` 3 or 6.
