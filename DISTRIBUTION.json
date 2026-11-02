@@ -14,6 +14,7 @@
   "runtime_test": "r65, Eden master-7a6d055094, 2026-11-02, log only, no player report of its picture: installed NRO aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791 is the r65 payload. WSG r65 lines: gauge row check stopped at stage 21 at 26.534176; scissor mask inserted at 200.371389, 792.621557 and 1613.561990, each with entries=7 records=13; inserted mask's links lost at 716.527334 (1 times), 1265.082368 (2 times) and 2640.511103 (3 times). No `fill refused`, insertion failure or 'shade blade not added' line and no guest exception. See EVIDENCE.json runtime_r65_eden_2026_11_02. The player's acceptance is on other bytes: r64 on Eden (\"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\"), see EVIDENCE.json runtime_r64_eden_2026_11_02 and runtime_r64_eden_2026_11_02_second_session, and for the drawing of the cut and the shade accepted r62's Eden run of 2026-11-01 at the red tier (crop sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb). Sharpness+1/+2 and Heavy Polish were not exercised. Ryujinx and Switch hardware remain unconfirmed.",
   "runtime_active": true,
   "gamebanana": {
+    "compact_html": true,
     "ai_code": {
       "used": true,
       "software": [

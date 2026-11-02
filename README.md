@@ -1,15 +1,12 @@
 # World Sharpness Gauge
 
-The mod turns the sharpness bar into a continuous gauge, like the one in Monster Hunter: World.
-The bar measures the blade inside the colour it has, so it refills at every colour change: the blade
-is shorter at each colour, and the bar is full at the top of each one. Every hit cuts the blade back
-a little from the tip toward the hilt, and empty sharpness leaves only the hilt. Sharpening moves the
-cut back toward the tip. The coloured part keeps the game's own colour, pulse, glow and edge glyph.
+The mod turns the sharpness bar into a bar gauge, like the one in Monster Hunter: World. The bar
+measures the blade inside the colour it has, so it refills at every colour change. Every hit cuts the
+blade back a little from the tip toward the hilt, and empty sharpness leaves only the hilt.
 
-The part of the blade past the cut is drawn in dark grey-blue, in the same blade shape. At orange
-and red it shows the same worn notches as the coloured part. It has no glow and does not pulse.
-At full sharpness there is nothing past the cut, so the gauge looks as the game draws it. Nothing
-else on the HUD changes, and there is nothing to set up.
+The part of the blade past the cut is drawn in dark grey-blue, in the same blade shape. It has no glow
+and does not pulse. At full sharpness there is nothing past the cut, so the gauge looks as the game
+draws it. Nothing else on the HUD changes, and there is nothing to set up.
 
 ## Requirements
 
@@ -31,14 +28,8 @@ should be listed.
 
 ## Usage
 
-Start a quest with a melee weapon that has sharpness, and play normally. Hits walk the bar down to
-the colour below, and a blade that is short at green shows a full bar there. Sharpening fills the bar
-back up in the new colour, and a tier change moves it straight away, without easing. Sharpness +1 and
-+2 and the soul skills raise the maximum. A weapon fresh from the box shows the colour that maximum
-reaches as full.
-
-With a bowgun or the prowler, and in the hub, there is no sharpness gauge, and the mod changes
-nothing.
+Start a quest with a melee weapon that has sharpness, and play normally. With a bowgun or the prowler,
+there is no sharpness gauge, and the mod changes nothing.
 
 ## Update and removal
 
@@ -50,5 +41,4 @@ restart the game.
 
 ## Compatibility and known issues
 
-Works with the base game. The MHGU HD Project is optional. Tested on Eden only: Ryujinx and Switch
-hardware are untested.
+Works with the base game. Tested on Eden only: Ryujinx and Switch hardware are untested.
