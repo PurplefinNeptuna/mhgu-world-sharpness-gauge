@@ -260,10 +260,6 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
   through the same allocator (GOT slot `0x18422b4`, the DTI registered as `cGUIInstance` at `0xa3c03c`; allocation
   `0xa38c14`, frees `0xa38880` and `0xa382c8`). Native readers such as `0x5456e4` and `0xa4915c` index the
   pointer straight away; `0x5456e4`'s thread is untraced. Fix it only in a runtime version that gets a run with an area change, after the walker's thread is confirmed.
-- Two comments in `insert.rs` are wrong, left until the next runtime version. The header says the insertion
-  runs inside a native callback on the game's GUI thread, but `gui::tick` runs from `forge_onUpdate`, after the
-  update entry returns. The `CLIP_MARKER` comment says only a scissor mask's enter writes the box through
-  `0xa37c1c`; a texture's enter does too under `Mask` 3 or 6.
 - An orange-tier crop (the accepted crop is red), a sharpening across tiers in one crop, and the dark part's
   missing halo, which is a design question.
 - Unconfirmed: Ryujinx, native hardware, and a bar rect other than 110..238 (the scaled offsets have only been seen where they reproduce the measured numbers).

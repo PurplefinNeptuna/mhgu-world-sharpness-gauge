@@ -18,9 +18,9 @@
 //!   it. So its inputs are written at that handler, in the same call that reads them, and the
 //!   rectangle words themselves are never written.
 //!
-//! Everything here runs inside a native callback on the game's GUI thread. No game pointer is
-//! kept past the callback: addresses are plain integers, cleared by the root destructor hook
-//! and by the mask's own liveness check in `enter`.
+//! `run` executes from `forge_onUpdate` through `gui::tick`, and `enter` inside the mask's enter
+//! hook during the draw walk. No game pointer is kept between calls: addresses are plain integers,
+//! cleared by the root destructor hook and by the mask's own liveness check in `enter`.
 use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
@@ -63,8 +63,8 @@ pub const DIM_MARKER: u32 = 0x4d534732;
 /// copy drawn with `0xFFFF00FF` comes out magenta on screen, and the bar's own `0xff5efaff` is the
 /// yellow tier - so the colour is `0xFF262320`.
 const DIM_COLOUR: u32 = 0xFF26_2320;
-/// The shade's clip needs one more node, because a node's drawing is gated by the render state's
-/// scissor box and only a scissor mask's enter writes that box (main+0xa37c1c). A mask builds its
+/// The shade's clip needs one more node: drawing is gated by the render state's scissor box, set
+/// only by a mask's enter or a texture's enter under `Mask` 3 or 6 (main+0xa37c1c). A mask builds its
 /// box over its own transform at `+0x10..+0x48` and its authored pair: `corner .. corner +
 /// authored`, with the corner the node's translation at `+0x40/+0x44` (main+0xa4b390, called by the
 /// mask's enter handler main+0xa4ba94 with the node itself; it reads no parent field and no
