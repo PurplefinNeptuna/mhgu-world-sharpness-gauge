@@ -246,16 +246,22 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Open items
 
-- The draw walker's thread. `insert::run` changes the row from `forge_onUpdate`, after the game's update
-  entry main+0x3da8fc (`sFestaMain::move`); the mask's writes happen on whatever thread reaches the walker, and
-  the two paths share captured addresses through atomics with no lock. Unknown: a fix needs the thread first.
+- The draw walker's thread: one thread by static reading, unconfirmed at runtime. `forge_onUpdate` runs after
+  `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c
+  main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot
+  0x3c main+0xa39300. So `insert::run` follows the walker and the mask's enter rather than overlapping them. Still
+  open: 13 other unit-draw callers and 10 other slot 0x3c sites are untraced, and the per-frame job main+0x3daf88
+  can outlive `forge_onUpdate` while its sUIObject pass destroys `cUIO*` objects; whether a gauge row's owner is one
+  is unread. A test build comparing the current thread in the walker and in `forge_onUpdate` would confirm it.
+  Offsets are in `work/modern-sharpness-gauge/THREAD_RESEARCH.md`.
 - `grow_map` leaks the old 16-byte map block. `FUN_01401bc0` allocates a row's map and `setAnimationId` frees it
   through the same allocator (GOT slot `0x18422b4`, the DTI registered as `cGUIInstance` at `0xa3c03c`; allocation
   `0xa38c14`, frees `0xa38880` and `0xa382c8`). Native readers such as `0x5456e4` and `0xa4915c` index the
-  pointer straight away, so a second thread could read a released block. Fix it only in a runtime version that gets a run with an area change.
+  pointer straight away; `0x5456e4`'s thread is untraced. Fix it only in a runtime version that gets a run with an area change, after the walker's thread is confirmed.
 - Two comments in `insert.rs` are wrong, left until the next runtime version. The header says the insertion
-  runs inside a native callback on the GUI thread, but `gui::tick` runs from `forge_onUpdate`. The `CLIP_MARKER`
-  comment says only a scissor mask's enter writes the box through `0xa37c1c`; a texture's enter does too under `Mask` 3 or 6.
+  runs inside a native callback on the game's GUI thread, but `gui::tick` runs from `forge_onUpdate`, after the
+  update entry returns. The `CLIP_MARKER` comment says only a scissor mask's enter writes the box through
+  `0xa37c1c`; a texture's enter does too under `Mask` 3 or 6.
 - An orange-tier crop (the accepted crop is red), a sharpening across tiers in one crop, and the dark part's
   missing halo, which is a design question.
 - Unconfirmed: Ryujinx, native hardware, and a bar rect other than 110..238 (the scaled offsets have only been seen where they reproduce the measured numbers).
