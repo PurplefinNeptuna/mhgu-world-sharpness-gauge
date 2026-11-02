@@ -4,7 +4,7 @@ The mod turns the sharpness bar into a bar gauge, like the one in Monster Hunter
 measures the blade inside the colour it has, so it refills at every colour change. Every hit cuts the
 blade back a little from the tip toward the hilt, and empty sharpness leaves only the hilt.
 
-The part of the blade past the cut is drawn in dark grey-blue, in the same blade shape. It has no glow
+The part of the blade past the cut is drawn in dark grey, in the same blade shape. It has no glow
 and does not pulse. At full sharpness there is nothing past the cut, so the gauge looks as the game
 draws it. Nothing else on the HUD changes, and there is nothing to set up.
 

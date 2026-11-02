@@ -1470,7 +1470,7 @@
     "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
     "candidate_zip_sha256": "687933cb0f5d34eb77e2d154576eb9c073d78b5e7b1c7634cc6e8da2b7657f74",
     "archive": "world-sharpness-gauge-r65.zip",
-    "archive_sha256": "e5a4f55d4b0a70e3472a93cd3dcb38899f9de755a9ca29b975f1b92351062dcc",
+    "archive_sha256": "3ff1ddf497035362f599fe37b21e4d88438d04f2f45b22e5dcdd918b15bf9f6f",
     "source_check": "All 17 source files recorded in the candidate's build.json hash the same in the tree at promotion.",
     "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 8f141b5 (the r65 rename and consolidation) among them. The user stated the rest on 2026-11-02: \"the one without AI trailer is using qwen 3.8 flash next via deepseek harness\" and \"claude code is opus 5.5\".",
     "basis_scope": "Eden only. The picture was accepted on r64 and r62; r65's run is log evidence. Sharpness+1/+2, Heavy Polish, Ryujinx and Switch hardware are unconfirmed."
