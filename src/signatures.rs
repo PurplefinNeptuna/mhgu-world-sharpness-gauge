@@ -56,7 +56,7 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         5, 96, 160, 225, 204, 0, 182, 229,
         4, 16, 150, 229, 1, 0, 17, 227,
     ]),
-    // main+0x61912c: HUD widget driver; gauge case 8 reads the local player's sharpness tier
+    // main+0x61912c: HUD widget driver; its case 8 reads player +0x2784, not the sharpness tier
     (0x61912c, [
         240, 79, 45, 233, 36, 208, 77, 226,
         0, 64, 160, 225, 156, 84, 253, 235,
@@ -77,7 +77,7 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         64, 16, 144, 229, 1, 16, 129, 226,
         64, 16, 128, 229, 92, 16, 159, 229,
     ]),
-    // main+0x2ad288: uPlayerQuest::adjustSharpness; the only writer of mSharpness
+    // main+0x2ad288: uPlayerQuest::adjustSharpness; the writer of mSharpness during a quest
     (0x2ad288, [
         240, 72, 45, 233, 2, 96, 160, 225,
         1, 80, 160, 225, 0, 64, 160, 225,

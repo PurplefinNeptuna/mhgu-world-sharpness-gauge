@@ -49,7 +49,7 @@ scratch to `work/modern-sharpness-gauge/candidates/VERSION/`, where VERSION is
 `scripts/paths.py`'s current version. `package` refuses to run for a
 `READY_TO_DISTRIBUTE` spec: no distribution approval exists.
 
-r63's source comments were corrected on 2026-11-01, after its release, with no
+r63's source comments were corrected after its release, with no
 line added or moved. A scratch rebuild of the corrected source gives the released
 NRO `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`, so the bytes
 are unchanged, while the `source_sha256` values in r63's `build.json` still name the
@@ -260,8 +260,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
   through the same allocator (GOT slot `0x18422b4`, the DTI registered as `cGUIInstance` at `0xa3c03c`; allocation
   `0xa38c14`, frees `0xa38880` and `0xa382c8`). Native readers such as `0x5456e4` and `0xa4915c` index the
   pointer straight away; `0x5456e4`'s thread is untraced. Fix it only in a runtime version that gets a run with an area change, after the walker's thread is confirmed.
-- Comments left wrong until the next runtime version. In `signatures.rs`, `0x61912c` does not read the tier
-  and `0x2ad288` is not the only writer of `mSharpness`. In `insert.rs`, the header says the insertion
+- Two comments in `insert.rs` are wrong, left until the next runtime version. The header says the insertion
   runs inside a native callback on the game's GUI thread, but `gui::tick` runs from `forge_onUpdate`, after the
   update entry returns. The `CLIP_MARKER` comment says only a scissor mask's enter writes the box through
   `0xa37c1c`; a texture's enter does too under `Mask` 3 or 6.
