@@ -1,6 +1,7 @@
 # World Sharpness Gauge: development
 
-**Current state.** r65, DEVELOPMENT candidate: the consolidation of r64, with the fill, the cut, the
+**Current state.** r65, READY_TO_DISTRIBUTE (2026-11-02), unpublished, release at
+`build/world-sharpness-gauge/releases/r65/`: the consolidation of r64, with the fill, the cut, the
 shade and the tree unchanged. The bar's length is measured inside the tier band its points sit in:
 `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and
 `ceiling` the top of this tier clipped to `mMaxSharpness`, so the bar refills at every colour change
@@ -11,9 +12,9 @@ settings, no panel. The shade's atlas window is the bar's own live four floats, 
 `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy
 as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's
 sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
-emits exactly 13. 25 host fixtures pass; verify PASSED with 32 signature windows. r65's bytes have not
-been run: the player chose no further playtests ("i dont want another playtest, so fix and cleanup +
-static research then"). The runtime evidence is r64's, the gameplay-accepted build at
+emits exactly 13. 25 host fixtures pass; verify PASSED with 32 signature windows. r65 ran on Eden with
+the payload installed: the log shows three rows inserted and released, with no player report of its
+picture. The accepted picture is r64's, the gameplay-accepted build at
 `build/world-sharpness-gauge/candidates/r64/` (Eden, "all works perfectly"), and accepted r62's crop
 of the worn blade at the red tier, at `build/world-sharpness-gauge/candidates/r62/`. `DISTRIBUTION.json`
 holds the status and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log

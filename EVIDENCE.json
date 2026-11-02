@@ -4,7 +4,7 @@
   "version": "r65",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
-  "status": "DEVELOPMENT",
+  "status": "READY_TO_DISTRIBUTE",
   "provenance": {
     "plan": "work/world-sharpness-gauge/PLAN.md (Phase 1)",
     "phase0_research": "work/world-sharpness-gauge/PHASE0_RESEARCH.md",
@@ -168,7 +168,7 @@
     "r65": {
       "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
       "archive_sha256": "687933cb0f5d34eb77e2d154576eb9c073d78b5e7b1c7634cc6e8da2b7657f74",
-      "runtime": "NOT RUN, by the player’s choice: \"i dont want another playtest, so fix and cleanup + static research then\". r64 is the gameplay evidence",
+      "runtime": "Ran on Eden 2026-11-02, log only: see runtime_r65_eden_2026_11_02. r64 is the accepted build",
       "adds": "the consolidation of r64: removed the root destructor hook with its log line and signature window, the mSharpnessType read, and test-only core code; added one fill-refused log line per row; corrected comments and docs. src/ 2164 -> 2103 lines, core/src 663 -> 490, 29 -> 25 fixtures, 33 -> 32 signature windows Renamed from Modern Sharpness Gauge to World Sharpness Gauge, with the crate, NRO, package, plugin label, log prefix (WSG) and symbols.",
       "rename_requested": "rename mod from modern-sharpness-gauge to world-sharpness-gauge, because modern mh has very long gauge that have sharpness bar that use all sharpness, not per tier, like our current mod. this mod is more close to mh world",
       "rename_static_check": "Compared with the same source under the old name (NRO 2806e562bbb697a994b987731797d022d12acaa13432c2c4fd166b2b0f86a8cd): .text is 39232 bytes in both, 9778 disassembled lines, no mnemonic changed. 118 lines differ: 101 literal-pool words and 17 instructions, which are length immediates and one inlined label copy. .rodata goes from 4976 to 4972 bytes. Static comparison only."
@@ -1450,5 +1450,29 @@
     "log_sha256": "de44718b1b6d033c15c34fe049adbfda94daa271fe458d5c4169a88f6456c887",
     "log_copy": "work/world-sharpness-gauge/runs/r64-eden-2026-11-02-two-quests.txt",
     "scope": "Eden session with the installed NRO matching r64's payload (a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae). MSG r64 lines: gauge row check stopped at stage 21 at 13.415247; scissor mask inserted at 138.974316 with entries=7 records=13; inserted mask's links lost (1 times) at 1814.628580; scissor mask inserted at 1994.799861 with entries=7 records=13; inserted mask's links lost (2 times) at 2309.962825. Save commits at 1824.4956, 2345.9992 and 2463.1594. No guest exception, no insertion failure, no 'shade blade not added', no HW.Memory line and no host SIGSEGV after ForceStop at 2469.434884. Critical counts: maxwell_3d.cpp:392 9, hle_ipc.cpp:339 1, applet_software_keyboard.cpp:354 1. The player's report: \"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\", and of the blade, \"i test blade with yellow to red gauge\". The log has no weapon, faint or fill line, so those rest on the report; the one row across the faints is the log's part. Steps 3 (Sharpness+1/+2) and 4 (Heavy Polish) were not exercised."
+  },
+  "runtime_r65_eden_2026_11_02": {
+    "version": "r65",
+    "emulator": "Eden master-7a6d055094",
+    "forge": "1.5.1, from the log's [forge] Version line",
+    "installed_nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
+    "full_log_sha256": "7acd051eebcb45cdc78549190296eae535a93b761d64932329d4181e5a9012e2",
+    "log_sha256": "f0c3b04d16b30e60f10540957f942aebeb6157f01e5735f73f88669c0fca6199",
+    "log_copy": "work/world-sharpness-gauge/runs/r65-eden-2026-11-02.txt: the full log's first 300 lines, then its OutputDebugString, Critical, Error, ForceStop and Commit lines",
+    "evidence_class": "Log only. The player has reported nothing about this run or r65's picture; the promotion request does not describe a run.",
+    "scope": "WSG r65 lines, seven in all: gauge row check stopped at stage 21 at 26.534176; scissor mask inserted at 200.371389, 792.621557 and 1613.561990, each with entries=7 records=13; inserted mask's links lost (1 times) at 716.527334, (2 times) at 1265.082368 and (3 times) at 2640.511103. Save commits at 714.234050, 1276.272697, 2664.765983, 4818.092675 and 6482.908893 after the two at startup. No `fill refused`, 'mask insertion failed' or 'shade blade not added' line, no HW.Memory line and no guest exception. No WSG line follows 2640.511103 through the stop, across the commits at 4818.092675 and 6482.908893; the log does not say what was played in that time, so whether a melee hunt ran there is unknown. ForceStop at 6488.769059, then a host SIGSEGV at 6489.229697. Critical counts: maxwell_3d.cpp:392 78, service.cpp:71 2 (unimplemented IFriendService AddPlayHistory), hle_ipc.cpp:339 1, applet_software_keyboard.cpp:354 1. The log has no weapon, fill or picture line."
+  },
+  "promotion_r65": {
+    "date": "2026-11-02",
+    "version": "r65",
+    "approved_by": "the user's message: promote world-sharpness-gauge to ready to distribute",
+    "shipped_bytes_unchanged": true,
+    "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
+    "candidate_zip_sha256": "687933cb0f5d34eb77e2d154576eb9c073d78b5e7b1c7634cc6e8da2b7657f74",
+    "archive": "world-sharpness-gauge-r65.zip",
+    "archive_sha256": "2fec934f68cfa732da84ac0c56ac74b92e4838f9efb17fb5c358fb32aed2d7ae",
+    "source_check": "All 17 source files recorded in the candidate's build.json hash the same in the tree at promotion.",
+    "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 8f141b5 (the r65 rename and consolidation) among them. DeepSeek Harness stays as recorded.",
+    "basis_scope": "Eden only. The picture was accepted on r64 and r62; r65's run is log evidence. Sharpness+1/+2, Heavy Polish, Ryujinx and Switch hardware are unconfirmed."
   }
 }

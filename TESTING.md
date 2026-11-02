@@ -6,7 +6,7 @@ report, and what the log lines mean.
 ## What to check on r65
 
 r65 is r64 renamed from Modern Sharpness Gauge, with unused code removed and one new log line: the
-fill, the cut, the dark part and the colours are meant to look exactly the same. Its bytes have not been played. r64 is the build the
+fill, the cut, the dark part and the colours are meant to look exactly the same. Its log on Eden shows rows inserting and releasing, with no report on how it looks. r64 is the build the
 player accepted on Eden: "all works perfectly" over two quests with different weapons, the first
 fainting until it failed, on a blade dulled from yellow to red.
 

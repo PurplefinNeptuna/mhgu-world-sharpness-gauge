@@ -42,9 +42,9 @@ export, the build recipe, or any delivered package. `scripts/verify.py` needs
 ## AI assistance
 
 Code, tests, build scripts and documentation in this folder were written with AI
-assistance from DeepSeek Harness (https://github.com/deepseek-ai/deepseek-harness).
+assistance from DeepSeek Harness (https://github.com/deepseek-ai/deepseek-harness)
+and Claude Code (https://claude.com/claude-code).
 No offset, signature, license text or provenance claim was invented: every
 address carries its proof in `DEVELOPMENT.md`, every byte window is compared
 against the supplied NSO by `scripts/verify.py`, and each license file is copied
-from the vendored upstream it covers. Runtime behaviour has not been tested; see
-`EVIDENCE.json`.
+from the vendored upstream it covers. Runtime results are in `EVIDENCE.json`.
