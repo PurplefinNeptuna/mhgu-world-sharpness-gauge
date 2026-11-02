@@ -5,7 +5,7 @@ from html import escape
 from pathlib import Path
 from paths import MOD, ROOT, CONFIG, BUILD_ROOT, WORK_ROOT, CARGO_TARGET, PYTHON, VERSION, input_path
 
-NRO='modern_sharpness_gauge.nro'
+NRO='world_sharpness_gauge.nro'
 def digest(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 def source_hashes():
     """Tie receipts to the exact owned executable recipe inputs."""
@@ -17,7 +17,7 @@ def record(name,value):
     BUILD_ROOT.mkdir(parents=True,exist_ok=True);(BUILD_ROOT/name).write_text(json.dumps(value,indent=2)+'\n')
 def run(args,**kw): subprocess.run(list(map(str,args)),check=True,**kw)
 def environment():
-    env=os.environ.copy();env.update(MSG_VERSION=VERSION)
+    env=os.environ.copy();env.update(WSG_VERSION=VERSION)
     rust=Path(CONFIG['rust_bin']);compiler=CONFIG.get('devkitarm') or env.get('DEVKITARM')
     if not compiler: raise ValueError('Set devkitarm in build.local.json or DEVKITARM')
     env.update(CARGO_HOME=str(CONFIG['cargo_home']),RUSTUP_HOME=str(Path(CONFIG['cargo_home']).parent/'rustup'),
@@ -83,7 +83,7 @@ def package():
     if previous-payloads.keys(): raise ValueError('Preserving unexpected previous candidate files')
     shutil.copytree(source,named,dirs_exist_ok=True)
     guide=(MOD/'README.md').read_text().encode();(dest/'README.md').write_bytes(guide)
-    archive=dest/('modern-sharpness-gauge-'+VERSION+'-candidate.zip')
+    archive=dest/('world-sharpness-gauge-'+VERSION+'-candidate.zip')
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
         z.writestr('README.md',guide)
         for n in sorted(payloads): z.write(source/n,package_name+'/'+n)

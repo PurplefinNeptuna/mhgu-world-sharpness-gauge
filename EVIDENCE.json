@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "mod": "modern-sharpness-gauge",
-  "version": "r64",
+  "mod": "world-sharpness-gauge",
+  "version": "r65",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
   "provenance": {
-    "plan": "work/modern-sharpness-gauge/PLAN.md (Phase 1)",
-    "phase0_research": "work/modern-sharpness-gauge/PHASE0_RESEARCH.md",
+    "plan": "work/world-sharpness-gauge/PLAN.md (Phase 1)",
+    "phase0_research": "work/world-sharpness-gauge/PHASE0_RESEARCH.md",
     "decompilations": [
-      "work/modern-sharpness-gauge/ghidra-batch1",
+      "work/world-sharpness-gauge/ghidra-batch1",
       "ghidra-batch2",
       "ghidra-batch3"
     ],
     "ai_assistance": "DeepSeek Harness; see THIRD_PARTY.md",
-    "phase2_research": "work/modern-sharpness-gauge/PHASE2_RESEARCH.md",
-    "tier_gauge_research": "work/modern-sharpness-gauge/TIER_GAUGE_RESEARCH.md",
-    "tier_gauge_fact_check": "work/modern-sharpness-gauge/scripts/verify_tier_gauge.py"
+    "phase2_research": "work/world-sharpness-gauge/PHASE2_RESEARCH.md",
+    "tier_gauge_research": "work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md",
+    "tier_gauge_fact_check": "work/world-sharpness-gauge/scripts/verify_tier_gauge.py"
   },
   "game": {
     "title_id": "0100770008DD8000",
@@ -131,29 +131,29 @@
     "r61": {
       "nro_sha256": "fd90862d908e579d68c25df22a2b7cf9804c39be7ab915cd01eb3fb804326488",
       "archive_sha256": "e9f1af62902f4fba7d3404eaa452f9278764f22ad30568af135fc645442526db",
-      "runtime": "WITHDRAWN, never run: packaged, never installed, do not ship. Its premise - that the clip mask\u2019s authored pair squeezes the copy\u2019s 88 columns into the box - is refuted",
+      "runtime": "WITHDRAWN, never run: packaged, never installed, do not ship. Its premise - that the clip mask’s authored pair squeezes the copy’s 88 columns into the box - is refuted",
       "adds": "core::shade_window, SHADE_WINDOW and the box-column u pair, all deleted in r62 with the premise. Kept for the record: the shade_tex= read-back it used proved the window write lands while the shape stayed, which is what pointed at the vertex cache"
     },
     "r62": {
       "nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
       "archive_sha256": "c8404cd828b90cadeb8ea20f803fdf700839a2e676f00dc4dea662a5881a3fd1",
       "runtime": "ACCEPTED on Eden 2026-11-01: the dark part draws the worn tier frame at the red tier (crop sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb). PINNED as the release candidate: the installed NRO is 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416, the packaged payload, and the r62 bytes are frozen - no rebuild, since the archive hash moves with the packaging mtimes",
-      "adds": "write_shade calls the mTextureRect setter (main+0xa4fb58) with bar + 0x10c every frame, and build_dim hands the same pointer to the setter at the build; r59\u2019s geometry is restored, so u is 0..88 and v is the bar\u2019s live band. core::UNWORN_TEXTURE_RECT, core::shade_window and SHADE_WINDOW are deleted, with r60\u2019s requirement wording. 23 fixtures, 33 windows"
+      "adds": "write_shade calls the mTextureRect setter (main+0xa4fb58) with bar + 0x10c every frame, and build_dim hands the same pointer to the setter at the build; r59’s geometry is restored, so u is 0..88 and v is the bar’s live band. core::UNWORN_TEXTURE_RECT, core::shade_window and SHADE_WINDOW are deleted, with r60’s requirement wording. 23 fixtures, 33 windows"
     },
     "r63": {
       "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f",
       "archive_sha256": "d8b156a7feb958c61474cd2f2d7bbb7c572519aa76cb638961f21f321db4e3d7",
-      "runtime": "NOT RUN: the user approved the promotion on static validation, so these bytes were never played. The drawing is accepted r62\u2019s and the byte change is logging only",
-      "adds": "the consolidation of accepted r62: deleted the fill line (27 words a line: ratio_bp, box, bar rect, effective rect, atlas rect, authored width, feed, shade box, shade window), the 35-word gauge row facts line with its names, the copy\u2019s texture-object/flags/sampler read-backs, the six-word link snapshot at a teardown, the walker-call and instance-fire counters, the log clock, and the queue, atomics and hot-hook reads that fed all of them. One line per lifecycle event is kept: scissor mask inserted (mask, map, entries, cache, records, dim, clip), shade blade not added at stage, mask insertion failed at stage, gauge row check stopped at stage, gauge row root destroyed, inserted mask\u2019s links lost. src/ 2417 \u2192 2083 lines, core/src unchanged at 609, 23 fixtures as before, 33 signature windows",
+      "runtime": "NOT RUN: the user approved the promotion on static validation, so these bytes were never played. The drawing is accepted r62’s and the byte change is logging only",
+      "adds": "the consolidation of accepted r62: deleted the fill line (27 words a line: ratio_bp, box, bar rect, effective rect, atlas rect, authored width, feed, shade box, shade window), the 35-word gauge row facts line with its names, the copy’s texture-object/flags/sampler read-backs, the six-word link snapshot at a teardown, the walker-call and instance-fire counters, the log clock, and the queue, atomics and hot-hook reads that fed all of them. One line per lifecycle event is kept: scissor mask inserted (mask, map, entries, cache, records, dim, clip), shade blade not added at stage, mask insertion failed at stage, gauge row check stopped at stage, gauge row root destroyed, inserted mask’s links lost. src/ 2417 → 2083 lines, core/src unchanged at 609, 23 fixtures as before, 33 signature windows",
       "release_zip_sha256": "998462185db66966042c05df818828b0d2387f659a7c8fa98bc2f2f9e267f452",
       "release_zip_sha256_before_readme_refresh": "b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441",
-      "release": "build/modern-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip"
+      "release": "build/world-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip"
     },
     "r64": {
       "nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
-      "runtime": "Eden run of 2026-11-02 with the installed NRO matching the packaged payload. Accepted on screen for the fill as played: 'from playing and look at the visuals it looks right, but my current gameplay only satisfy no 1,2, and 5'. Testing steps 1, 2 and 5 satisfied; step 3 (Sharpness+1/+2) and step 4 (Heavy Polish) not exercised; no photo; no mid-quest area crossing in this log; the fill has no per-frame log line, so no band number is in the log",
-      "adds": "the per-tier fill: core::tier_band and core::band_bp replace core::basis_points, and the ratio at src/insert.rs\u2019s mask enter is the fill inside the band. The band is binary search on the game\u2019s own points-to-tier function calculateSharpnessType (main+0x29cdfc), called behind its signature window and three gates in src/sampling.rs: the session\u2019s own player equal to the capture, read_gauge with a positive maximum, and both pointers that function dereferences (player+0x13c4, that +0x4d4) read through the mapping check. The cut, the shade, the colour code, the tree, the hooks and the logging are accepted r63\u2019s",
-      "tests": "29 host fixtures passed, including the tester\u2019s log samples, the three buffed maxima, a zero-width top band, constant tier 0 as current/maximum, an unreadable probe giving no ratio, and every probe inside 0..=maximum",
+      "runtime": "Eden run of 2026-11-02 with the installed NRO matching the packaged payload. Accepted on screen for the fill as played: 'from playing and look at the visuals it looks right, but my current gameplay only satisfy no 1,2, and 5'. Testing steps 1, 2 and 5 satisfied; step 3 (Sharpness+1/+2) and step 4 (Heavy Polish) not exercised; no photo; no mid-quest area crossing in this log; the fill has no per-frame log line, so no band number is in the log Second session: Eden session with the installed NRO matching r64's payload (a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae). MSG r64 lines: gauge row check stopped at stage 21 at 13.415247; scissor mask inserted at 138.974316 with entries=7 records=13; inserted mask's links lost (1 times) at 1814.628580; scissor mask inserted at 1994.799861 with entries=7 records=13; inserted mask's links lost (2 times) at 2309.962825. Save commits at 1824.4956, 2345.9992 and 2463.1594. No guest exception, no insertion failure, no 'shade blade not added', no HW.Memory line and no host SIGSEGV after ForceStop at 2469.434884. Critical counts: maxwell_3d.cpp:392 9, hle_ipc.cpp:339 1, applet_software_keyboard.cpp:354 1. The player's report: \"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\", and of the blade, \"i test blade with yellow to red gauge\". The log has no weapon, faint or fill line, so those rest on the report; the one row across the faints is the log's part. Steps 3 (Sharpness+1/+2) and 4 (Heavy Polish) were not exercised.",
+      "adds": "the per-tier fill: core::tier_band and core::band_bp replace core::basis_points, and the ratio at src/insert.rs’s mask enter is the fill inside the band. The band is binary search on the game’s own points-to-tier function calculateSharpnessType (main+0x29cdfc), called behind its signature window and three gates in src/sampling.rs: the session’s own player equal to the capture, read_gauge with a positive maximum, and both pointers that function dereferences (player+0x13c4, that +0x4d4) read through the mapping check. The cut, the shade, the colour code, the tree, the hooks and the logging are accepted r63’s",
+      "tests": "29 host fixtures passed, including the tester’s log samples, the three buffed maxima, a zero-width top band, constant tier 0 as current/maximum, an unreadable probe giving no ratio, and every probe inside 0..=maximum",
       "verification": "verify.py PASSED: 33 signature windows against the hash-checked main, unique hook window, exact export set, resolved imports, no MSR, no DT_TEXTREL, one-file payload",
       "limitations": [
         "steps 3 and 4 were not exercised, so the raised-maximum band ends and Heavy Polish have no runtime check",
@@ -163,32 +163,40 @@
         "the fill calls native code about 18 times per frame on the draw thread; no measured cost",
         "the fixed-tier state answers tier 0 for any points and its meaning is unread"
       ],
-      "status": "DEVELOPMENT candidate. Registered at build/modern-sharpness-gauge/candidates/r64/delivery; no distribution approval. Accepted r63 is kept at build/modern-sharpness-gauge/releases/r63 and its bytes are archived under backups/accepted/modern-sharpness-gauge/r63-before-tier-band/"
+      "status": "DEVELOPMENT candidate. Registered at build/world-sharpness-gauge/candidates/r64/delivery; no distribution approval. Accepted r63 is kept at build/world-sharpness-gauge/releases/r63 and its bytes are archived under backups/accepted/modern-sharpness-gauge/r63-before-tier-band/"
+    },
+    "r65": {
+      "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
+      "archive_sha256": "687933cb0f5d34eb77e2d154576eb9c073d78b5e7b1c7634cc6e8da2b7657f74",
+      "runtime": "NOT RUN, by the player’s choice: \"i dont want another playtest, so fix and cleanup + static research then\". r64 is the gameplay evidence",
+      "adds": "the consolidation of r64: removed the root destructor hook with its log line and signature window, the mSharpnessType read, and test-only core code; added one fill-refused log line per row; corrected comments and docs. src/ 2164 -> 2103 lines, core/src 663 -> 490, 29 -> 25 fixtures, 33 -> 32 signature windows Renamed from Modern Sharpness Gauge to World Sharpness Gauge, with the crate, NRO, package, plugin label, log prefix (WSG) and symbols.",
+      "rename_requested": "rename mod from modern-sharpness-gauge to world-sharpness-gauge, because modern mh has very long gauge that have sharpness bar that use all sharpness, not per tier, like our current mod. this mod is more close to mh world",
+      "rename_static_check": "Compared with the same source under the old name (NRO 2806e562bbb697a994b987731797d022d12acaa13432c2c4fd166b2b0f86a8cd): .text is 39232 bytes in both, 9778 disassembled lines, no mnemonic changed. 118 lines differ: 101 literal-pool words and 17 instructions, which are length immediates and one inlined label copy. .rodata goes from 4976 to 4972 bytes. Static comparison only."
     }
   },
   "build": {
-    "version": "r64",
+    "version": "r65",
     "status": "BUILT",
-    "nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
+    "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
     "source_sha256": {
-      "Cargo.toml": "71985a616a94ff60ba348f1c7cc09fc9514ef8c25dbd61bf3927c048aa384fdd",
-      "Cargo.lock": "d9307f137d43a8be81c77da2fbf077ebfdcbf99b0688a98f5d49adb9f948012d",
+      "Cargo.toml": "19e8d80e7652e0128df1d556102e14c09c83f81be3d4435691a5519cdb02265a",
+      "Cargo.lock": "133d89ff08b63bc1bd35baac6f572b9ccf402e63be00223096241b4b802289b7",
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
-      "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "0fa6648198e525bec79ef6e28724d6a72c887350f636878d58dfedc05855b800",
-      "src/hooks.rs": "1ae50851d48dd980e272bc25775cc1f7546e89b3c9b492788160c6a9002676c5",
-      "src/insert.rs": "28f5c50cc2adc65ac6c3699a2106f11e59d2c296d450ef03a1d45740b77a79d3",
-      "src/lib.rs": "3295fa9284509030e12c57540c9b051117af1a5b1dc0150c53e787247b0ad555",
-      "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
-      "src/sampling.rs": "18acd5e3a0cdc4913168d49bb2134bdae10ba080a8aed1e4738d3eea4de5a35d",
-      "src/signatures.rs": "a7beaf0d2b7663693a7f15351008e8f050a26da08fdbddb751d5544ce3ae3453",
-      "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "19c1e8eb3f1c334cc1397dfb70282bc68492dfbae5d1d69c4ddf63bef6942e9f",
-      "core/tests/behavior.rs": "89f6a9614168b22557510258826a0c9d0486125a9a4d7852c58581346da8ac39",
+      "build.rs": "a3d56daa83f4279872ad8377cb318ac3bb31daa942fcd1c6241e6c184380fbbb",
+      "src/gui.rs": "3a7783740719cb7e6bb27532f42db360d3a2439734b6b6ac2fee65ef704b8877",
+      "src/hooks.rs": "db399c7bb07a37220c6ed3b1a06a7d4cf2b4cfddfa0b0795a26ae82e8434b244",
+      "src/insert.rs": "55129277f492abb941a712556f28b4d295d573467fa15b82b901fe09703c2e1c",
+      "src/lib.rs": "612ae191cabb5510d5aaceee79e75aa4eab0f7802cab792bf84e2ad4dcf97009",
+      "src/memory.rs": "33a4bec44785b762e5643797d6e9f22885e45765e9b88e96d6d348f679a6eca4",
+      "src/sampling.rs": "05f3a3e507b86316a51da006112d3539e3e4b2dfbd1b126cb8a1a0ac73690d8a",
+      "src/signatures.rs": "dc356f7f27adfca1f8ad75f413ff6d582d90c73843236e670ca47b5ad3648b77",
+      "src/svc.S": "dca8969c9a7049629cbbad2ab717e9dffb69d1becdb7d9b5bbb74d140d991d00",
+      "core/src/lib.rs": "8f9d57806145452a8aac977a96d80d3a854515a90ac3c50499924018d6a06ea1",
+      "core/tests/behavior.rs": "27d2c7bd1175b1cbe1d0c46eab59c4ee5e25bfd8abd36ac3254f72928e803063",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -196,46 +204,96 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
-    "checks": "verify.py: pinned doctor, build receipt against the staged NRO, current sources and the drawing flag; the exact export set fini/forge_onInit/forge_onLoad/forge_onUpdate/init; imports resolved against main, sdk and forge; all 33 signature windows compared with the hash-checked main; the hook prologue; the hook window unique in .text; no MSR/MSR-APSR producer in the disassembly of the relocated window; no DT_TEXTREL; the one-file payload inventory",
-    "signature_windows": 33,
-    "runtime_test": "NOT RUN",
-    "note": "verify.py prints one PASS line; r63 kept the export and import lists it printed then. r64 lists only what this run read."
+    "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791",
+    "elf_sha256": "8b634609312d3ad111cbfa10766191ec72dcfa60f47935550889f6ec60d00321",
+    "exports": [
+      "fini",
+      "forge_onInit",
+      "forge_onLoad",
+      "forge_onUpdate",
+      "init"
+    ],
+    "strong_imports": [
+      "forge_hook_create",
+      "forge_log",
+      "forge_log_getLevel",
+      "forge_mem_getMainTextAddr",
+      "forge_patch_create",
+      "forge_patch_destroy",
+      "forge_patch_disable",
+      "forge_patch_enable"
+    ],
+    "signature_windows": [
+      "0xa494a0",
+      "0xa49b28",
+      "0xa39300",
+      "0xa37c1c",
+      "0xa4e628",
+      "0x61912c",
+      "0x276278",
+      "0x3f8398",
+      "0x2ad288",
+      "0x26893c",
+      "0x29cdfc",
+      "0xa4faf0",
+      "0xa4fb58",
+      "0xa4ba20",
+      "0xa4ba40",
+      "0xa4844c",
+      "0xa48460",
+      "0xa4b6cc",
+      "0x7aa47c",
+      "0xa4ba94",
+      "0xa47a04",
+      "0xa47a94",
+      "0xa4a9f4",
+      "0xa4aa24",
+      "0xa4aa5c",
+      "0xa4aa94",
+      "0xa4aac8",
+      "0xa4aafc",
+      "0xa4dc24",
+      "0xa4dc54",
+      "0xa4dca0",
+      "0xa4fa5c"
+    ],
+    "hook_address": "0xa494a0",
+    "hook_window_words": 12,
+    "hook_signature_unique_matches": 1,
+    "hook_abi_bytes": 24,
+    "forge_trampoline_bytes": 32,
+    "forge_pool_chunk_bytes": 16384,
+    "compiled_status_writes": [],
+    "local_player_cells": [
+      "main+0x188ca48 session",
+      "main+0x1885b58 sPlayer (.bss, Ghidra-proven)"
+    ],
+    "runtime_active": true,
+    "drawing_changed": true,
+    "text_relocations": false,
+    "observes": [
+      "gauge controller identity",
+      "local player pointer",
+      "local player sharpness fields"
+    ],
+    "runtime_test": "NOT RUN"
   },
   "host_tests": {
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 29,
+    "count": 25,
     "covers": [
-      "the band fill over the tester\u2019s logged samples: 150 10000, 131 500, 130 10000, 100 2500, 90 10000, 8 888, 0 0 at maximum 150 on kireaji row 10, with the tiers the log recorded",
-      "the top band clipped to mMaxSharpness: 400/400, 425/425 and 450/450 all read full on great sword level 149 (kireaji row 119), a band that stops partway (411 of 410..425 is 666), 430 above a 425 maximum draws full, and 430 is the top of tier 5 and 410 of tier 4 at maximum 450",
-      "a `.., 450, 450` row at maximum 450: tier 5 at 450, full there, and tier 6 unreachable for every point 0..450",
-      "the fixed-tier state: one tier for every point gives exactly current / maximum, the accepted bar (150/160, 0/160, 160/160, 7/3)",
-      "a probe the rule cannot answer gives no ratio, while a readable search answers 5250 for 100 in 200",
-      "the fill needs a positive maximum and clamps its points: 0 and -1 maximum give none, 500 of 400 draws full, -5 floors at empty, i32::MIN of 3 floors at empty",
-      "every probe stays inside 0..=maximum: (0,450) (1,1) (7,12) (449,450) (450,450) (-9,100) (999,380)",
-      "the copied sample\u2019s named slots: identity tuple, hunter index, player, and the signed sharpness trio",
-      "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
-      "local player chain: hunter index 0..3, index out of range, null session, empty slot",
-      "signed sharpness points, tier index, null player, and a depleted gauge whose fill floors at empty",
-      "controller sample: identity, row and controller addresses, local player, 150/160 at tier 2",
-      "gauge controller without a player: identity reported, no gauge to fill from",
-      "non-gauge controller and null row produce no sample",
-      "fixture walk node by node: group node then three text siblings with flags, kinds and rectangles; a hidden subtree is not walked",
-      "the row gates\u2019 shape: bar, glow and edge as siblings under the root, both chain closings, and the inserted mask\u2019s shape",
-      "tree scan truncation and dangling links, with the node count the insertion gates on reporting the same floor",
-      "walker port main+0xa494a0 over the gauge tree before any insertion: 5 records, 40 bytes, every drawable closed",
-      "walker port over the inserted tree: mask entered first, exited last, 7 records in the looping tier and 9 with the edge glyph visible",
-      "the r13 shape pinned: mask with the glow and edge outside its subtree emits no exit record",
-      "a mask left open never stops clipping: 6-node tree, 13 records, (6 << 4) | 8 = 104 bytes",
-      "the cache grows with the object count, not the sequence prefix: rows 3 and 5 size 88, row 14 sizes 96 for 4 objects",
-      "the object array is sized for the tree it was built with: 4 words for 3 objects, 5 for 4",
-      "box endpoints linear on the authored width and never leaving the rect, at 2x, 0, 0.25, 0.75 and 110..238",
-      "the accepted cut lands at 128/146/164/182/200 px on 110..238, at 256/292/328/364/400 on 220..348, and 124..162 on a 110..150 test rect",
-      "empty ratio rights the cut to the bar\u2019s right edge, full to its left, never past 110..238, and the clip width follows the cut"
+      "the band fill over the tester's logged samples at kireaji row 10 and maximum 150, with the tiers the log recorded",
+      "the top band clipped to mMaxSharpness at maxima 400, 425 and 450, a band that stops partway, and every point below",
+      "a `.., 450, 450` row, a tier rule answering 0 for any points, an unreadable probe, non-positive maxima, clamped points, and every probe inside 0..=maximum",
+      "the gauge identity, the local player chain, the signed gauge fields and the controller sample",
+      "the node count's bound, the walker port over the unmodified and inserted trees, the cache layout and the object array",
+      "the cut on the measured and scaled rects, the shade box, and the 13-record tree",
+      "not covered: anything native. The host suite has no game"
     ],
-    "runtime_test": "NOT RUN"
+    "runtime_test": "NOT RUN",
+    "nro_sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791"
   },
   "runs": [
     {
@@ -366,7 +424,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "3720967e77d0df7209e30eaed2ab596e854e5b96a3c088c5256f90317227defa",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r9-eden-2026-10-22.txt",
+      "log": "work/world-sharpness-gauge/runs/r9-eden-2026-10-22.txt",
       "session_seconds": 493,
       "our_lines": 141,
       "observed": [
@@ -384,7 +442,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "eb741f03177d9e026c1d1b32f5d7fef09fb43d3ec2ee401c8a35b982f321c561",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r10-eden-2026-10-23.txt",
+      "log": "work/world-sharpness-gauge/runs/r10-eden-2026-10-23.txt",
       "session_seconds": 1959,
       "our_lines": 627,
       "observed": [
@@ -402,7 +460,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "11155325db0184403daaef420d0e02c63b316a65f4c84cf03ac6fc271cc21f26",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r11-eden-2026-10-23.txt",
+      "log": "work/world-sharpness-gauge/runs/r11-eden-2026-10-23.txt",
       "session_seconds": 2525,
       "our_lines": 885,
       "observed": [
@@ -421,7 +479,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "6e061c70779cfb3a306835030256012e50dd19fdbeeae36d4d4635c331d35b8d",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r14-eden-2026-10-23.txt",
+      "log": "work/world-sharpness-gauge/runs/r14-eden-2026-10-23.txt",
       "session_seconds": 1060,
       "our_lines": 5156,
       "observed": [
@@ -440,7 +498,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "e90a6b54f2624c2cd6ae07b2567a14c794ebb7b34e068d841734e4541b18080f",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r15-eden-2026-10-23.txt",
+      "log": "work/world-sharpness-gauge/runs/r15-eden-2026-10-23.txt",
       "session_seconds": 903,
       "our_lines": 124,
       "observed": [
@@ -460,7 +518,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "415a822a2d3643efc1b5704c1e84814200be593c7922d297e85f535991acc0ed",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r16-eden-2026-10-23.txt",
+      "log": "work/world-sharpness-gauge/runs/r16-eden-2026-10-23.txt",
       "session_seconds": 671,
       "our_lines": 93,
       "observed": [
@@ -479,7 +537,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "626d96f75fe9102febf30d9c09a2b38714fddcb943ca6e55465ab50c3c1f6749",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r17-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r17-eden-2026-10-24.txt",
       "session_seconds": 961,
       "our_lines": 95,
       "observed": [
@@ -498,7 +556,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "55340cfbec4fbdc176be57d3ac22356945c4f431f882eb784b362426a1e23330",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r18-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r18-eden-2026-10-24.txt",
       "session_seconds": 982,
       "our_lines": 564,
       "observed": [
@@ -517,7 +575,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "5617ee906b0756af39676a6a3bdc4a4bf3b5fb55d5b1d18fed29978d552635fb",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r20-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r20-eden-2026-10-24.txt",
       "session_seconds": 743,
       "our_lines": 389,
       "observed": [
@@ -536,7 +594,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "a18290a6df0b2cbe2edaf67e49a612a16540306f41c8cd38544c570729a69945",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r22-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r22-eden-2026-10-24.txt",
       "session_seconds": 715,
       "our_lines": 359,
       "observed": [
@@ -555,7 +613,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "909dd7fa281cc8863c79fef6d91b49cd5ecd2da837ee30ad6d5ed01f7befc225",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r23-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r23-eden-2026-10-24.txt",
       "session_seconds": 175,
       "our_lines": 76,
       "observed": [
@@ -574,7 +632,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "6a16c5429a15e761db5b4168586343dfa4ca59e19fdb74143fc00cfd1b74994b",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r24-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r24-eden-2026-10-24.txt",
       "session_seconds": 162,
       "our_lines": 73,
       "observed": [
@@ -593,7 +651,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "223e6a293452e71378b3bef5595fb4522b901ff707ae708b67a1b21623a9c710",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r25-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r25-eden-2026-10-24.txt",
       "session_seconds": 816,
       "our_lines": 382,
       "observed": [
@@ -615,7 +673,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "d6b1f675f5218889f7eba411b29becfb670e7eab86d28d58d5ce555903d7071f",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r26-eden-2026-10-24-run2.txt",
+      "log": "work/world-sharpness-gauge/runs/r26-eden-2026-10-24-run2.txt",
       "session_seconds": 1105,
       "our_lines": 588,
       "observed": [
@@ -634,7 +692,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "9f4f5170b6b68216402b6b0f2d1644d820467bcd8ec87a272047c0579333363d",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r27-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r27-eden-2026-10-24.txt",
       "session_seconds": 510,
       "our_lines": 393,
       "observed": [
@@ -653,7 +711,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "ba9d66bacfa09a2975004c8d2a1c6c380ef029d212a313bf57ec6fbc324aef3e",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r28-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r28-eden-2026-10-24.txt",
       "session_seconds": 573,
       "our_lines": 388,
       "observed": [
@@ -673,7 +731,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "611e53df7f4d791a0b68604dd508df57e87b1a4ae79e91e394e9134bfcecfbd2",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r29-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r29-eden-2026-10-24.txt",
       "session_seconds": 590,
       "our_lines": 461,
       "observed": [
@@ -692,7 +750,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "b0e61737fc15e6c230bb33c4655ee37dea154a7b4bc8a1ae62470f1b160fb5ba",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r30-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r30-eden-2026-10-24.txt",
       "session_seconds": 590,
       "our_lines": 461,
       "observed": [
@@ -713,7 +771,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "88e63e7575534cf21a160aaf7e76e2ca6d89e1214c7c58563430dbff92a3f77b",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r31-eden-2026-10-24.txt",
+      "log": "work/world-sharpness-gauge/runs/r31-eden-2026-10-24.txt",
       "our_lines": 830,
       "observed": [
         "user report: r31 done, the bar visually just looks like vanilla weapon sharpness bar, nothing visually different than vanilla",
@@ -730,7 +788,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "ed5cb4451594f43fef10f75e6967ac3a2dc1c29ef7fa6193aba097d20337f9c4",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r33-eden-2026-10-29.txt",
+      "log": "work/world-sharpness-gauge/runs/r33-eden-2026-10-29.txt",
       "our_lines": 1598,
       "observed": [
         "user report: it is working and persists through sharpness changes, area changes and quest changes, but there is no empty gauge; 0% is expected to mean no blue blade parts",
@@ -748,7 +806,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "d27c1b25efebf55f358898cc889b7d3f3db5d79623585919926b1117da111a75",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r34-eden-2026-10-29.txt",
+      "log": "work/world-sharpness-gauge/runs/r34-eden-2026-10-29.txt",
       "our_lines": 521,
       "observed": [
         "user report: the fills are definitely wrong and worse than r33; 0% of r34 looks like no change from r33, and r34's 100% has a cut at the end that r33's 100% did not",
@@ -766,7 +824,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "21413972b0f2ce8c6db01e8de5cdc5b9cab1d062e5e830237e7f89c2acaaf482",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r35-eden-2026-10-29.txt",
+      "log": "work/world-sharpness-gauge/runs/r35-eden-2026-10-29.txt",
       "our_lines": 665,
       "observed": [
         "user report: 0% is good enough, 100% is full, the 25% and 50% positions look wrong, and the 100% fill may already be past the gauge length; it should be linear",
@@ -784,7 +842,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "40459611a838b562018772d9530296cabf6e03a20988a1645e4703d5ea91c4de",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r39-eden-2026-10-29.txt",
+      "log": "work/world-sharpness-gauge/runs/r39-eden-2026-10-29.txt",
       "log_sha256": "55c332f5c129dc63afb8d4174d554a525b32f255c48833eb7ec7b9c5daf81878",
       "our_lines": 563,
       "observed": [
@@ -803,10 +861,10 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "2f14773db943988282a8a6a4bc748610190308f9f1d22142275290ae3b61e579",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r41-eden-2026-10-29.txt",
+      "log": "work/world-sharpness-gauge/runs/r41-eden-2026-10-29.txt",
       "log_sha256": "6583fa69d8e19b620d2820780d316da838ec8243e494b2a29872075fcc5b0c8f",
       "our_lines": 170,
-      "screenshots": "work/modern-sharpness-gauge/visual/r41/",
+      "screenshots": "work/world-sharpness-gauge/visual/r41/",
       "observed": [
         "user report: its right, looks right",
         "6 cycle lines at rights 129, 147, 165, 201 px (the accepted endpoints, 18 px per quarter) and 2 slider lines at 25% and 50%",
@@ -822,7 +880,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r42-eden-2026-10-30.txt",
+      "log": "work/world-sharpness-gauge/runs/r42-eden-2026-10-30.txt",
       "log_sha256": "bd47e19b34ec2e4d6f2a8ce5ce8231ebff30ec328c6e09a1d65728354a1377ba",
       "our_lines": 708,
       "observed": [
@@ -842,7 +900,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "40a45d6c75d09f8d3248af2353fb3c3f70ee6eefea05a34be6ae0c5afe9f739a",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r42-eden-2026-10-30-run2.txt",
+      "log": "work/world-sharpness-gauge/runs/r42-eden-2026-10-30-run2.txt",
       "log_sha256": "2035577d30286ba32fe04eaaf588300a2357be17dc9a19c11a06fc8a55ab6307",
       "our_lines": 2902,
       "observed": [
@@ -862,7 +920,7 @@
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "c3da58333cdf4c141fb39ce691cc8e3fa0560251552093e1d659cb850800131f",
       "matches_packaged_payload": true,
-      "log": "work/modern-sharpness-gauge/runs/r44-eden-2026-10-30.txt",
+      "log": "work/world-sharpness-gauge/runs/r44-eden-2026-10-30.txt",
       "log_sha256": "f2960a93370f283e00b7ae22db4727bb44d74f62b0a95c22ce902e5c152cc9e5",
       "our_lines": 224,
       "observed": [
@@ -881,7 +939,7 @@
       "emulator": "Eden Development (user run)",
       "status": "FROZEN",
       "binary_sha256": "6aecfb20524267678687a465aa54c4902b3b26febec27577802b03052003cca3",
-      "log": "work/modern-sharpness-gauge/runs/r45-eden-2026-10-31-frozen.txt",
+      "log": "work/world-sharpness-gauge/runs/r45-eden-2026-10-31-frozen.txt",
       "log_sha256": "773c006244f885c8d3097378913c45ed40ee769d3c3b14d3b6e4c95ba599a326",
       "observed": "Two quest launches. The installed NRO matched the packaged payload. The mod started (stage 21 at the title, the watchdog line, then 'gauge controller observed' at t=250.36, and the same pattern in the first attempt at t=123.70). The insertion printed nothing on any path: no 'scissor mask inserted', no 'mask insertion failed at stage', no 'dim blade not added at stage'. At the gauge HUD's first draw the guest faulted: Unmapped Read32 @ 0x00000000000000 and Unmapped Read8 @ 0x00000000005ce4, after three maxwell_3d asserts. 6 'MSG r45' lines in the whole log, none from the insertion. The tester stopped the session; the game was unresponsive about five seconds into the quest both times.",
       "root_cause": "build_dim called the class's vtable slot 0x00 (main+0x866a4) as a constructor on a block straight from the recycled pool. cGUIObjTexture's DTI has three virtual slots, vtable+0x0c is null, and slot 0x00 is not the constructor. The verified construction on this class is the DTI allocator's slot 0x20 with (bytes, align, dti id), a zeroed 304-byte block, and main+0xa4f60c taking the storage in r0: Key Quest Markers, shipped and played on this class. The log's null read is inside that call.",
@@ -893,7 +951,7 @@
       "emulator": "Eden Development (user run)",
       "status": "PASSED_WITH_ADDITIVE_FAILURE",
       "binary_sha256": "c513533baedcf7beecf2533709c294d506658484e5b13aa74aa97e8093f05989",
-      "log": "work/modern-sharpness-gauge/runs/r46-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r46-eden-2026-10-31.txt",
       "log_sha256": "4e6662865a982833eb18e9ac2702240242da2650efe50145b215cc0369669758",
       "observed": "76 lines from this mod, no freeze and no guest fault. 68 cut lines with the accepted endpoints (box=110 32 90 32 at 10000 bp down to box=110 32 18 32 at 0, bar rect 110 38 238 166, feed=128), one insertion 'records=9 dim=0x0', one 'dim blade not added at stage 52', one links-lost teardown at an area change. The tester saw no second copy behind the shorter gauge: the additive path hides the copy, so the gauge is exactly the accepted look.",
       "root_cause": "The texture resolve ran before the fields. main+0xa4faf0 returns early with +0x100 = -1 and +0x104 = 0 when the object's resource at +0x78 is 0, and the block was freshly zeroed, so the check on +0x104 failed and stage 52 dropped the node. The resolve also needs *(obj+0x64)+0xe8 (main+0xb80fd0): the class constructor zeroes +0x64, so the copy has to be given the bar's.",
@@ -905,7 +963,7 @@
       "emulator": "Eden Development (user run)",
       "status": "DRAW_NOT_SEEN",
       "binary_sha256": "ea38a69663c5e9997bd4906f89dbbf1991b81191d44985aab4cd1d1796b36fd0",
-      "log": "work/modern-sharpness-gauge/runs/r47-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r47-eden-2026-10-31.txt",
       "log_sha256": "dc17611a502e834c7ebbcb07ea22438f053e084559a328dc6cf24fc9f176d08d",
       "observed": "48 lines, no fault. 'scissor mask inserted: mask=0x48620060 map=0x485ac190 entries=6 cache=0x48620180 records=11 dim=0x44246540 dim_tex=0x519bbab0 dim_flags=0x20a0001'. The node exists and its texture resolved. Nothing of the copy appeared in the sharpness gauge. The tester's photo (sha256 6158ff20dcb8b60d8cfdf81225e2cc141c59a624116d6acb3d13227e2228f266) shows a noisy dark translucent block near the gauges; reading that block as this mod's copy is an inference - r47 is the only build whose copy could not sample its texture, and the later builds' photos show no such block.",
       "root_cause": "Two writes in the copy, read from the build. Its position pair at +0x80/+0x84 was given the bar's rect corner (110, 38) as screen pixels, in fields the layout reads as offsets in the parent's space, so the node lands far from the blade. Its atlas window was written from rect_at, which reads the four words at +0x10c as integers: the bar's v1 word 1133248512 - the float 280.0 - went in as the float 1133248512.0, so the copy sampled rows around v = 1.13e9, outside the 88x24 sheet. Log facts about the bar's window, quoted verbatim and decoded: 'tex=0 1133248512 1118830592 1134034944' is [0, 280, 88, 304] and 'tex=0 1134034944 1118830592 1134821376' is [0, 304, 88, 328], so the bar's window is a whole 88-column tier band and v steps by tier, not by sharpness. The values 'tex=0 156 87 440' and 'tex=0 440 87 512' in the earlier version of this record are in no log.",
@@ -918,7 +976,7 @@
       "emulator": "Eden Development (user run)",
       "status": "DRAW_NOT_SEEN",
       "binary_sha256": "66307f8b96e9eebe4854e6d5fd2bff70cf8c4292da00ee1d67381e152f4eb2bd",
-      "log": "work/modern-sharpness-gauge/runs/r48-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r48-eden-2026-10-31.txt",
       "log_sha256": "6d2da8a7e0517302f20b6e76aaf907bfe3905b9fe144fe6394b13a5f02b772ce",
       "observed": "67 lines, 62 cut lines, no fault, no teardown. 'scissor mask inserted: mask=0x443887f0 map=0x47f6b970 entries=6 cache=0x44388910 records=11 dim=0x48043500 dim_tex=0x5194bab0 dim_flags=0x20a0001'. The sharpness gauge showed no copy. The grey band with the slanted tip in the tester's photo (sha256 476014feca70a36e881189a2986b8a24cd27219653233e0fc34196316e1b0251) is the Dual Blade's demon gauge: the tester named that band, above the red cropped blade, as a row this mod does not touch. A fill line here reads the bar's window as 'tex=0 1134821376 1118830592 1135607808' = [0, 328, 88, 352], the red band.",
       "root_cause": "The copy's window is real rows (written with window_at, so no 1.13e9 sampling). The rectangle write at the mask's enter loses to the node's own layout: a cGUIObjTexture is laid out from its position pair +0x80/+0x84 and its authored pair +0xb4/+0xb8 when the walker visits the node, after the plugin's callback, and the position the build wrote was the bar's rect corner (110, 38) in fields the layout reads as offsets in the parent's space. The layout rule is from the class decompile; the gauge showing nothing of it is the tester's report.",
@@ -930,7 +988,7 @@
       "emulator": "Eden Development (user run)",
       "status": "PLACEMENT_PROVEN_WINDOW_AXIS_WRONG",
       "binary_sha256": "7224cc018ed8c68c35c177a1c8d8e46c8537c0f7c280a23804cd78e9def4fb93",
-      "log": "work/modern-sharpness-gauge/runs/r50-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r50-eden-2026-10-31.txt",
       "log_sha256": "1c91ac18d9ae33a2ac73d8dbc0b0106f9bc46229c8874a3e86fc516f10c16682",
       "observed": "119 lines, no fault, no teardown. 'records=11 dim=0x4800eec0 dim_tex=0x5190bab0 dim_flags=0x20a0001' (the flag word is the class constructor's default, main+0xa4d0d8 writing 0x020a0001 at +0x54). The new quad line reads 'fill copy rect=157 38 200 166 pos=47 authored=43' at ratio_bp=4133 and 'fill copy rect=200 38 200 166 pos=90 authored=1' at ratio_bp=10000, each paired with its cut line, whose tex= words are 1133248512/1118830592/1134034944 = [0, 280, 88, 304] and 1134034944/1118830592/1134821376 = [0, 304, 88, 328]: the copy is placed from the cut's right edge to the tip, exactly where the accepted geometry says, and the tester sees none of it in the sharpness gauge.",
       "root_cause": "The sprite's length is the u axis and v carries the tier colour bands: Txt_sharp is 88x24 with the bands 0,280,88,304 / 0,304,88,328 / 0,328,88,352 (PHASE0), which is what the bar's live window reads as. r48's window was [u1, tip_v, u2, v1] with tip_v the smallest v1 seen (280), i.e. the band above the bar's own at mid sharpness and zero width at full sharpness. The earlier 'window of v 156..156 samples no rows' reading in this record came from invented tex numbers and is replaced; with the real band the open question is where the node's own layout lands its quad, which is what r49's placement change and r52's read-back measure.",
@@ -942,7 +1000,7 @@
       "emulator": "Eden Development (user run)",
       "status": "PHASE5_COPY_SEEN_ON_SCREEN",
       "binary_sha256": "88057efa0006bf4c8bccf312c528f0c08bcf9c10a3a1b6dab298e345b112f1ef",
-      "photo": "work/modern-sharpness-gauge/visual/r52/r52-magenta-photo.webp",
+      "photo": "work/world-sharpness-gauge/visual/r52/r52-magenta-photo.webp",
       "photo_sha256": "a6fc2f82b722d66c76642666b4e47e1b17c76841148d993f10bce31453e4e638",
       "observed": "The tester's report and photo: the copy is on screen as a full-length magenta blade under the sharpness gauge, and it stays in place as sharpness decreases and increases and across areas. r52's forced values were a magenta full sprite-size quad written once, so the node is drawn by the game and the placement holds.",
       "meaning": "The Phase 5 mechanism is proven on screen: a cGUIObjTexture built on Key Quest Markers' recipe, linked as the scissor mask's sibling, draws. The magenta test also settles the MT color word's byte order: the word written as 0xFFFF00FF (AABBGGRR) showed as magenta, so the packing is AABBGGRR. The read-back lines (copy state / bar state) print the layout's own rect, matrix, position and authored pair for calibration.",
@@ -954,9 +1012,9 @@
       "version": "r54",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "3848122250036a5e6d919cf3e1949320dd2b01e7622ac133067e1853427168db",
-      "log": "work/modern-sharpness-gauge/runs/r54-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r54-eden-2026-10-31.txt",
       "log_sha256": "26ae7bdb1e151959a7ba00534438460b07263dd12128baef8ee0e03827e8b87f",
-      "photo": "work/modern-sharpness-gauge/visual/r54/r54-gauge-uncut-photo.webp",
+      "photo": "work/world-sharpness-gauge/visual/r54/r54-gauge-uncut-photo.webp",
       "photo_sha256": "76b7960e94acda8fcbae3f7c07519d75a0628b555efa7732f1ba4330b896a420",
       "status": "REGRESSION_GAUGE_NEVER_CLIPS",
       "observed": [
@@ -966,7 +1024,7 @@
         "zero fill lines and zero state lines in the whole log: the mask's enter never reached the live-fill path, because every entry took the links-lost path, which disables the mask (Enable setter 0). So the bar is never clipped: the tester's photo shows the full uncut blade and no shadow"
       ],
       "root_cause": "r54's insertion point. The copy becomes the controller's first child (root.child = shadow, shadow.sibling = mask, mask.child = bar). The mask's enter/exit records are what the game's row machinery relies on, and the row is entered through the controller's child chain: with our node in front of the mask, the chain the game walks and tears down is no longer its own. In this run, 8 ms after the insertion the controller's child is 0 and the bar's parent is 0 - the row's chain was taken down - and no gauge controller is ever matched again, so the mod's own watchdog reports the HUD absent 17105 times while the mask's enter keeps firing and keeps disabling the mask. r44's accepted shape (mask as the controller's first child) and r52's (that mask, with the copy as the mask's sibling, drawn last) both ran clean and rebuilt across areas; this insertion point does not.",
-      "conclusion": "The behind-the-gauge idea needs the copy walked before the bar, and the only link position that does that is ahead of the mask on the controller's chain - the position this run shows is not safe. The shadow goes back to r52's proven shape: the mask's sibling, drawn last, carved to the part past the cut. That is r53, packaged and unchanged at build/modern-sharpness-gauge/candidates/r53/.",
+      "conclusion": "The behind-the-gauge idea needs the copy walked before the bar, and the only link position that does that is ahead of the mask on the controller's chain - the position this run shows is not safe. The shadow goes back to r52's proven shape: the mask's sibling, drawn last, carved to the part past the cut. That is r53, packaged and unchanged at build/world-sharpness-gauge/candidates/r53/.",
       "fixed_in": "r53 (the preserved fallback candidate; no code change)"
     },
     {
@@ -974,7 +1032,7 @@
       "version": "r53",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "bda3f7a1e70006a8e16c2a3b74f0b3e686f8ce4f177bcfc773f410565a031e6e",
-      "log": "work/modern-sharpness-gauge/runs/r53-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r53-eden-2026-10-31.txt",
       "log_sha256": "76497310a3cc77cae31e74d29a4beff77aa54b97836996321168d65723e9b07c",
       "status": "SHAPE_WRONG_AND_GAME_FAULT",
       "observed": [
@@ -996,9 +1054,9 @@
       "version": "r55",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "047ca3272c85dae528ea18c8889659a6b6a128464e30c6a7a24e93caa4c34c92",
-      "log": "work/modern-sharpness-gauge/runs/r55-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r55-eden-2026-10-31.txt",
       "log_sha256": "d57f8817e0ae48a73cbac468659a3b594f14c91504227d907c90afab609894f9",
-      "photo": "work/modern-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp",
+      "photo": "work/world-sharpness-gauge/visual/r55/r55-shadow-over-gauge-photo.webp",
       "photo_sha256": "470fe6d562c0e37feca29fad037271a1b5e3bd2428e27a469c803bad282e2e13",
       "status": "REGRESSION_SHADOW_OVER_GAUGE",
       "observed": [
@@ -1016,9 +1074,9 @@
       "version": "r56",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "43b0869075328bfa62de970a6b976c09a4282677d0f820d183182d24faad3f37",
-      "log": "work/modern-sharpness-gauge/runs/r56-eden-2026-10-31.txt",
+      "log": "work/world-sharpness-gauge/runs/r56-eden-2026-10-31.txt",
       "log_sha256": "5c9e4b76db5a6f463f3371606dadcc81942ca85f5bbfed48bd15d4c7219187a0",
-      "photo": "work/modern-sharpness-gauge/visual/r56/r56-shade-on-the-left-photo.webp",
+      "photo": "work/world-sharpness-gauge/visual/r56/r56-shade-on-the-left-photo.webp",
       "photo_sha256": "e021136194a8982baa4289a1ef345257571768a294ebe3ca6d0910ab6805746e",
       "status": "SHADE_ON_THE_LEFT_OF_THE_GAUGE",
       "observed": [
@@ -1036,13 +1094,13 @@
       "version": "r57",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3",
-      "log": "work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-a.txt",
+      "log": "work/world-sharpness-gauge/runs/r57-eden-2026-10-31-a.txt",
       "log_sha256": "5cb5d4e4cf185799350a81671325eccb3d2f86d550d889d09ba2fa7ef59b1504",
       "photos": [
-        "work/modern-sharpness-gauge/visual/r57/r57-1-empty.webp",
-        "work/modern-sharpness-gauge/visual/r57/r57-2-half.webp",
-        "work/modern-sharpness-gauge/visual/r57/r57-3-nearfull.jpg",
-        "work/modern-sharpness-gauge/visual/r57/r57-4-start-before-colorchange.webp"
+        "work/world-sharpness-gauge/visual/r57/r57-1-empty.webp",
+        "work/world-sharpness-gauge/visual/r57/r57-2-half.webp",
+        "work/world-sharpness-gauge/visual/r57/r57-3-nearfull.jpg",
+        "work/world-sharpness-gauge/visual/r57/r57-4-start-before-colorchange.webp"
       ],
       "photo_sha256": {
         "r57-1-empty.webp": "3df9394d6f4ebe46a0a39ee116a69a8cbc7f0cd782185731dc6fd80d746560fe",
@@ -1066,10 +1124,10 @@
       "version": "r57",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "c4198c30985db4e9fe15c71295afbcb7b0e3301cc8c2b1f2ea359dde1458c2d3",
-      "log": "work/modern-sharpness-gauge/runs/r57-eden-2026-10-31-b.txt",
+      "log": "work/world-sharpness-gauge/runs/r57-eden-2026-10-31-b.txt",
       "log_sha256": "4068a22af2ed70cb5cee3a65d02ec974d3a53a39b4be77d69718a2588cbe09af",
       "photos": [
-        "work/modern-sharpness-gauge/visual/r57/r57-1-empty.webp"
+        "work/world-sharpness-gauge/visual/r57/r57-1-empty.webp"
       ],
       "photo_sha256": {
         "r57-1-empty.webp": "3df9394d6f4ebe46a0a39ee116a69a8cbc7f0cd782185731dc6fd80d746560fe",
@@ -1093,12 +1151,12 @@
       "version": "r59",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "6cc84a80f166ea7dce14b1f633be1473ba08d6e133b96ac40523ced3b3869fb3",
-      "log": "work/modern-sharpness-gauge/runs/r59-eden-2026-11-01.txt",
+      "log": "work/world-sharpness-gauge/runs/r59-eden-2026-11-01.txt",
       "log_sha256": "bbb0f6eafcd1fb3777c061f1754f75edaa5a495150c74c6edb505c7700ca2341",
       "photos": [
-        "work/modern-sharpness-gauge/visual/r59/r59-1.webp",
-        "work/modern-sharpness-gauge/visual/r59/r59-2.webp",
-        "work/modern-sharpness-gauge/visual/r59/r59-3.webp"
+        "work/world-sharpness-gauge/visual/r59/r59-1.webp",
+        "work/world-sharpness-gauge/visual/r59/r59-2.webp",
+        "work/world-sharpness-gauge/visual/r59/r59-3.webp"
       ],
       "photo_sha256": {
         "r59-1.webp": "cdcd5b9521b8649b0bde7c5ca5bdaf4bce3c68f2786cc5202a13274af1bf3945",
@@ -1121,11 +1179,11 @@
       "version": "r60",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "8094f8f534440a0bc27be547770f7a506da56f944b944445e59614e035afd3f2",
-      "log": "work/modern-sharpness-gauge/runs/r60-eden-2026-11-01.txt",
+      "log": "work/world-sharpness-gauge/runs/r60-eden-2026-11-01.txt",
       "log_sha256": "128906c530982e01e997f9d0457d4757af578111a331c9f265a2f4323eef711a",
       "photos": [
-        "work/modern-sharpness-gauge/visual/r60/r60-1.webp",
-        "work/modern-sharpness-gauge/visual/r60/r60-2.webp"
+        "work/world-sharpness-gauge/visual/r60/r60-1.webp",
+        "work/world-sharpness-gauge/visual/r60/r60-2.webp"
       ],
       "photo_sha256": {
         "r60-1.webp": "584a7be9ee3dba778f82157823d170b77870071e6b5485ad851949930357abd6",
@@ -1145,13 +1203,13 @@
       "version": "r62",
       "emulator": "Eden Development Build",
       "installed_nro_sha256": "51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416",
-      "log": "work/modern-sharpness-gauge/runs/r62-eden-2026-11-01.msg-lines.txt",
+      "log": "work/world-sharpness-gauge/runs/r62-eden-2026-11-01.msg-lines.txt",
       "log_sha256": "19b089cc0973b6032257963dd030943ca1b6097ef8cdcb87481abe492c15d1f5",
       "source_log": "~/.local/share/eden/log/eden_log.txt",
       "source_log_sha256": "c18b14d8a505f70f26fc408facfae222d0f862328ab2cc8af551b8f05fe0e4fd",
       "source_log_window": "104857665 bytes kept (Eden keeps a 100 MiB window), timestamps 2285.175548 to 10209.654031; the MSG lines of earlier versions are no longer in it",
       "photos": [
-        "work/modern-sharpness-gauge/visual/r62/r62-red-1.png"
+        "work/world-sharpness-gauge/visual/r62/r62-red-1.png"
       ],
       "photo_sha256": {
         "r62-red-1.png": "bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb"
@@ -1174,9 +1232,9 @@
       "emulator": "Eden Development Build master-7a6d055094, CachyOS, Vulkan",
       "installed_nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
       "installed_nro_mtime": "2026-11-02 12:15:22 +0700, ~/.local/share/eden/load/0100770008DD8000/modern-sharpness-gauge/romfs/nativeNX/plugins/modern_sharpness_gauge.nro",
-      "log": "work/modern-sharpness-gauge/runs/r64-eden-2026-11-02.txt",
+      "log": "work/world-sharpness-gauge/runs/r64-eden-2026-11-02.txt",
       "log_sha256": "dff4e64cd8191651f67e44762263c0f825c9c153e993d3e6b481d88efc7369b8",
-      "log_lines": "work/modern-sharpness-gauge/runs/r64-eden-2026-11-02.lines.txt",
+      "log_lines": "work/world-sharpness-gauge/runs/r64-eden-2026-11-02.lines.txt",
       "log_lines_sha256": "b5b2e2e2b051a1d15463d4fc9684832a808500a2d47ad5f71ff8e59cbfbaf67d",
       "source_log": "~/.local/share/eden/log/eden_log.txt",
       "source_log_sha256": "dff4e64cd8191651f67e44762263c0f825c9c153e993d3e6b481d88efc7369b8",
@@ -1199,6 +1257,19 @@
         "this run contains no mid-quest area crossing: one gauge row was built and torn down once, so the per-area re-insertion (r63's log has insert, lost, insert, lost) is not exercised by this log",
         "the three safety gates in front of the native tier call, the ~18 native calls per frame, and the fixed-tier state are not observable in this log: no guest fault for 1143 s is the evidence they did not misfire here"
       ]
+    },
+    {
+      "date": "2026-11-02",
+      "version": "r64",
+      "emulator": "Eden",
+      "installed_nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
+      "log": "work/world-sharpness-gauge/runs/r64-eden-2026-11-02-two-quests.txt",
+      "log_sha256": "de44718b1b6d033c15c34fe049adbfda94daa271fe458d5c4169a88f6456c887",
+      "observed": [
+        "user report: just done 2 quests with different weapon, with first quest death to fail, all works perfectly",
+        "Eden session with the installed NRO matching r64's payload (a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae). MSG r64 lines: gauge row check stopped at stage 21 at 13.415247; scissor mask inserted at 138.974316 with entries=7 records=13; inserted mask's links lost (1 times) at 1814.628580; scissor mask inserted at 1994.799861 with entries=7 records=13; inserted mask's links lost (2 times) at 2309.962825. Save commits at 1824.4956, 2345.9992 and 2463.1594. No guest exception, no insertion failure, no 'shade blade not added', no HW.Memory line and no host SIGSEGV after ForceStop at 2469.434884. Critical counts: maxwell_3d.cpp:392 9, hle_ipc.cpp:339 1, applet_software_keyboard.cpp:354 1. The player's report: \"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\", and of the blade, \"i test blade with yellow to red gauge\". The log has no weapon, faint or fill line, so those rest on the report; the one row across the faints is the log's part. Steps 3 (Sharpness+1/+2) and 4 (Heavy Polish) were not exercised."
+      ],
+      "conclusion": "A second quest on r64 bytes with a different weapon sets the gauge up again, and one row holds through a quest failed by fainting."
     }
   ],
   "not_proven": [
@@ -1249,7 +1320,7 @@
     "the per-tier fill has no recorded number at runtime: r64's acceptance is the player's report on the bar, and the build logs no fill line",
     "Sharpness+1 and +2 have no runtime check: the r64 run did not exercise testing step 3",
     "Heavy Polish over the banded bar has no runtime check: the r64 run did not exercise testing step 4",
-    "the per-area re-insertion is unproven for r64: its log has one insertion and one teardown at a quest end, with no second row built"
+    "that a gauge row lasts one quest is inference: row ends sit beside save commits and testers report area changes and faints with no re-insertion, but no log line marks an area change. Older entries here that assume a per-area row rest on the reading this replaces; see work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md"
   ],
   "runtime": {
     "status": "The accepted drawing is r44's cut, r59's shade placement, colour, transform and sampler, and r62's window publication: accepted on Eden 2026-11-01, where the crop of the red tier shows the worn blade and the installed NRO matched the packaged payload 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416. r61 was packaged, never run, and is withdrawn. r63 - the same drawing with the run instruments deleted - is the released version and has NOT been run: the user approved its promotion on static validation. r62 stays pinned and frozen at backups/accepted/modern-sharpness-gauge/r62-screen-accepted/.",
@@ -1291,7 +1362,7 @@
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   },
-  "static_summary": "r64: pinned toolchain build; 29 host fixtures passed; verify.py PASSED with 33 signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The bar's length is now the fill inside the tier band its points sit in, ceiling clipped to mMaxSharpness; the band comes from binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The accepted tree is untouched: 6 nodes, 7-word object array, (6 << 4) | 8 = 104 bytes = 13 records. The native facts are re-verified against the original bytes by work/modern-sharpness-gauge/scripts/verify_tier_gauge.py (ALL CHECKS PASSED, 2026-11-02). r64 ran on Eden on 2026-11-02 with the packaged payload installed, and the player accepted the bar as played for steps 1, 2 and 5; see runtime_r64_eden_2026_11_02. See the r64 record in versions, tier_gauge_fill_2026_11_02, DEVELOPMENT.md and work/modern-sharpness-gauge/TIER_GAUGE_RESEARCH.md.",
+  "static_summary": "r65: pinned toolchain build; 25 host fixtures passed; verify.py PASSED with 32 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The fill is (current - floor) * 10000 / (ceiling - floor) inside the tier band, with ceiling clipped to mMaxSharpness; the band is found by binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The native facts are re-verified against the original bytes by work/world-sharpness-gauge/scripts/verify_tier_gauge.py. See EVIDENCE.json, DEVELOPMENT.md, work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md and work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md.",
   "runtime_r63_eden_2026_11_02": {
     "version": "r63",
     "emulator": "Eden master-7a6d055094",
@@ -1302,10 +1373,10 @@
   },
   "tier_gauge_fill_2026_11_02": {
     "date": "2026-11-02",
-    "evidence_class": "static: original bytes, the dump\u2019s tables, saved Ghidra/DTI and host fixtures. No gameplay evidence",
-    "requirement_verbatim": "make the gauge works like mh world\u2019s gauge, which the bar is per tier, so for example, weapon with purple tier max, the bar will show the fill as between max sharpness, and the sharpness point at white, then it became full again until it reach sharpness point for blue, etc. coloring is already managed by game, so you only need to control the bar, also dont forget any buff that might increase sharpness and might change how the calculation at max tier sharpness. thin band sharpness tier are okay, the need is approximation, so jumpy is okay, no need for fancy smooth animations or lerp",
+    "evidence_class": "static: original bytes, the dump’s tables, saved Ghidra/DTI and host fixtures. No gameplay evidence",
+    "requirement_verbatim": "make the gauge works like mh world’s gauge, which the bar is per tier, so for example, weapon with purple tier max, the bar will show the fill as between max sharpness, and the sharpness point at white, then it became full again until it reach sharpness point for blue, etc. coloring is already managed by game, so you only need to control the bar, also dont forget any buff that might increase sharpness and might change how the calculation at max tier sharpness. thin band sharpness tier are okay, the need is approximation, so jumpy is okay, no need for fancy smooth animations or lerp",
     "native_facts_checked_against_original_bytes": {
-      "tool": "work/modern-sharpness-gauge/scripts/verify_tier_gauge.py, run 2026-11-02: ALL CHECKS PASSED; main inputs/main sha256 b3935415499549adaf4c0e89822831daa175cfd456a7990791c79be3997645ef",
+      "tool": "work/world-sharpness-gauge/scripts/verify_tier_gauge.py, run 2026-11-02: ALL CHECKS PASSED; main inputs/main sha256 b3935415499549adaf4c0e89822831daa175cfd456a7990791c79be3997645ef",
       "checks": [
         "the 0x29cdfc window in src/signatures.rs equals the image bytes and occurs once in the image; 33 windows total",
         "calculateSharpnessType keeps the points in r4, calls the gate main+0x27c7ec, loads *(player+0x13c4) at main+0x29ce34, tail-calls vtable slot 0x84 with the points in r1, and returns 0 (the red tier) on every failure; no store in its 196 bytes",
@@ -1369,7 +1440,15 @@
     "emulator": "Eden master-7a6d055094",
     "installed_nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
     "log_sha256": "dff4e64cd8191651f67e44762263c0f825c9c153e993d3e6b481d88efc7369b8",
-    "log_copy": "work/modern-sharpness-gauge/runs/r64-eden-2026-11-02.txt",
+    "log_copy": "work/world-sharpness-gauge/runs/r64-eden-2026-11-02.txt",
     "scope": "Ran on Eden 2026-11-02 with the packaged payload installed. Three MSG r64 lines: gauge row check stopped at stage 21 at 13.035483; scissor mask inserted at 155.176840 with entries=7 records=13 and dim= and clip= non-zero; inserted mask's links lost (1 times) at 1101.645590, with the game's save commits at 1111.848609 making that a quest end, and no insertion after it. No guest exception, no insertion failure. One new host line against the r63 session, HW.Memory <Error> Unmapped @ 0x00000082609400 (size = 48) at 1139.120422 in the emulator's exit path; the renderer Critical counts match the r63 session; no SIGSEGV after ForceStop. The player: 'from playing and look at the visuals it looks right, but my current gameplay only satisfy no 1,2, and 5'"
+  },
+  "runtime_r64_eden_2026_11_02_second_session": {
+    "version": "r64",
+    "emulator": "Eden",
+    "installed_nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
+    "log_sha256": "de44718b1b6d033c15c34fe049adbfda94daa271fe458d5c4169a88f6456c887",
+    "log_copy": "work/world-sharpness-gauge/runs/r64-eden-2026-11-02-two-quests.txt",
+    "scope": "Eden session with the installed NRO matching r64's payload (a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae). MSG r64 lines: gauge row check stopped at stage 21 at 13.415247; scissor mask inserted at 138.974316 with entries=7 records=13; inserted mask's links lost (1 times) at 1814.628580; scissor mask inserted at 1994.799861 with entries=7 records=13; inserted mask's links lost (2 times) at 2309.962825. Save commits at 1824.4956, 2345.9992 and 2463.1594. No guest exception, no insertion failure, no 'shade blade not added', no HW.Memory line and no host SIGSEGV after ForceStop at 2469.434884. Critical counts: maxwell_3d.cpp:392 9, hle_ipc.cpp:339 1, applet_software_keyboard.cpp:354 1. The player's report: \"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\", and of the blade, \"i test blade with yellow to red gauge\". The log has no weapon, faint or fill line, so those rest on the report; the one row across the faints is the log's part. Steps 3 (Sharpness+1/+2) and 4 (Heavy Polish) were not exercised."
   }
 }

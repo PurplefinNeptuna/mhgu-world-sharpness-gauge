@@ -72,8 +72,8 @@ pub fn gauge_controller() -> u32 {
 pub fn clear_controller() {
     CTRL.store(0, Ordering::Relaxed);
     GAUGE_PRESENT.store(false, Ordering::Relaxed);
-    // The player pointer goes with it: reading a captured player after its HUD is gone is the
-    // stale capture the plan's Phase 2 blocker names, and the fill reads this pointer per frame.
+    // The player pointer goes with it: the fill compares against this pointer every frame, and
+    // a player captured for a HUD that is gone is stale.
     PLAYER.store(0, Ordering::Relaxed);
 }
 

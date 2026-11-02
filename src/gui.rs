@@ -3,18 +3,17 @@
 //! The gauge row is the animation controller the walker reports, its root at `root+0x68`, and
 //! the bar, glow and edge as its child/sibling chain, identified by authored size. What the
 //! gates rest on, from the decompiles recorded in
-//! work/modern-sharpness-gauge/PHASE2_RESEARCH.md:
+//! work/world-sharpness-gauge/PHASE2_RESEARCH.md:
 //! - main+0xa494a0 writes 8-byte records (kind, node) into `controller+0x80`; main+0xa49b28
 //!   sizes that area from the halfwords at **row+8** as `objects * 16 + 8 + sequences * 12` and
 //!   publishes `cache = allocation + sequences * 12`. This row is sized for 3 objects and 16
-//!   sequences: a 7-record area, so the inserted tree's 9 records do not fit and the insertion
+//!   sequences: a 7-record area, so the inserted tree's 13 records do not fit and the insertion
 //!   has to grow the block.
 //! - main+0xa47d2c counts the nodes under `+0x68`/`+0x6c` with no visibility test;
 //!   main+0xa38ffc returns that + 1 and main+0x5456e4 uses it as the length of the instance's
 //!   array at `+0xd8`, dispatching slot 0x50 per entry. The gauge row's four entries are the
-//!   controller, bar, glow and edge, so an inserted node needs a fifth entry: five indexed
-//!   reads through a four-word array run past it and end in that loop.
-//! - the root destructor main+0xa486fc frees `root+0xa4` and deletes the child chain.
+//!   controller, bar, glow and edge, so each inserted node needs its own entry: more indexed
+//!   reads than the array has words run past it and end in that loop.
 //! - the rectangle the game builds for a mask at `mask+0xb0..+0xbc` is derived from the node's
 //!   own transform and authored pair, and a factory-built mask's anchors and x scale collapse it
 //!   to zero width, which clips the gauge away. Those inputs are written at the mask's enter
@@ -107,8 +106,8 @@ fn read_row() -> Result<Row, u32> {
     let Some(first_object) = memory::word(description.wrapping_add(0x0c)) else {
         return Err(23);
     };
-    // The gauge row is identified by the fields the sampler already proves on every
-    // sample line: animation 4, 4 objects, 15 sequences, first object 29. The row
+    // The gauge row is identified by the fields the sampler already checks:
+    // animation 4, 4 objects, 15 sequences, first object 29. The row
     // carries no drawable count. root+0x8c is recorded, not required: its bit 0 is the
     // walker's rebuild flag, which no code in this build sets.
     if anim != GAUGE_ANIMATION

@@ -1,49 +1,36 @@
-# Modern Sharpness Gauge: development
+# World Sharpness Gauge: development
 
-**Current state.** r64, DEVELOPMENT candidate: the accepted cut, the accepted shade, and a bar whose
-length is measured inside the tier band its points sit in. The fill is
+**Current state.** r65, DEVELOPMENT candidate: the consolidation of r64, with the fill, the cut, the
+shade and the tree unchanged. The bar's length is measured inside the tier band its points sit in:
 `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and
 `ceiling` the top of this tier clipped to `mMaxSharpness`, so the bar refills at every colour change
-and a raised maximum reads full partway through its tier. The band is not read from a table: it is
-found by binary search on the game's own points-to-tier function `calculateSharpnessType`
-(main+0x29cdfc), which is called, never hooked, behind its 32-byte signature window and three safety
-gates (see *Fill, per tier* below). The cut, the shade and the colour code are untouched: the ratio
-feeds the same `cut_box` and `dim_box`. No settings, no panel. The shade's atlas window is the bar's
-own live four floats - `u` = `0..88` of the authored 88, `v` = the bar's current tier band - published
-through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask
-with the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying
-the bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and
-the walk emits exactly 13. 29 host fixtures pass; verify PASSED with 33 signature windows; the
-distribution check is the gate for packaging.
+and a raised maximum reads full partway through its tier. The band is found by binary search on the
+game's own points-to-tier function `calculateSharpnessType` (main+0x29cdfc), which is called, never
+hooked, behind its 32-byte signature window and three safety gates (see *Fill, per tier* below). No
+settings, no panel. The shade's atlas window is the bar's own live four floats, published through the
+`mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy
+as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's
+sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
+emits exactly 13. 25 host fixtures pass; verify PASSED with 32 signature windows. r65's bytes have not
+been run: the player chose no further playtests ("i dont want another playtest, so fix and cleanup +
+static research then"). The runtime evidence is r64's, the gameplay-accepted build at
+`build/world-sharpness-gauge/candidates/r64/` (Eden, "all works perfectly"), and accepted r62's crop
+of the worn blade at the red tier, at `build/world-sharpness-gauge/candidates/r62/`. `DISTRIBUTION.json`
+holds the status and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log
+lines.
 
-The runtime evidence on screen is accepted r62's Eden run of 2026-11-01 at the red tier ("looks
-correct now, please pin this version as candidate for release"), at
-`build/modern-sharpness-gauge/candidates/r62/` (NRO `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`,
-payload `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`); r63 is that drawing with
-the run instruments removed, released on static validation, logged on Eden on 2026-11-02
-(`work/shared/runs/eden-2026-11-02.txt`, installed NRO matching): `MSG r63 scissor mask inserted` at
-130.479939 and 965.056722 with `entries=7` and `records=13`, `inserted mask's links lost` at
-475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after `ForceStop`.
-
-r64 ran on Eden on 2026-11-02 with the packaged payload installed (`work/modern-sharpness-gauge/runs/r64-eden-2026-11-02.txt`,
-sha256 `dff4e64cd8191651f67e44762263c0f825c9c153e993d3e6b481d88efc7369b8`), and the player accepted the bar as played: "from
-playing and look at the visuals it looks right, but my current gameplay only satisfy no 1,2, and 5". Its three `MSG r64` lines are
-stage 21 at 13.035483 (the hub), `scissor mask inserted` at 155.176840 with `entries=7` `records=13` and `dim=`/`clip=` non-zero,
-and `inserted mask's links lost (1 times)` at 1101.645590 with the game's save commits at 1111.848609 placing that teardown at a
-quest end, and no insertion after it: this run built one gauge row, so the per-area re-insertion stays unexercised. The build logs
-no fill line, so no run carries a band number: the fill's runtime evidence is the player's eye. No guest exception; the only new
-host-side line against r63's session is `HW.Memory <Error> Unmapped @ 0x00000082609400 (size = 48)` at 1139.120422, inside Eden's
-exit path after the RomFS patch burst at 1138.743248 and 4.34 s before `ForceStop`, with two NVDRV pin-count warnings; the
-renderer Critical counts match r63's session (45 vs 57 maxwell, 10 vs 10 texture cache, 1 vs 1 each for hle_ipc and the software
-keyboard) and r64's log records no host SIGSEGV after `ForceStop`. `DISTRIBUTION.json` holds the status and hashes, `EVIDENCE.json`
-the exact results, `TESTING.md` the tester steps and log lines.
+The name is World because the per-tier bar works like Monster Hunter: World's, while the later games' long
+gauge spans all sharpness. Builds through r64, the log lines quoted in `EVIDENCE.json` and `DISTRIBUTION.json`,
+and the notes in `work/` carry the old name: Modern Sharpness Gauge, folder `modern-sharpness-gauge`,
+`modern_sharpness_gauge.nro`, log prefix `MSG`. The two folders must not be active together, because both
+plugins would load and hook the same functions.
 
 The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
 slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner
 colours from `+0xa4` only while `(global+0x98 & (node+0xc0 >> 24) & 7)` is nonzero and clears those bits
 afterwards, and the setter main+0xa4fb58 - early return while the four floats match, store, slot 0x28 when
 `+0x108 & 0x30`, tail-call of vtable slot 0x50 (main+0xa4fc68) - is the only path to that mark. A raw
-write to the copy's `+0x10c` marks nothing and never repaints. `work/modern-sharpness-gauge/PHASE5_RESEARCH.md`
+write to the copy's `+0x10c` marks nothing and never repaints. `work/world-sharpness-gauge/PHASE5_RESEARCH.md`
 carries these facts with their bytes.
 
 General GUI rules (masks, cache and map growth, teardown) are in the forge-modding skill's
@@ -55,7 +42,7 @@ General GUI rules (masks, cache and map growth, teardown) are in the forge-moddi
 `DISTRIBUTION.json` is authoritative; runtime changes need a new version.
 Rust plus vendored forge-rs, PIC target JSON, `-nostartfiles -Wl,-z,text`. No
 game ARC/GUI edits, no asset replacement: mod-owned resources only, under
-`romfs/nativeNX/plugins/modern-sharpness-gauge/` via `forge::fs::romfs::mount_point()`.
+`romfs/nativeNX/plugins/world-sharpness-gauge/` via `forge::fs::romfs::mount_point()`.
 No settings means no panel. Preparing this mod never installs, activates,
 launches, edits saves, publishes or pushes.
 
@@ -67,15 +54,15 @@ so no Plugin UI panel: the build exports `forge_onLoad`, `forge_onInit`,
 `forge_onUpdate`, `init` and `fini`, and `verify.py` requires exactly that set.
 Inputs come from `build.local.json` (`main`, `sdk`, `forge` under `inputs`,
 copied from `work/shared/game-exefs/`); `build.local.example.json` documents
-the keys. Outputs go to `build/modern-sharpness-gauge/candidates/VERSION/` and
-scratch to `work/modern-sharpness-gauge/candidates/VERSION/`, where VERSION is
+the keys. Outputs go to `build/world-sharpness-gauge/candidates/VERSION/` and
+scratch to `work/world-sharpness-gauge/candidates/VERSION/`, where VERSION is
 `scripts/paths.py`'s current version. `package` runs the builder for a
 `DEVELOPMENT` spec and refuses a `READY_TO_DISTRIBUTE` one.
 `./build.sh test` runs the host fixtures for `x86_64-unknown-linux-gnu` and then
 `verify`, so it must run after `build` and before `package`.
 
 The native facts the fill rests on are re-checked against the original bytes by
-`work/modern-sharpness-gauge/scripts/verify_tier_gauge.py`: the 0x29cdfc window and that it is unique
+`work/world-sharpness-gauge/scripts/verify_tier_gauge.py`: the 0x29cdfc window and that it is unique
 in the image, its ABI and failure returns, the gate's two unchecked dereferences, the tier rule's
 seven strict compares, the init's maximum formula and the two field offsets, and all 164 kireaji rows
 for monotonicity, with the tester's log samples and the brief's example weapon carried as fixtures.
@@ -85,12 +72,11 @@ for monotonicity, with the tester's log samples and the brief's example weapon c
 - `core/src/lib.rs`: `#![no_std]` decisions only: the local-player chain, the
   gauge read, the band search and the fill in basis points, the gauge-HUD
   identity, the cut box from the accepted rect offsets, the node count and cache
-  sizing the insertion gates on, the walker ports the fixtures pin, and the copied `Sample`
-  with its 11 field names. No Forge, no FFI, no `unsafe`: the band arrives through a
-  `&dyn Fn(i32) -> Option<u32>` the plugin fills with the native call.
-- `core/tests/behavior.rs`: 29 host fixtures over a fake memory map and plain tier rules.
-- `src/hooks.rs`: the four Forge hooks (walker, instance draw, row root
-  destructor, mask enter), their signature gate and rollback.
+  sizing the insertion gates on, and the walker port the fixtures pin. No Forge,
+  no FFI, no `unsafe`: the band arrives through a `&dyn Fn(i32) -> Option<u32>`
+  the plugin fills with the native call.
+- `core/tests/behavior.rs`: 25 host fixtures over a fake memory map and plain tier rules.
+- `src/hooks.rs`: the three Forge hooks (walker, instance draw, mask enter), their signature gate and rollback.
 - `src/sampling.rs`: discovery in the walker's hot path: the slow attempt
   cadence, the captured controller and player, the gauge-present gate, the capture's
   teardown, and the per-frame fill with the three gates in front of its native calls.
@@ -100,7 +86,7 @@ for monotonicity, with the tester's log samples and the brief's example weapon c
 - `src/memory.rs`, `src/svc.S`: mapping-checked reads and the three SVC
   wrappers Forge does not expose (query memory, GetInfo program id, process
   cache flush). Gap documented beside each use.
-- `src/signatures.rs`: 33 32-byte windows taken from the original main NSO.
+- `src/signatures.rs`: 32 32-byte windows taken from the original main NSO.
 - `src/lib.rs`: metadata record, install, and the log lines outside the hooks.
 
 ## Offsets, units and proof
@@ -127,7 +113,7 @@ bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0x26893c` | `uPlayerBase::getSharpnessType`, returns `mSharpnessType` | batch 2 |
 | `0x29cdfc` | `uPlayerBase::calculateSharpnessType`, `(player, s32 points) -> u32 tier`, 196 bytes: the fill's band call. Called, never hooked; its window is a required signature. Gate `0x27c7ec(player, 1)` nonzero → 0; fixed-tier `0x27b918` picks vtable `+0x144`, else the equip record's `+0x4` field `(& 0x3ff) >> 5` goes to vtable `+0x84` with the points; every gate and lookup failure returns 0, the red tier. No store in the body | window unique in `.text`; disassembly bytes |
 | `0x27c7ec` | the gate that call runs first: case 1 loads `*(player+0x13c4)` and reads the byte at `+0x4d4`, and answers 1 for the values `(v-4) & 7` that bit 0x47 selects | bytes `main+0x27c844..0x27c86c` |
-| `0x27b918` | the fixed-tier state: `(byte at player+0x13cc >> 3) & 1`; its meaning is unread | bytes |
+| `0x27b918` | the fixed-tier flag: bit 3 of the byte at `player+0x13cc`. Only two sites set it, main+0x259aec on a `uOtomoLobby` and main+0x275bd4 on a `uPlayerPreview` when the param byte `+0x4d4` is 15. Both are 10064-byte lobby classes, so a quest player is never given it and the fill does not meet it. Writes through a computed pointer are not excluded | bytes; `movw #0x13cc` and `add #0x1300` scans of `.text`, ctor vtable words at main+0x2651c0 and main+0x298b7c against the DTI |
 | `0xdf814` | not a dereference: `(cell, index) -> cell + index * 44 + 20`, the equip-record address the band call indexes | bytes |
 | `0xf4794` | level object slot 0x84, the tier rule: counts the thresholds `i` in 0..6 with `threshold[i] < points`, unsigned and strict, and answers 7 only when all seven are below; 23 vtable words equal it | bytes, `research word 0xf4794` |
 | `0xf4724` | level object slot 0x80, the threshold lookup: the u16 at `row + 4 + 2*i` of the row picked by slot 0x20, through the data singleton (`0x13f290`, then `0x12db78`) | bytes |
@@ -140,7 +126,7 @@ bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0xa48460`, `0xa4844c` | native child / sibling linkers, each writes the attached node's parent | bytes; `bl` from `0xa38dd8` and `0xa38dfc` |
 | `0xa4ba94` | mask enter: builds `+0xb0..+0xbc` when `+0xa4 & 2`, applies the scissor when `+0xa4 & 1`; a hook site | vtable word at `0x178fb3c`, batch 7 |
 | `0xa4bcdc` | mask exit: restores the clip saved at `+0xc0..+0xcc`, returns unless `+0xa4 & 1` | vtable word at `0x178fb44`, bytes |
-| `0xa486fc` | `cGUIObjRoot` destructor (slot 0x04): frees the row cache, then deletes the root's child chain; a hook site that has fired in no saved log | vtable word, bytes |
+| `0xa486fc` | `cGUIObjRoot` destructor (slot 0x04): frees the row cache, then deletes the root's child chain | vtable word, bytes |
 | `0xa56758` | `cGUIObjScissorMask` destructor (slot 0x04): deletes its own child chain | vtable word, bytes |
 | `0xa4b6cc` | `cGUIObjScissorMask` factory: 0xd0 bytes through the mask DTI's MT allocator | batch 7 decompile |
 | `0xa38828` | `setAnimationId`: destroys a row's controller and map, builds new ones; `bl` from `0x54504c` and `0x5451fc` | batch 1 |
@@ -172,7 +158,7 @@ above and is read through the mapping query at runtime.
 
 ## Hot path rules
 
-- Four hooks, each `e51ff004` + target. Forge copies the first 8 bytes without
+- Three hooks, each `e51ff004` + target. Forge copies the first 8 bytes without
   relocating them, so each entry is checked for position independence; install
   validates the 16-byte continuation (original bytes, branch opcode, `target+8`)
   and rolls back on any mismatch. Hook struct size 24, `context` at 12, `ctx_cell`
@@ -183,9 +169,7 @@ above and is read through the mapping query at runtime.
   its consumer.
 - Inside the hooks: no allocation, formatting, file access or logging. Reads go
   through `memory::word`, which queries the mapping per access.
-- Discovery cadence: one attempt every 60 walker calls, so a few fractions of a
-  second per HUD. Nothing is queued, and `FIELDS` names the copied words;
-  formatting and logging happen only in `forge_onUpdate`.
+- Discovery cadence: one attempt every 60 walker calls, so a few fractions of a second per HUD. Nothing is queued; formatting and logging happen only in `forge_onUpdate`.
 - Fill math, in `core`: require a maximum `> 0`, find the band by binary search on the supplied
   points-to-tier function, compute `(current - floor) * 10_000 / (ceiling - floor)` in `i64`, clamp
   to `0..=10000`, and keep every probe inside `0..=maximum`. A zero, negative, missing or
@@ -234,9 +218,7 @@ above and is read through the mapping query at runtime.
   root `+0x8c` bit 1 is set, calls setMatrix (slot 0x44, main+0xa4e604 for a texture) only on a node with
   that bit, and pushes the bits to children only from a dirty node. Mask defaults come from factory
   main+0xa4b6cc, which is reached through the class table at main+0x178ff04.
-- **Lifecycle.** A gauge row dies at every area's loading screen. The walker hook checks the marker and links
-  read-only; on failure it runs `hooks::teardown_gauge_row`, so the next row is read and inserted like the
-  first. The mask's enter disables a mask whose links are gone. Forge has no plugin unload, so nothing is undone at removal.
+- **Lifecycle.** A gauge row lasts one quest. Inference: 21 of 24 row ends across 19 saved logs land within 40 s of the game's save commit (the other 3 sit near the end of their logs), the shortest gap from a row's end to the next insertion is 124 s, rows live 240..1827 s apart from one of 59 s that also ends beside a save commit, and testers report area changes and faints with no re-insertion. No log line marks an area change; the count is in `work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md`. The walker hook checks the marker and links read-only; on failure it runs `hooks::teardown_gauge_row`, so the next row is read and inserted like the first. The mask's enter disables a mask whose links are gone. Forge has no plugin unload, so nothing is undone at removal.
 
 ## Fill, per tier
 
@@ -254,9 +236,8 @@ The band is found by binary search on `calculateSharpnessType` (main+0x29cdfc), 
 weapon id, level row or kireaji table, and the game's own gates apply. Points sitting exactly on a
 threshold answer with the tier below, which is why `ceiling` is a point of the tier it closes; the
 tier rule (`main+0xf4794`) counts thresholds strictly below the points, and all 164 kireaji rows are
-monotonic, so the rule is monotonic and the search is sound. In the fixed-tier state
-(`main+0x27b918`) the rule answers tier 0 for any points, and the fill is then `current / maximum`,
-the accepted bar. A band of 5 points moves the bar about 14 px per point and then drops to the next
+monotonic, so the rule is monotonic and the search is sound. Every gate and lookup failure in the function answers tier 0 for any points, and the fill is then `current / maximum`.
+A band of 5 points moves the bar about 14 px per point and then drops to the next
 tier at full; 70 of the 164 rows have a zero-width band and the rule never lands in one.
 
 The `ceiling` clip to `mMaxSharpness` is the whole buff answer, because that field is what the game
@@ -277,8 +258,7 @@ ends tier 4 blue at 400, +1 gives 425 in tier 5 white, +2 gives 450 in tier 6 pu
 full at its maximum. Fixtures in `core/tests/behavior.rs` reproduce the tester's logged samples
 (150, 131, 130, 100, 90, 8, 0 at maximum 150 on kireaji row 10, fills 10000, 500, 10000, 2500, 10000,
 888, 0), the three buffed maxima, a `..., 450, 450` row at 450, and constant tier 0 as `current / maximum`.
-No saved log was identified as using a Sharpness skill, and r64's Eden run of 2026-11-02 did not reach testing step 3, so the +1
-and +2 paths have no runtime check. Heavy Polish over the banded bar (step 4) is likewise unexercised.
+No saved log was identified as using a Sharpness skill, so the +1 and +2 paths and Heavy Polish over the banded bar have no runtime check.
 
 ## Sharpness chain
 
@@ -308,16 +288,18 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
   offset while only about 10 were opened, so its writers are not fully known.
 - **Smooth, interpolate or animate the fill.** "jumpy is okay, no need for fancy smooth animations
   or lerp" (tester). The computed fill is published as it is.
-- **Cache the band between frames.** It depends on the points, the maximum and the fixed-tier state,
+- **Cache the band between frames.** It depends on the points, the maximum and the game's gates,
   so a cache needs its own invalidation; the ~18 native calls per frame have no measured cost.
 - **Leave the glow and edge outside the mask, or set only the rebuild bit.** A mask whose tree never closes has no exit record, so its scissor never ends; `a_mask_left_open_never_stops_clipping` pins that shape. `+0xa4` bit 1 only rebuilds, and bit 0 asks for the scissor.
 - **Publish a mask's links before the mask.** A parent chain that ends at 0 or a parent cycle is fatal to a rebuild on the draw thread, so publish the mask first. Grow map and cache before linking.
 - **Re-read the row after insertion with the gates written for the tree before it.** The per-frame path must accept the inserted tree, and `read_row` detects the marker for that.
+- **Treat a loading screen as a row's end.** A gauge row lasts a quest (see Lifecycle), and older notes calling a row's end "the area transition" were labels on events beside a save commit.
+- **Rely on the `cGUIObjRoot` destructor to report a row's end.** A hook on main+0xa486fc fired in no saved log while the mask's link checks caught every row's end.
 - **Treat stage 20 or 21 as terminal.** The HUD is simply absent before a quest. Retry; only factory, allocation and publish failures are terminal.
 - **Feed the box from the bar's authored 88 px.** That cut the blade near the tip at 190 ("worse than r33"). `bar_w=88` reads fine, but the rect's 128 is what the tester's cuts line up with.
 - **Trust `eff=` at the mask's enter.** The bar's effective rect is not written yet at that point and reads `0 0 0 0`.
 - **Quote a window that is not in a log.** `tex=0 156 87 440` was invented, and an axis theory was built on it. Decode the `+0x10c` floats.
-- **Trust `work/modern-sharpness-gauge/scripts/xref.py` or `find_word.py`.** Both are broken and their "no `bl`
+- **Trust `work/world-sharpness-gauge/scripts/xref.py` or `find_word.py`.** Both are broken and their "no `bl`
   site" results are void. Use `research xref`, which still finds no direct branch to the Priority accessors,
   the mask factory, the root destructor or the mask's enter.
 - **Subtract the Ghidra base from vtable words.** `main+0x85628`, `0x86420`, `0x866a4` and `0x8677c` are that
@@ -347,33 +329,10 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Open items
 
-- **The bar and the colour on the same frame.** `mSharpnessType` changes inside `adjustSharpness` and
-  the sequence driver (main+0x62bb0c) reads it live, but its order against the draw is unread. If it
-  runs a frame later, a tier drop shows one frame of a full bar in the old colour. Only a crop or a
-  slow capture can show this; if it is visible, read the driver's order before changing anything.
-- **The fixed-tier state.** `0x27b918` (the low nibble of `player + 0x13cc`, bit 3) makes the tier
-  rule answer 0 and the maximum 150 with no sharpness change; its meaning is unread. The band design
-  handles it without knowing what it is.
-- **A gauge row in a second area of the same quest, on r64's bytes.** r63's log shows insert, teardown, insert, teardown. r64's
-  run built one row and tore it down at a quest end, with no second insertion in the 42 s left, so a mid-quest area crossing is
-  not covered by r64's bytes: ask for a hunt that crosses a loading screen and keeps playing after it.
-- The fill calls native code on the draw walker's thread, roughly 18 checked calls per frame while
-  the gauge is visible: the thread is one thread by static reading, still unconfirmed at runtime, and
-  the gates above are the mitigation. A test build comparing the current thread in the walker and in
-  `forge_onUpdate` would confirm it.
-- The draw walker's thread: one thread by static reading, unconfirmed at runtime. `forge_onUpdate` runs after
-  `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c
-  main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot
-  0x3c main+0xa39300. So `insert::run` follows the walker and the mask's enter rather than overlapping them. Still
-  open: 13 other unit-draw callers and 10 other slot 0x3c sites are untraced, and the per-frame job main+0x3daf88
-  can outlive `forge_onUpdate` while its sUIObject pass destroys `cUIO*` objects; whether a gauge row's owner is one
-  is unread. A test build comparing the current thread in the walker and in `forge_onUpdate` would confirm it.
-  Offsets are in `work/modern-sharpness-gauge/THREAD_RESEARCH.md`.
-- `grow_map` leaks the old 16-byte map block. `FUN_01401bc0` allocates a row's map and `setAnimationId` frees it
-  through the same allocator (GOT slot `0x18422b4`, the DTI registered as `cGUIInstance` at `0xa3c03c`; allocation
-  `0xa38c14`, frees `0xa38880` and `0xa382c8`). Native readers such as `0x5456e4` and `0xa4915c` index the
-  pointer straight away; `0x5456e4`'s thread is untraced. Fix it only in a runtime version that gets a run with an area change, after the walker's thread is confirmed.
-- An orange-tier crop (the accepted crop is red), a sharpening across tiers in one crop, and the dark part's
-  missing halo, which is a design question.
-- Unconfirmed: Ryujinx, native hardware, and a bar rect other than 110..238 (the scaled offsets have only been seen where they reproduce the measured numbers).
-- Never exercised: the root destructor hook has fired in no saved log. ARM fixtures for insertion and allocation failure are not written.
+- **Steps not seen on screen.** Sharpness +1/+2 and Heavy Polish over the banded bar have host fixtures and static reading, and no run. `TESTING.md` has the steps if anyone plays them.
+- **The bar and the colour on the same frame.** The colour driver main+0x62bb0c (slot 0x3c of the widget vtable at main+0x1776300) reads the tier, stores its sequence at `+0x50` and applies it through main+0x546c74 and main+0xa3896c in that one call. When that call runs against `adjustSharpness` and against the draw is unread; it depends on the unit move order (`sUnit::registerUnit` main+0xc067ec takes the line). A tier drop could show a full bar in the old colour for a frame or more. The player reports nothing wrong, and only a slow capture can show it. Read the order only if it is ever seen.
+- **The draw walker's thread.** One thread by static reading, unconfirmed at runtime; the fill makes about 18 checked native calls per frame on it. `forge_onUpdate` runs after `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot 0x3c main+0xa39300. So `insert::run` follows the walker and the mask's enter rather than overlapping them. Untraced: 13 other unit-draw callers and 10 other slot 0x3c sites, and the per-frame job main+0x3daf88, which can outlive `forge_onUpdate` while its sUIObject pass destroys `cUIO*` objects. Only a test build comparing the current thread in the walker and in `forge_onUpdate` can confirm it. Offsets are in `work/world-sharpness-gauge/THREAD_RESEARCH.md`.
+- **The `fill refused` log line.** It has never been seen in a run. A session chain that drops before the mask's links do would print it at a normal quest end, so it means a failure only when the stock bar shows during a hunt.
+- **`grow_map` leaks the old 16-byte map block**, once per quest, which never matters in a session. `FUN_01401bc0` allocates a row's map and `setAnimationId` frees it through the same allocator (GOT slot `0x18422b4`, the DTI registered as `cGUIInstance` at `0xa3c03c`; allocation `0xa38c14`, frees `0xa38880` and `0xa382c8`). Native readers such as `0x5456e4` and `0xa4915c` index the pointer straight away, and `0x5456e4`'s thread is untraced, so any fix needs a run.
+- **The dark part's missing halo** is a design question left open.
+- **Unconfirmed:** Ryujinx, native hardware, and a bar rect other than 110..238 (the scaled offsets have only been seen where they reproduce the measured numbers). ARM fixtures for insertion and allocation failure are not written.

@@ -5,9 +5,9 @@ fn main() {
     println!("cargo:rustc-link-arg=-T{dir}/link/switch32.ld");
     println!("cargo:rustc-link-arg=-Wl,--build-id=sha1");
     println!("cargo:rerun-if-changed=link/switch32.ld");
-    println!("cargo:rerun-if-env-changed=MSG_VERSION");
+    println!("cargo:rerun-if-env-changed=WSG_VERSION");
     println!(
-        "cargo:rustc-env=MSG_VERSION={}",
-        env::var("MSG_VERSION").unwrap()
+        "cargo:rustc-env=WSG_VERSION={}",
+        env::var("WSG_VERSION").unwrap()
     );
 }

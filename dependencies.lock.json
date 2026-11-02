@@ -2082,13 +2082,13 @@
     "vendor/libnx/LICENSE-MIT": "55d5333af71557138d70049fbbd28d306eb855f3cff87cc7b6392a5291b6678e",
     ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
     ".cargo/vendor.toml": "f774737cd917030fb63a829d46bf360c1f989f829bcf70e3a9589e6bd469cf1a",
-    "Cargo.lock": "d9307f137d43a8be81c77da2fbf077ebfdcbf99b0688a98f5d49adb9f948012d",
+    "Cargo.lock": "133d89ff08b63bc1bd35baac6f572b9ccf402e63be00223096241b4b802289b7",
     "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
     "rust-toolchain.toml": "12e203268a5a347c27ea5daac929edda7641f85f1a469bf3fd276c085fb30dc7",
     "research/sysroot-Cargo.lock": "45e36114b9fbeb1a778c470ea4e3a6e31b9ac2029de0d9a7077abac757ec0b29",
     "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5",
     "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
-    "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2"
+    "src/svc.S": "dca8969c9a7049629cbbad2ab717e9dffb69d1becdb7d9b5bbb74d140d991d00"
   },
   "inputs": {
     "main": "b3935415499549adaf4c0e89822831daa175cfd456a7990791c79be3997645ef",

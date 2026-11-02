@@ -33,7 +33,7 @@ nightly Rust (`rust-toolchain.toml`, `dependencies.lock.json`).
 ## Research inputs
 
 Offsets, signatures and decompilations for this mod live in the coordinating
-workspace under `work/modern-sharpness-gauge/` (`PHASE0_RESEARCH.md`,
+workspace under `work/world-sharpness-gauge/` (`PHASE0_RESEARCH.md`,
 `ghidra-batch1/`..`ghidra-batch3/`, `inputs/main`). They come from the user's
 own copy of MHGU 1.4.0, are ignored by Git, and are not part of the source
 export, the build recipe, or any delivered package. `scripts/verify.py` needs

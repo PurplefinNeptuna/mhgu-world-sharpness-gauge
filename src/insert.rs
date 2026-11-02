@@ -1,17 +1,17 @@
 //! Insert one scissor mask into the gauge row, with the two storage expansions it needs.
 //!
 //! The native contracts this rests on, all read from the decompiles recorded in
-//! work/modern-sharpness-gauge/PHASE2_RESEARCH.md:
+//! work/world-sharpness-gauge/PHASE2_RESEARCH.md:
 //!
 //! - The row's object array at `instance+0xd8` (aliased at `root+0xa0`) is indexed by
 //!   main+0x5456e4 with main+0xa47d2c's node count + 1, dispatching vtable slot 0x50 on each
-//!   entry. It holds one word per object with the controller first, so an added node needs a
-//!   fifth word. It is grown through the `cGUIInstance` DTI's MT allocator, the Key Quest
+//!   entry. It holds one word per object with the controller first, so each added node needs
+//!   its own word: the inserted tree's 6 nodes take 7. It is grown through the `cGUIInstance` DTI's MT allocator, the Key Quest
 //!   Markers pattern: Forge's malloc cannot free what the game's destructor frees.
 //! - The draw block is sized by main+0xa49b28 as `(objects << 4 | 8) + sequences * 12` from the
 //!   halfwords at row+8, allocated through the root's vtable slot 0x58, with the walker's
 //!   pointer at `alloc + sequences * 12`. This row is sized for 3 objects and 16 sequences, so
-//!   its record area holds 7 records, and the mask's tree emits 9: the insertion has to grow
+//!   its record area holds 7 records, and the inserted tree emits 13: the insertion has to grow
 //!   the block.
 //! - The mask's rectangle at `+0xb0..+0xbc` is derived: the enter handler main+0xa4ba94 rebuilds
 //!   it from the node's own transform and authored size while `+0xa4` bit 1 is set, then applies
@@ -20,9 +20,9 @@
 //!
 //! `run` executes from `forge_onUpdate` through `gui::tick`, and `enter` inside the mask's enter
 //! hook during the draw walk. No game pointer is kept between calls: addresses are plain integers,
-//! cleared by the root destructor hook and by the mask's own liveness check in `enter`.
+//! cleared by the liveness checks in `check_liveness` and `enter`.
 use crate::{gui, memory, sampling};
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
     cut_box, dim_box, NODE_CHILD, NODE_DRAWABLE, NODE_PARENT, NODE_RECT, NODE_SIBLING,
@@ -51,13 +51,13 @@ const REBUILD_AND_APPLY: u32 = 3;
 /// row+8+2. The pair at row+4 is the row's own reported counts; the sizer does not read it.
 const ROW_SIZING: u32 = 0x08;
 
-// The dim blade (plan Phase 5): a second copy of the blade sprite, outside the mask, in a flat
+// The dim blade: a second copy of the blade sprite, outside the mask, in a flat
 // dark colour. Its class is `cGUIObjTexture`, size 304. Construction and allocation follow the
 // contract the Key Quest Markers badge runs on: the class's DTI has three virtual slots and no
 // placement constructor, so the standalone constructor main+0xa4f60c takes the storage in r0 and
 // returns it, and the DTI's allocator allocates through slot 0x20 with (bytes, align, dti id).
 // The field offsets are from the DTI record and the setter decompiles, recorded in
-// work/modern-sharpness-gauge/PHASE5_RESEARCH.md.
+// work/world-sharpness-gauge/PHASE5_RESEARCH.md.
 pub const DIM_MARKER: u32 = 0x4d534732;
 /// The shadow colour at all four corners: `#202326`. The corner word is alpha, blue, green, red - a
 /// copy drawn with `0xFFFF00FF` comes out magenta on screen, and the bar's own `0xff5efaff` is the
@@ -153,6 +153,9 @@ static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
+/// Whether `sampling::fill` refused this row: 0 not refused, 1 refused and not logged yet, 2
+/// logged. One log line per row, so a row stuck on the stock bar cannot flood the log.
+static FILL_REFUSED: AtomicU8 = AtomicU8::new(0);
 
 /// The four words of a rectangle field as signed pixels (the bar's screen rect).
 fn rect_at(node: u32, offset: u32) -> [i32; 4] {
@@ -181,9 +184,10 @@ pub struct Outcome {
     pub dim_stage: u32,
 }
 
-/// The row is going away: the game owns the mask, the map and the cache. Called from the root
-/// destructor hook and from the mask's own link check.
+/// The row is going away: the game owns the mask, the map and the cache. Called from the mask's
+/// link checks.
 pub fn on_teardown() {
+    FILL_REFUSED.store(0, Ordering::Relaxed);
     ROOT.store(0, Ordering::Release);
     MASK.store(0, Ordering::Release);
     BAR.store(0, Ordering::Release);
@@ -191,10 +195,11 @@ pub fn on_teardown() {
     CLIP.store(0, Ordering::Release);
 }
 
-/// The captured row root, for the root destructor hook's gate. The destructor's argument is the
-/// root node, whose parent is the controller, so the controller is never that argument.
-pub fn row_root() -> u32 {
-    ROOT.load(Ordering::Relaxed)
+/// True once per row, the first time `forge_onUpdate` asks after a refused fill.
+pub fn take_fill_refused() -> bool {
+    FILL_REFUSED
+        .compare_exchange(1, 2, Ordering::Relaxed, Ordering::Relaxed)
+        .is_ok()
 }
 
 /// Times the mask's links were found gone at its enter hook.
@@ -318,12 +323,10 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: [u32; 3]) 
         allocator.release(fresh);
         return Err(43);
     }
-    // shortcut: the old 4-word block leaks (16 bytes per insertion). The game allocates a row's
-    // map through this DTI's allocator (FUN_01401bc0, align 16) and frees it the same way in
-    // setAnimationId main+0xa38828, so releasing it here should be sound. It was dropped while
-    // chasing a rebuild failure whose cause turned out to be a double destruction, and no run has
-    // tried it since. Upgrade: release it through `allocator` in a version that gets a run, with
-    // an area change in that run.
+    // shortcut: the old 4-word block leaks, 16 bytes per quest. The game allocates a row's map
+    // through this DTI's allocator (FUN_01401bc0, align 16) and frees it the same way in
+    // setAnimationId main+0xa38828, so releasing it here should be sound, but no run has tried
+    // it. Upgrade: release it through `allocator` in a version that gets a run.
     Ok(fresh)
 }
 
@@ -352,8 +355,8 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
         return Err(46);
     }
     // The root's own destructor frees root+0xa4 through slot 0x5c, so the block it replaces
-    // goes back the same way. Leaving it unreleased stops the bar drawing in the quest's first
-    // area, so the replacement only works with the old block returned to the root's allocator.
+    // goes back the same way. Leaving it unreleased stops the bar drawing, so the replacement
+    // only works with the old block returned to the root's allocator.
     if old_alloc != 0 && old_alloc != fresh {
         let _ = memory::call2(release, root, old_alloc);
     }
@@ -503,8 +506,8 @@ fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
-/// calling its enter handler, and quests cross areas through loading screens, so the walk of
-/// the next area is where discovery has to start again. Nothing is written here: the mask is
+/// calling its enter handler, so the walker is where the next quest's discovery has to start
+/// again. Nothing is written here: the mask is
 /// reached through links this plugin captured, so a stale read can only drop the addresses,
 /// never write into freed memory.
 pub fn check_liveness() {
@@ -538,12 +541,12 @@ pub fn enter(mask: u32) {
         && memory::word(root + NODE_CHILD) == Some(mask)
         && memory::word(bar + NODE_PARENT) == Some(mask);
     if !alive {
-        // The links that made this mask are gone: the row is going away at an area's loading
-        // screen. The game is calling this mask's handler right now, so it is live, and asking
-        // it to stop clipping here is the one disable this build can prove safe. Left alone, the
-        // mask applies its last rectangle into the next area.
+        // The links that made this mask are gone: the row is going away. The game is calling
+        // this mask's handler right now, so it is live, and asking it to stop clipping here is
+        // the one disable this build can prove safe. Left alone, the mask keeps applying its
+        // last rectangle.
         MISSES.fetch_add(1, Ordering::Relaxed);
-            let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
+        let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
         crate::hooks::teardown_gauge_row(root);
         return;
     }
@@ -556,6 +559,7 @@ pub fn enter(mask: u32) {
     let ratio = match sampling::fill() {
         Some(bp) => bp,
         None => {
+            let _ = FILL_REFUSED.compare_exchange(0, 1, Ordering::Relaxed, Ordering::Relaxed);
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
             if dim != 0 && clip != 0 {

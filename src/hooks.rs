@@ -1,14 +1,13 @@
-//! Four Forge-owned trampolines: the draw walker (main+0xa494a0), the instance draw entry
+//! Three Forge-owned trampolines: the draw walker (main+0xa494a0), the instance draw entry
 //! that hands it a controller (main+0xa39300, its first argument is the cGUIInstance owning
-//! the row), the row root's destructor (main+0xa486fc), and the scissor mask's enter handler
-//! (main+0xa4ba94). Installation is all-or-nothing: every signature window is checked before
+//! the row), and the scissor mask's enter handler (main+0xa4ba94). Installation is all-or-nothing: every signature window is checked before
 //! any write, and a failure restores the originals it touched.
 use crate::{
     gui,
     insert,
     memory,
     sampling,
-    signatures::{HOOK, INSTANCE_HOOK, MASK_ENTER_HOOK, ROOT_DESTRUCTOR_HOOK, SIGNATURES},
+    signatures::{HOOK, INSTANCE_HOOK, MASK_ENTER_HOOK, SIGNATURES},
 };
 use alloc::vec::Vec;
 use core::{
@@ -18,27 +17,22 @@ use core::{
 use forge::patch::Patch;
 
 core::arch::global_asm!(
-    ".hidden msg_walker\n.hidden msg_walker_original\n.hidden msg_active\n\
-     .hidden msg_instance\n.hidden msg_instance_original\n.hidden msg_instance_active\n\
-     .hidden msg_root_dtor\n.hidden msg_root_dtor_original\n.hidden msg_root_dtor_active\n\
-     .hidden msg_mask_enter\n.hidden msg_mask_enter_original\n.hidden msg_mask_enter_active"
+    ".hidden wsg_walker\n.hidden wsg_walker_original\n.hidden wsg_active\n\
+     .hidden wsg_instance\n.hidden wsg_instance_original\n.hidden wsg_instance_active\n\
+     .hidden wsg_mask_enter\n.hidden wsg_mask_enter_original\n.hidden wsg_mask_enter_active"
 );
 #[unsafe(no_mangle)]
-pub static msg_walker_original: AtomicU32 = AtomicU32::new(0);
+pub static wsg_walker_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
-pub static msg_active: AtomicBool = AtomicBool::new(false);
+pub static wsg_active: AtomicBool = AtomicBool::new(false);
 #[unsafe(no_mangle)]
-pub static msg_instance_original: AtomicU32 = AtomicU32::new(0);
+pub static wsg_instance_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
-pub static msg_instance_active: AtomicBool = AtomicBool::new(false);
+pub static wsg_instance_active: AtomicBool = AtomicBool::new(false);
 #[unsafe(no_mangle)]
-pub static msg_root_dtor_original: AtomicU32 = AtomicU32::new(0);
+pub static wsg_mask_enter_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
-pub static msg_root_dtor_active: AtomicBool = AtomicBool::new(false);
-#[unsafe(no_mangle)]
-pub static msg_mask_enter_original: AtomicU32 = AtomicU32::new(0);
-#[unsafe(no_mangle)]
-pub static msg_mask_enter_active: AtomicBool = AtomicBool::new(false);
+pub static wsg_mask_enter_active: AtomicBool = AtomicBool::new(false);
 // The instance whose +0xdc is the gauge controller, as plain integers: readers use them
 // synchronously on the thread the game called them on.
 static INSTANCE: AtomicU32 = AtomicU32::new(0);
@@ -61,15 +55,15 @@ const _: () = assert!(
 /// AAPCS return and never writes APSR (verify.py scans the disassembly; the window has no
 /// SEL/USAD8/MRS/MSR, so no APSR_ge producer exists).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
-    let original = msg_walker_original.load(Ordering::Acquire);
+pub unsafe extern "C" fn wsg_walker(controller: u32, context: u32) {
+    let original = wsg_walker_original.load(Ordering::Acquire);
     if original == 0 {
         return;
     } // Installation never publishes an original of zero.
-    if msg_active.load(Ordering::Acquire) {
+    if wsg_active.load(Ordering::Acquire) {
         sampling::observe(controller);
-        // Three word reads while a mask is inserted, and the only reacquire signal that runs
-        // when the inserted mask dies with its row.
+        // Three word reads while a mask is inserted, and the signal that the row ended: a mask
+        // freed with its row no longer calls its own enter.
         insert::check_liveness();
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
@@ -80,12 +74,12 @@ pub unsafe extern "C" fn msg_walker(controller: u32, context: u32) {
 /// before calling the walker. Every HUD animation instance reaches it, so the pair is recorded
 /// only when the controller is the gauge controller the sampler identified.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
-    let original = msg_instance_original.load(Ordering::Acquire);
+pub unsafe extern "C" fn wsg_instance(instance: u32, context: u32) {
+    let original = wsg_instance_original.load(Ordering::Acquire);
     if original == 0 {
         return;
     }
-    if msg_instance_active.load(Ordering::Acquire) {
+    if wsg_instance_active.load(Ordering::Acquire) {
         let gauge = sampling::gauge_controller();
         if gauge != 0 {
             if let Some(controller) = memory::word(instance.wrapping_add(0xdc)) {
@@ -100,30 +94,6 @@ pub unsafe extern "C" fn msg_instance(instance: u32, context: u32) {
     unsafe { f(instance, context) };
 }
 
-/// The row root's destructor (cGUIObjRoot vtable slot 0x04, main+0xa486fc) frees the row's
-/// draw cache and then deletes its child chain, which is where the inserted mask and its
-/// children go. The capture is dropped before the original runs. Roots other than the captured
-/// row root are untouched. This hook has fired in no logged run, so the mask's own liveness
-/// check at its enter hook is the teardown this build relies on.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn msg_root_dtor(root: u32) {
-    let original = msg_root_dtor_original.load(Ordering::Acquire);
-    if original == 0 {
-        return;
-    }
-    // The argument is the row's root node, whose parent is the controller: it is never the
-    // controller itself, which is what an earlier comparison tested.
-    if msg_root_dtor_active.load(Ordering::Acquire)
-        && root != 0
-        && root == insert::row_root()
-    {
-        TEARDOWNS.fetch_add(1, Ordering::Relaxed);
-        teardown_gauge_row(sampling::gauge_controller());
-    }
-    let f: unsafe extern "C" fn(u32) = unsafe { core::mem::transmute(original as usize) };
-    unsafe { f(root) };
-}
-
 /// The mask's own enter handler (main+0xa4ba94), reached through the class vtable during the
 /// draw walk: the call that reads the mask's rectangle at +0xb0..+0xbc and applies the scissor.
 /// The handler rebuilds that rectangle from the node's own transform and authored pair, and a
@@ -132,12 +102,12 @@ pub unsafe extern "C" fn msg_root_dtor(root: u32) {
 /// the original reads them. Only the mask carrying this plugin's marker is touched; every other
 /// scissor mask pays one word read and a compare.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn msg_mask_enter(mask: u32, _context: u32) {
-    let original = msg_mask_enter_original.load(Ordering::Acquire);
+pub unsafe extern "C" fn wsg_mask_enter(mask: u32, _context: u32) {
+    let original = wsg_mask_enter_original.load(Ordering::Acquire);
     if original == 0 {
         return;
     }
-    if msg_mask_enter_active.load(Ordering::Acquire) {
+    if wsg_mask_enter_active.load(Ordering::Acquire) {
         insert::enter(mask);
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
@@ -145,22 +115,14 @@ pub unsafe extern "C" fn msg_mask_enter(mask: u32, _context: u32) {
 }
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
-/// instance capture and the insertion all start over on the HUD the game builds
-/// next. Quests are split into areas with a loading screen between them, and each area's HUD is
-/// a row of its own, so a row's death is a normal event of a hunt, not an edge case. Two paths
-/// reach this: the root destructor hook, and the inserted mask's own link check.
+/// instance capture and the insertion all start over on the HUD the game builds next. A row lasts
+/// one quest. The inserted mask's link checks are what reach this: the walker's for a freed mask,
+/// and the mask's own enter for one still being entered.
 pub fn teardown_gauge_row(controller: u32) {
     gui::on_teardown();
     clear_capture(controller);
     sampling::clear_controller();
 }
-
-/// Times the root destructor of a gauge row ran. It is one of the two teardown paths; the inserted
-/// mask's own link check (insert's `misses`) is the other.
-pub fn teardowns() -> u32 {
-    TEARDOWNS.load(Ordering::Relaxed)
-}
-static TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 
 /// The recorded pair, for the log line; zeros mean it was never captured.
 pub fn capture() -> (u32, u32) {
@@ -192,7 +154,7 @@ pub fn clear_capture(controller: u32) {
 
 /// Restore only our branch words; foreign modifications keep their ownership.
 fn rollback(patch: &mut Patch) -> bool {
-    msg_active.store(false, Ordering::Release);
+    wsg_active.store(false, Ordering::Release);
     let mut current = [0; 8];
     if !memory::copy(patch.addr(), &mut current) {
         return false;
@@ -281,27 +243,21 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
     let plan = [
         (
             HOOK,
-            msg_walker as *const () as u32,
-            &msg_walker_original as &AtomicU32,
-            &msg_active as &AtomicBool,
+            wsg_walker as *const () as u32,
+            &wsg_walker_original as &AtomicU32,
+            &wsg_active as &AtomicBool,
         ),
         (
             INSTANCE_HOOK,
-            msg_instance as *const () as u32,
-            &msg_instance_original,
-            &msg_instance_active,
-        ),
-        (
-            ROOT_DESTRUCTOR_HOOK,
-            msg_root_dtor as *const () as u32,
-            &msg_root_dtor_original,
-            &msg_root_dtor_active,
+            wsg_instance as *const () as u32,
+            &wsg_instance_original,
+            &wsg_instance_active,
         ),
         (
             MASK_ENTER_HOOK,
-            msg_mask_enter as *const () as u32,
-            &msg_mask_enter_original,
-            &msg_mask_enter_active,
+            wsg_mask_enter as *const () as u32,
+            &wsg_mask_enter_original,
+            &wsg_mask_enter_active,
         ),
     ];
     let mut planted: Vec<Patch> = Vec::new();
@@ -324,9 +280,8 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
             }
         }
     }
-    msg_active.store(true, Ordering::Release);
-    msg_instance_active.store(true, Ordering::Release);
-    msg_root_dtor_active.store(true, Ordering::Release);
-    msg_mask_enter_active.store(true, Ordering::Release);
+    wsg_active.store(true, Ordering::Release);
+    wsg_instance_active.store(true, Ordering::Release);
+    wsg_mask_enter_active.store(true, Ordering::Release);
     Ok(planted)
 }

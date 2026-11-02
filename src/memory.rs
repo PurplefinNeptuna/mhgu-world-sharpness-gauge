@@ -23,9 +23,9 @@ struct MemoryInfo {
 }
 const _: () = assert!(core::mem::size_of::<MemoryInfo>() == 40);
 unsafe extern "C" {
-    fn msg_svc_query(info: *mut MemoryInfo, page: *mut u32, address: u64) -> u32;
-    fn msg_svc_get_info(out: *mut u64, id: u32, handle: u32, sub_id: u64) -> u32;
-    fn msg_svc_flush(handle: u32, address: u64, bytes: u64) -> u32;
+    fn wsg_svc_query(info: *mut MemoryInfo, page: *mut u32, address: u64) -> u32;
+    fn wsg_svc_get_info(out: *mut u64, id: u32, handle: u32, sub_id: u64) -> u32;
+    fn wsg_svc_flush(handle: u32, address: u64, bytes: u64) -> u32;
 }
 core::arch::global_asm!(include_str!("svc.S"), options(raw));
 
@@ -34,7 +34,7 @@ core::arch::global_asm!(include_str!("svc.S"), options(raw));
 pub fn correct_program() -> bool {
     let mut title = 0;
     // SAFETY: writable output, current-process pseudo-handle, pinned SVC ABI.
-    unsafe { msg_svc_get_info(&mut title, 18, CURRENT_PROCESS, 0) == 0 && title == 0x0100770008dd8000 }
+    unsafe { wsg_svc_get_info(&mut title, 18, CURRENT_PROCESS, 0) == 0 && title == 0x0100770008dd8000 }
 }
 
 fn mapped(address: u32, bytes: usize, permissions: u32) -> bool {
@@ -45,7 +45,7 @@ fn mapped(address: u32, bytes: usize, permissions: u32) -> bool {
     let mut page = 0;
     // SAFETY: outputs are initialized, naturally aligned, kernel-sized.
     unsafe {
-        msg_svc_query(&mut info, &mut page, address as u64) == 0
+        wsg_svc_query(&mut info, &mut page, address as u64) == 0
             && (info.permissions & permissions) == permissions
             && info.address <= address as u64
             && address as u64 + bytes as u64 <= info.address + info.size
@@ -65,7 +65,7 @@ pub fn executable(address: u32, bytes: usize) -> bool {
 pub fn sync_code(address: u32, bytes: usize) -> bool {
     // SAFETY: caller supplies a validated executable span; this is the tested
     // ARM32 process cache-flush contract.
-    let result = unsafe { msg_svc_flush(CURRENT_PROCESS, address as u64, bytes as u64) };
+    let result = unsafe { wsg_svc_flush(CURRENT_PROCESS, address as u64, bytes as u64) };
     // SAFETY: barriers move no memory; they publish the flushed instructions.
     unsafe { core::arch::asm!("dsb sy", "isb", options(nostack, preserves_flags)) };
     result == 0

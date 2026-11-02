@@ -2,8 +2,8 @@
 //! plugin adapter; everything here is plain data so host tests can call it
 //! without the game.
 //!
-//! Offsets and units are the Phase 0 records in
-//! `work/modern-sharpness-gauge/PHASE0_RESEARCH.md`, verified against the
+//! Offsets and units are recorded in
+//! `work/world-sharpness-gauge/PHASE0_RESEARCH.md`, verified against the
 //! hash-checked main NSO (`b3935415499549adaf4c0e89822831daa175cfd456a7990791c79be3997645ef`)
 //! and the Ghidra type records. Object offsets are never rebased by the image
 //! base; main-relative code addresses are irrelevant to this crate.
@@ -26,13 +26,10 @@ pub const PLAYER_ARRAY: u32 = 0x1c;
 pub const PLAYER_STRIDE: u32 = 4;
 pub const MAX_HUNTERS: u32 = 4;
 
-// uPlayerQuest (per-player instance, class size 13104) keeps sharpness as
-// signed points, not a percentage. uPlayerBase (class size 10048) keeps the
-// tier index as u32, returned verbatim by getSharpnessType at main+0x26893c.
-// The plan's riding flag at +5104 & 0x20 is disproved: that word is the tier.
+// uPlayerQuest (per-player instance, class size 13104) keeps sharpness as signed points, not a
+// percentage.
 pub const SHARPNESS: u32 = 10_100;
 pub const MAX_SHARPNESS: u32 = 10_104;
-pub const SHARPNESS_TYPE: u32 = 5_104;
 
 // Animation row (nGUI::ANIM): +0 animation id u32; the word at +4 is two u16
 // counts (objects low, sequences high); +12 is the first object row index; +20
@@ -40,10 +37,6 @@ pub const SHARPNESS_TYPE: u32 = 5_104;
 // not part of the identity. The gauge identity tuple is identical in every
 // inspected language archive and in the HD copy, so identification never uses
 // names, strings or a language prefix.
-/// The fill math in `band_bp` returns: the tip's screen position is the cut box's width here,
-/// and the hidden blade is everything past it.
-pub const FULL_SHARPNESS_BP: u32 = 10_000;
-
 pub const SHARP_ANIMATION: u32 = 4;
 pub const SHARP_OBJECTS: u32 = 4;
 pub const SHARP_FIRST_OBJECT: u32 = 29;
@@ -70,7 +63,7 @@ pub const CONTROLLER_ROW: u32 = 0x9c;
 //               node's exit record inline), 0x0004_0000 cleared by the consumer
 //               after each exit record, 0x0040_0000 byte 2 (+0x56) bit 6 prepaint
 //               skip
-//   +0xCC u32   low nibble: 6 and 3 take the clip path (`param_1[0x33]`, so NODE_KIND is a word index)
+//   +0xCC u32   low nibble: 6 and 3 take the clip path
 //   +0xE0..0xEC four signed ints: layout rect (left, top, right, bottom), not the sprite
 //   +0xF0..0xFC four signed ints: that rect after prepaint intersects it with
 //               the live clip, written only on the clip path
@@ -79,17 +72,10 @@ pub const CONTROLLER_ROW: u32 = 0x9c;
 //   +0x108 byte low nibble sampler, & 0x30 tested by the rect setter, +0xD0 u32 bit 0
 //               rect-dirty, bit 1 clip applied
 pub const NODE_FLAGS: u32 = 0x54;
-pub const NODE_KIND: u32 = 0x33;
-/// The authored size pair's width word, written by the layout pass through the DTI `Size`
-/// setter (main+0xa4ba40) and read by gui.rs's stage 32 gate: 88x24 for the bar, 88x32 for the
-/// glow. It is not the draw width, and neither is the node's 128x128 rect at `+0xE0`. That rect
-/// is a layout box, and the fill's geometry is measured on it, with no derived sprite mapping.
-pub const NODE_AUTHORED_WIDTH: u32 = 0xb4;
 pub const NODE_RECT: u32 = 0xe0;
-pub const NODE_EFFECTIVE_RECT: u32 = 0xf0;
 /// The atlas window (`mTextureRect`), four floats on a `cGUIObjTexture`. The bar's band steps by
 /// tier: `(0,280,88,304)` at yellow and above, `(0,304,88,328)` at orange and `(0,328,88,352)` at
-/// red, the notched frames the tier keyframes write (`work/modern-sharpness-gauge/visual/hud00.png`
+/// red, the notched frames the tier keyframes write (`work/world-sharpness-gauge/visual/hud00.png`
 /// rows 280, 304 and 328).
 ///
 /// The setter main+0xa4fb58 is the only way these words reach the screen. It returns at once when
@@ -107,28 +93,22 @@ pub const NODE_PARENT: u32 = 0x70;
 pub const NODE_VISIBLE: u32 = 1;
 pub const NODE_DRAWABLE: u32 = 0x0200_0000;
 
+/// The fill `band_bp` returns at the top of a band: the cut box then ends at the blade's tip, and
+/// nothing is left to shade.
+pub const FULL_SHARPNESS_BP: u32 = 10_000;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Gauge {
     /// mSharpness, signed sharpness points.
     pub current: i32,
     /// mMaxSharpness, signed sharpness points.
     pub maximum: i32,
-    /// mSharpnessType, native tier index: 0 red, 1 orange, 2 yellow, 3 green,
-    /// 4 blue, 5 white, 6 purple (mapping supplied by the tester on 2026-10-22).
-    /// Each tier is a per-weapon segment of points, so a tier boundary is never a
-    /// fixed percentage of the maximum.
-    pub tier: u32,
 }
 
 pub fn read_gauge(memory: &dyn Memory, player: u32) -> Option<Gauge> {
     let current = memory.word(player.checked_add(SHARPNESS)?)? as i32;
     let maximum = memory.word(player.checked_add(MAX_SHARPNESS)?)? as i32;
-    let tier = memory.word(player.checked_add(SHARPNESS_TYPE)?)?;
-    Some(Gauge {
-        current,
-        maximum,
-        tier,
-    })
+    Some(Gauge { current, maximum })
 }
 
 /// The band of points the game's own tier rule puts `current` in, as `(floor, ceiling]`: `floor`
@@ -140,8 +120,8 @@ pub fn read_gauge(memory: &dyn Memory, player: u32) -> Option<Gauge> {
 /// here, and the game's own gates apply. The rule that function reaches (`main+0xf4794`) counts
 /// the thresholds strictly below the points, so it is monotonic and every kireaji row is monotonic;
 /// points sitting exactly on a threshold answer with the tier below, which is why `ceiling` is a
-/// point of this tier. In the fixed-tier state that rule answers tier 0 for any points, and the
-/// band is then `0..=maximum`, the same bar the accepted build drew.
+/// point of this tier. Every gate and lookup failure in that function answers tier 0 for any
+/// points, and the band is then `0..=maximum`, a plain `current / maximum` bar.
 ///
 /// The `ceiling` clip to `maximum` is the whole answer for sharpness buffs: `Sharpness_Plus1/2` and
 /// the soul skills raise `mMaxSharpness`, so the top band stops partway through its tier and can
@@ -203,21 +183,6 @@ pub fn is_sharp_animation(animation: u32, objects: u32, first_object: u32, seque
         && objects == SHARP_OBJECTS
         && first_object == SHARP_FIRST_OBJECT
         && sequences == SHARP_SEQUENCES
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Node {
-    pub address: u32,
-    pub flags: u32,
-    pub kind: u32,
-    /// Own screen rectangle, the rectangle prepaint leaves after the scissor
-    /// intersection, and the rectangle inside the texture atlas.
-    pub rect: [i32; 4],
-    pub effective: [i32; 4],
-    pub texture: [i32; 4],
-    /// child (+0x68), sibling (+0x6c), parent (+0x70): the links the scissor mask
-    /// insertion walks, logged so a failed gate names the link it rejected.
-    pub links: [u32; 3],
 }
 
 /// The bar's rows inside the clip. `Txt_sharp` draws its ink in rows +6..=+17 of its 88x24
@@ -353,8 +318,8 @@ pub fn count_nodes(memory: &dyn Memory, controller: u32) -> (u32, bool) {
 /// walker draws from, `root+0x80`, is `alloc + sequences * 12`, and it is written only when
 /// objects is nonzero. The record area is `(objects << 4) | 8` bytes: 8 bytes per record, a
 /// drawable's enter and exit pair takes 16, and the terminator takes 8. The gauge row is sized
-/// for 3 objects and 16 sequences (a 56-byte area, 7 records) and the tree with an inserted mask
-/// emits 9 records, so the insertion rebuilds the block for 4 objects (72 bytes): see
+/// for 3 objects and 16 sequences (a 56-byte area, 7 records) and the inserted tree of 6 nodes
+/// emits 13 records, so the insertion rebuilds the block for 6 objects (104 bytes): see
 /// `grow_cache` in `src/insert.rs`. The row's other pair, at row+4, is 4 objects and 15
 /// sequences; the sizer does not read it. Returns (size, prefix, record_area).
 pub fn cache_layout(objects: u32, sequences: u32) -> (u32, u32, u32) {
@@ -368,90 +333,6 @@ pub fn cache_layout(objects: u32, sequences: u32) -> (u32, u32, u32) {
 
 pub const SCAN_STACK: usize = 16;
 pub const SCAN_LIMIT: u32 = 64;
-pub const MAX_NODES: usize = 6;
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Walk {
-    pub visited: u32,
-    pub visible: u32,
-    pub drawable: u32,
-    pub nodes: [Node; MAX_NODES],
-    pub truncated: bool,
-}
-
-pub fn scan_walk(memory: &dyn Memory, root: u32) -> Walk {
-    let mut out = Walk::default();
-    let mut stack = [0u32; SCAN_STACK];
-    let mut top = 0usize;
-    let mut overflow = false;
-    macro_rules! push {
-        ($node:expr) => {{
-            let node = $node;
-            if node != 0 {
-                if top == SCAN_STACK {
-                    overflow = true;
-                } else {
-                    stack[top] = node;
-                    top += 1;
-                }
-            }
-        }};
-    }
-    push!(root);
-    while top > 0 && out.visited < SCAN_LIMIT {
-        top -= 1;
-        let node = stack[top];
-        let Some(flags) = memory.word(node.wrapping_add(NODE_FLAGS)) else {
-            overflow = true;
-            break;
-        };
-        let visible = flags & NODE_VISIBLE != 0;
-        out.visited += 1;
-        if visible {
-            out.visible += 1;
-        }
-        if flags & NODE_DRAWABLE != 0 {
-            out.drawable += 1;
-        }
-        if out.visited as usize <= MAX_NODES {
-            let mut recorded = Node {
-                address: node,
-                flags,
-                kind: memory.word(node.wrapping_add(NODE_KIND)).unwrap_or(0) & 0xf,
-                rect: [0; 4],
-                effective: [0; 4],
-                texture: [0; 4],
-                links: [0; 3],
-            };
-            recorded.links[0] = memory.word(node.wrapping_add(NODE_CHILD)).unwrap_or(0);
-            recorded.links[1] = memory.word(node.wrapping_add(NODE_SIBLING)).unwrap_or(0);
-            recorded.links[2] = memory.word(node.wrapping_add(NODE_PARENT)).unwrap_or(0);
-            for index in 0..4 {
-                recorded.rect[index] = memory
-                    .word(node.wrapping_add(NODE_RECT + (index as u32) * 4))
-                    .unwrap_or(0) as i32;
-                recorded.effective[index] = memory
-                    .word(node.wrapping_add(NODE_EFFECTIVE_RECT + (index as u32) * 4))
-                    .unwrap_or(0) as i32;
-                recorded.texture[index] = memory
-                    .word(node.wrapping_add(NODE_TEXTURE_RECT + (index as u32) * 4))
-                    .unwrap_or(0) as i32;
-            }
-            out.nodes[out.visited as usize - 1] = recorded;
-        }
-        // The sibling is pushed first so the child branch is taken next; the
-        // child is only reachable when this node is visible, matching the
-        // walker's skip of invisible subtrees.
-        push!(memory
-            .word(node.wrapping_add(NODE_SIBLING))
-            .unwrap_or(0));
-        if visible {
-            push!(memory.word(node.wrapping_add(NODE_CHILD)).unwrap_or(0));
-        }
-    }
-    out.truncated = overflow || top > 0 || out.visited >= SCAN_LIMIT;
-    out
-}
-
 /// The draw cache the walker at main+0xa494a0 writes for a tree, as the entry kinds
 /// in the order it writes them: 0 = enter (the consumer calls vtable 0x38 and 0x3c),
 /// 1 = exit (it calls 0x40 and clears 0x0001_0000 in the node's flag word), 2 = the
@@ -577,61 +458,16 @@ pub fn local_player(memory: &dyn Memory, base: u32) -> Option<Local> {
     })
 }
 
-/// One bounded observation copied out inside the hot hook: the gauge row's identity and the
-/// local player. All values are plain u32 words (signed fields are two's complement), so the hook
-/// performs no allocation, formatting or file access. `FIELDS` names each word of `words` in the
-/// same order, and `FIELD_*` are the gauge trio's slots in it.
-pub const FIELDS: [&str; 11] = [
-    "ctrl",
-    "row",
-    "anim",
-    "objects",
-    "sequences",
-    "first_object",
-    "hunter",
-    "player",
-    "current",
-    "maximum",
-    "tier",
-];
-pub const FIELD_CURRENT: usize = 8;
-pub const FIELD_MAXIMUM: usize = 9;
-pub const FIELD_TIER: usize = 10;
-
+/// What identification copies out inside the hot hook: the local player and its gauge.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Sample {
-    pub controller: u32,
-    pub row: u32,
-    pub animation: u32,
-    pub objects: u32,
-    pub sequences: u32,
-    pub first_object: u32,
     pub local: Local,
-    /// The local player's sharpness triple, when the session chain reached a player.
+    /// The local player's sharpness pair, when the session chain reached a player.
     pub gauge: Option<Gauge>,
 }
 
-impl Sample {
-    pub fn words(&self) -> [u32; FIELDS.len()] {
-        let gauge = self.gauge.unwrap_or(Gauge::default());
-        [
-            self.controller,
-            self.row,
-            self.animation,
-            self.objects,
-            self.sequences,
-            self.first_object,
-            self.local.hunter_index,
-            self.local.player,
-            gauge.current as u32,
-            gauge.maximum as u32,
-            gauge.tier,
-        ]
-    }
-}
-
-/// Identify one animation controller as the sharpness gauge row and copy its identity with the
-/// local player: `base` is the loaded main module, whose session and `sPlayer` cells give the
+/// Identify one animation controller as the sharpness gauge row and copy the local player:
+/// `base` is the loaded main module, whose session and `sPlayer` cells give the
 /// player pointer. Returns None for every other controller, which is the cheap filter in front of
 /// the walker's hot path.
 pub fn sample_controller(memory: &dyn Memory, controller: u32, base: u32) -> Option<Sample> {
@@ -650,14 +486,5 @@ pub fn sample_controller(memory: &dyn Memory, controller: u32, base: u32) -> Opt
     }
     let local = local_player(memory, base).unwrap_or_default();
     let gauge = (local.player != 0).then(|| read_gauge(memory, local.player)).flatten();
-    Some(Sample {
-        controller,
-        row,
-        animation,
-        objects,
-        sequences,
-        first_object,
-        local,
-        gauge,
-    })
+    Some(Sample { local, gauge })
 }

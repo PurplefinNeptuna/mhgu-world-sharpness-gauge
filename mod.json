@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "mod": "modern-sharpness-gauge",
+  "mod": "world-sharpness-gauge",
   "kind": "plugin",
-  "version": "r64",
+  "version": "r65",
   "runtime_platform": "forge-switch",
-  "package_name": "modern-sharpness-gauge"
+  "package_name": "world-sharpness-gauge"
 }

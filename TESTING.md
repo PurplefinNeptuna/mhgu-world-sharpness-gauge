@@ -1,18 +1,18 @@
-# Testing notes: Modern Sharpness Gauge
+# Testing notes: World Sharpness Gauge
 
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r64
+## What to check on r65
 
-r64 changes one thing: the bar's length is measured inside the tier its points sit in, so the bar
-refills at every colour change. The cut, the dark part, the worn tier frame at orange and red, the
-colour, the transform and the sampler are accepted r62's, unchanged.
+r65 is r64 renamed from Modern Sharpness Gauge, with unused code removed and one new log line: the
+fill, the cut, the dark part and the colours are meant to look exactly the same. Its bytes have not been played. r64 is the build the
+player accepted on Eden: "all works perfectly" over two quests with different weapons, the first
+fainting until it failed, on a blade dulled from yellow to red.
 
-r64 has been played on Eden (2026-11-02): "from playing and look at the visuals it looks right, but my current gameplay only
-satisfy no 1,2, and 5", so steps 1, 2 and 5 below are answered. Steps 3 and 4 are still open, and so is a log showing the gauge
-set up again after a mid-quest loading screen: that run built one gauge row, tore it down at a quest end, and inserted nothing
-after that.
+No more testing is planned. If anyone does play it, these are the steps nobody has run, and the
+first thing to report is any difference from r64. Delete any `modern-sharpness-gauge` folder first,
+or both mods will load together.
 
 The requirement is the tester's own: "make the gauge works like mh world's gauge, which the bar is
 per tier, so for example, weapon with purple tier max, the bar will show the fill as between max
@@ -21,29 +21,18 @@ point for blue, etc. ... thin band sharpness tier are okay, the need is approxim
 okay, no need for fancy smooth animations or lerp". A crop or a short video of each step is the
 evidence that settles it.
 
-1. No skill. Dull one weapon across at least two colours. Say whether the bar refills at each colour
-   change, and whether the blade gets visibly shorter at each colour. The narrow bands are the top
-   ones: a 5-point band moves the bar about 14 px per point, so the top colour empties quickly.
-2. Sharpen from a low colour. When the sharpening animation ends, the bar should show the fill for
-   the colour the new points land in: full at the top of that colour, partway through it otherwise.
-3. Sharpness +1, or +2, on a weapon whose maximum lands partway through a colour. A weapon fresh from
+1. Sharpness +1, or +2, on a weapon whose maximum lands partway through a colour. A weapon fresh from
    the box should read full in the colour that maximum reaches. Say which skill, which weapon, and
    what the bar showed at the start of the quest.
-4. Heavy Polish active. The bar should hold at its fill while the edge glyph shows. Say whether the
+2. Heavy Polish active. The bar should hold at its fill while the edge glyph shows. Say whether the
    bar moves while the polish is up.
-5. Cross an area's loading screen, and change weapon between quests. The gauge should set itself up
-   again in the new area and for the new weapon.
 
 Send the emulator log with each run. Say which emulator you used, which weapon you started with, and
 what the bar did, in the order you played it. Tell me if the bar is missing at any point, if a blank
 or wrongly coloured box appears over the gauge, if the cut is in the wrong place, if the glow or the
 edge glyph is missing, if the bar never refills at a colour change, or if the game stops responding.
 
-What is not proven yet and stays open after this run: a Sharpness skill has never appeared in a saved log and the 2026-11-02 play
-did not use one, so step 3 is the first runtime check of the raised maximum; step 4, Heavy Polish, was not tried; the 2026-11-02
-play ended the quest rather than crossing a loading screen mid-quest, so a second area's gauge on these bytes is unrecorded; the
-accepted crop is the red tier, so orange is unseen; the order of the tier change against the draw is unread, so a tier drop may
-show one frame of a full bar in the old colour; the dark part has no glow, by design; Ryujinx and a real Switch are untested.
+Ryujinx and a real Switch are untested. The dark part has no glow, by design.
 
 ## Which log to send
 
@@ -55,7 +44,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `MSG r64`.
+lines that matter start with `WSG r65`.
 
 ## The log lines
 
@@ -80,10 +69,13 @@ or the inserted mask), 28 the glow beside the bar, 29 the edge beside the glow, 
 not close back on its parent, 31 the bar's class, 32 the bar's authored width, 33 a missing class
 record, 34 no sharpness gauge to read.
 
-`inserted mask's links lost (N times); captured addresses cleared` means the game took a gauge row
-away at an area's loading screen: the mod turns the old mask off and looks for the new area's gauge.
-`gauge row root destroyed (N times)` is the same event by the row's own destructor. Report how many
-areas you crossed and whether the bar behaved the same in each.
+`inserted mask's links lost (N times); captured addresses cleared` means the gauge row ended, which
+is normal at the end of a quest: the mod turns the old mask off and looks for the next quest's gauge.
+Report it if it appears in the middle of a hunt.
+
+`fill refused; the stock bar shows while it stays refused` means the mod could not work out the fill
+and left the game's own bar alone. It prints at most once per gauge row. Near a quest's end it means
+nothing. Report it if the stock bar shows during a hunt.
 
 A bar that stays at the old `current / maximum` length is not a log event: if the fill looks like the
 shipped gauge, say so, and send the log with it. The gauge HUD exists only while a weapon-owning

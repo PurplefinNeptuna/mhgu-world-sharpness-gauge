@@ -1,12 +1,12 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     band_bp, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
-    mask_box, read_gauge, sample_controller, scan_walk, span_box, tier_band,
+    mask_box, read_gauge, sample_controller, span_box, tier_band,
     CLIP_HEIGHT, CLIP_TOP,
-    CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
-    MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
-    NODE_KIND, NODE_PARENT, NODE_RECT, NODE_SIBLING, NODE_TEXTURE_RECT, NODE_VISIBLE,
-    PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS, SHARPNESS_TYPE,
+    CONTROLLER_ROW, ENTRIES, Gauge, Local,
+    MAX_HUNTERS, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_FLAGS,
+    NODE_PARENT, NODE_SIBLING, NODE_VISIBLE,
+    PLAYER_ARRAY, SCAN_LIMIT, SESSION_CELL, SESSION_LOCAL_INDEX, SHARPNESS,
     SHARP_OBJECTS, SPLAYER_CELL,
 };
 use std::collections::BTreeMap;
@@ -31,8 +31,8 @@ impl Memory for Fake {
     }
 }
 
-/// The accepted bar: `current * 10_000 / maximum` clamped, in basis points. It is the reference
-/// for a gauge whose points sit in one band, which is what the fixed-tier state gives.
+/// A plain `current * 10_000 / maximum` bar, clamped, in basis points: the reference for a gauge
+/// whose points sit in one band, which is what a tier rule answering 0 for any points gives.
 fn ratio(current: i32, maximum: i32) -> Option<u32> {
     if maximum <= 0 {
         return None;
@@ -114,8 +114,8 @@ fn a_zero_width_top_band_is_never_landed_in() {
 
 #[test]
 fn one_tier_for_every_points_is_the_plain_ratio() {
-    // The fixed-tier state answers tier 0 for any points, and then the band is the whole
-    // maximum, so the fill is `current / maximum`, exactly what the accepted build drew.
+    // Every gate and lookup failure in the native function answers tier 0 for any points, and
+    // then the band is the whole maximum, so the fill is plain `current / maximum`.
     let every_probe = |_points| Some(0u32);
     for (current, maximum) in [(150, 160), (0, 160), (160, 160), (7, 3)] {
         assert_eq!(
@@ -167,55 +167,6 @@ fn every_probe_stays_within_the_maximum() {
 }
 
 #[test]
-fn sample_words_are_the_named_slots() {
-    // The copy is positional, so pin every named slot to the value it must carry.
-    let mut sample = sharpness_gauge_core::Sample {
-        controller: 0x6000,
-        row: 0x5000,
-        animation: 4,
-        objects: 4,
-        sequences: 15,
-        first_object: 29,
-        local: Local {
-            player: 0x9c00,
-            hunter_index: 1,
-        },
-        gauge: Some(Gauge {
-            current: 150,
-            maximum: 160,
-            tier: 2,
-        }),
-    };
-    sample.gauge = Some(Gauge {
-        current: -7,
-        maximum: 160,
-        tier: 2,
-    });
-    let words = sample.words();
-    assert_eq!(words.len(), FIELDS.len());
-    assert_eq!(
-        FIELDS,
-        [
-            "ctrl",
-            "row",
-            "anim",
-            "objects",
-            "sequences",
-            "first_object",
-            "hunter",
-            "player",
-            "current",
-            "maximum",
-            "tier"
-        ]
-    );
-    assert_eq!(words[FIELD_CURRENT] as i32, -7); // signed points keep their sign
-    assert_eq!(words[FIELD_MAXIMUM] as i32, 160);
-    assert_eq!(words[FIELD_TIER], 2);
-    assert_eq!((words[0], words[6], words[7]), (0x6000, 1, 0x9c00));
-}
-
-#[test]
 fn gauge_identity_is_the_fixture_tuple() {
     assert!(is_sharp_animation(4, 4, 29, 15));
     // pl_gauge0 (id 7, six objects from row 33) and the stamina rows are not it.
@@ -255,17 +206,15 @@ fn local_player_chain_is_validated() {
 }
 
 #[test]
-fn gauge_fields_are_signed_points_and_the_tier_is_the_native_index() {
+fn gauge_fields_are_signed_points() {
     let mut fake = Fake::default();
     fake.put(0x9c00 + SHARPNESS, 150u32);
     fake.put(0x9c00 + MAX_SHARPNESS, 160u32);
-    fake.put(0x9c00 + SHARPNESS_TYPE, 2);
     assert_eq!(
         read_gauge(&fake, 0x9c00),
         Some(Gauge {
             current: 150,
             maximum: 160,
-            tier: 2
         })
     );
     fake.put(0x9c00 + SHARPNESS, (-7i32) as u32);
@@ -275,9 +224,9 @@ fn gauge_fields_are_signed_points_and_the_tier_is_the_native_index() {
     assert_eq!(read_gauge(&fake, 0), None);
 }
 
-/// Build the gauge controller fixture: animation row (id 4, packed counts 4
-/// objects and 15 sequences, first object 29), one group node with three text
-/// siblings, and a local player with 150/160 points at tier 2.
+/// Build the gauge controller fixture: animation row (id 4, packed counts 4 objects and 15
+/// sequences, first object 29), the bar, glow and edge as siblings, and a local player with
+/// 150/160 points.
 fn gauge_fixture() -> Fake {
     let mut fake = Fake::default();
     let (row, controller, root, sharp, efx, edge, player) =
@@ -288,58 +237,27 @@ fn gauge_fixture() -> Fake {
     fake.put(0x4000 + PLAYER_ARRAY, player);
     fake.put(player + SHARPNESS, 150);
     fake.put(player + MAX_SHARPNESS, 160);
-    fake.put(player + SHARPNESS_TYPE, 2);
     fake.put(controller + CONTROLLER_ROW, row);
     fake.put(controller + NODE_CHILD, root);
     fake.put(row, 4); // animation id
     fake.put(row + 4, 4 | (15 << 16)); // objects | sequences << 16
     fake.put(row + 0x0c, 29); // first object row
-    // The gauge subtree: a visible group node, then the sharp glyph, the
-    // effect glyph, and the edge glyph. The edge glyph is drawable but its
-    // visibility bit is clear, which is what the looping tiers do.
     fake.put(root + NODE_FLAGS, NODE_VISIBLE);
-    fake.put(root + NODE_KIND, 3);
     fake.put(root + NODE_CHILD, sharp);
-    fake.put(root + NODE_RECT, 80);
-    fake.put(root + NODE_RECT + 4, 20);
-    fake.put(root + NODE_RECT + 8, 210);
-    fake.put(root + NODE_RECT + 12, 70);
     fake.put(sharp + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
-    fake.put(sharp + NODE_KIND, 6);
     fake.put(sharp + NODE_SIBLING, efx);
-    fake.put(sharp + NODE_RECT, 110);
-    fake.put(sharp + NODE_RECT + 4, 38);
-    fake.put(sharp + NODE_RECT + 8, 198);
-    fake.put(sharp + NODE_RECT + 12, 62);
-    fake.put(sharp + NODE_EFFECTIVE_RECT, 110);
-    fake.put(sharp + NODE_EFFECTIVE_RECT + 4, 38);
-    fake.put(sharp + NODE_EFFECTIVE_RECT + 8, 198);
-    fake.put(sharp + NODE_EFFECTIVE_RECT + 12, 62);
-    fake.put(sharp + NODE_TEXTURE_RECT, 0);
-    fake.put(sharp + NODE_TEXTURE_RECT + 4, 280);
-    fake.put(sharp + NODE_TEXTURE_RECT + 8, 88);
-    fake.put(sharp + NODE_TEXTURE_RECT + 12, 304);
     fake.put(efx + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
-    fake.put(efx + NODE_KIND, 6);
     fake.put(efx + NODE_SIBLING, edge);
-    fake.put(efx + NODE_RECT, 96);
-    fake.put(efx + NODE_RECT + 4, 40);
-    fake.put(efx + NODE_RECT + 8, 204);
-    fake.put(efx + NODE_RECT + 12, 60);
-    fake.put(edge + NODE_FLAGS, NODE_DRAWABLE); // native: hidden in looping tiers
-    fake.put(edge + NODE_KIND, 6);
-    fake.put(edge + NODE_CHILD, 0x7400); // below a hidden node, never drawn
-    fake.put(0x7400 + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
+    // The edge glyph is drawable but its visibility bit is clear, which is what the looping
+    // tiers do.
+    fake.put(edge + NODE_FLAGS, NODE_DRAWABLE);
     fake
 }
 
 #[test]
-fn controller_sample_carries_the_identity_and_the_player() {
+fn controller_sample_carries_the_player_and_its_gauge() {
     let fake = gauge_fixture();
     let sample = sample_controller(&fake, 0x6000, BASE).expect("gauge controller");
-    assert_eq!((sample.animation, sample.objects, sample.sequences), (4, 4, 15));
-    assert_eq!(sample.first_object, 29);
-    assert_eq!((sample.controller, sample.row), (0x6000, 0x5000));
     assert_eq!(
         sample.local,
         Local {
@@ -352,82 +270,8 @@ fn controller_sample_carries_the_identity_and_the_player() {
         Some(Gauge {
             current: 150,
             maximum: 160,
-            tier: 2
         })
     );
-    let words = sample.words();
-    assert_eq!(words[FIELD_CURRENT] as i32, 150);
-    assert_eq!(words[FIELD_MAXIMUM] as i32, 160);
-    assert_eq!(words[FIELD_TIER], 2);
-    assert_eq!(words[0], 0x6000);
-    assert_eq!(words[7], 0x9c00);
-}
-
-#[test]
-fn the_fixture_walk_records_every_node() {
-    let walk = scan_walk(&gauge_fixture(), 0x7000);
-    assert_eq!((walk.visited, walk.visible, walk.drawable), (4, 3, 3));
-    assert!(!walk.truncated);
-    let group = walk.nodes[0];
-    assert_eq!((group.address, group.flags, group.kind), (0x7000, NODE_VISIBLE, 3));
-    assert_eq!(group.rect, [80, 20, 210, 70]);
-    let sharp = walk.nodes[1];
-    assert_eq!(
-        (sharp.address, sharp.flags, sharp.kind),
-        (0x7100, NODE_VISIBLE | NODE_DRAWABLE, 6)
-    );
-    assert_eq!(sharp.effective, [110, 38, 198, 62]);
-    assert_eq!(sharp.texture, [0, 280, 88, 304]);
-    // The hidden edge glyph is still walked as a sibling and keeps its own
-    // child out of the walk.
-    assert_eq!((walk.nodes[3].address, walk.nodes[3].flags), (0x7300, NODE_DRAWABLE));
-    assert_eq!(walk.nodes[4].address, 0);
-}
-
-#[test]
-fn a_hidden_subtree_is_not_walked() {
-    // The walker does not descend when the visibility bit is clear, so a
-    // visible child below the hidden edge glyph is never visited.
-    let fake = gauge_fixture();
-    assert_eq!(scan_walk(&fake, 0x7000).visited, 4);
-}
-
-#[test]
-fn the_sharpness_textures_are_siblings_under_the_root() {
-    // Shape the gates in gui.rs are written against: the bar, the glow and the
-    // edge are siblings whose parent is the walk root, and the walk closes when
-    // a sibling comes back to that root.
-    let mut fake = gauge_fixture();
-    let (root, sharp, efx, edge) = (0x7000u32, 0x7100u32, 0x7200u32, 0x7300u32);
-    fake.put(sharp + NODE_CHILD, 0);
-    fake.put(sharp + NODE_PARENT, root);
-    fake.put(efx + NODE_SIBLING, edge);
-    fake.put(efx + NODE_PARENT, root);
-    fake.put(edge + NODE_SIBLING, root);
-    fake.put(edge + NODE_PARENT, root);
-    let walk = scan_walk(&fake, sharp);
-    assert_eq!(walk.nodes[0].links, [0, efx, root]);
-    assert_eq!(walk.nodes[1].links, [0, edge, root]);
-    assert_eq!(walk.nodes[2].links, [0x7400, root, root]);
-    // The mask enters as the root's first child and takes the bar under it, so
-    // the root's child slot is no longer the bar and the bar's parent is the mask.
-    let mask = 0x7500u32;
-    fake.put(mask + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
-    fake.put(mask + NODE_CHILD, sharp);
-    fake.put(mask + NODE_SIBLING, efx);
-    fake.put(mask + NODE_PARENT, root);
-    fake.put(root + NODE_CHILD, mask);
-    fake.put(sharp + NODE_PARENT, mask);
-    let walked = scan_walk(&fake, mask);
-    assert_eq!(walked.nodes[0].address, mask);
-    assert_eq!(walked.nodes[0].links, [sharp, efx, root]);
-    assert_eq!(walked.nodes[1].links, [0, efx, mask]);
-
-    // The chain also closes with the edge glyph's sibling at 0, popping through
-    // its parent, which is the root. Both closings end the walk.
-    fake.put(edge + NODE_SIBLING, 0);
-    let closed = scan_walk(&fake, sharp);
-    assert_eq!(closed.nodes[2].links, [0x7400, 0, root]);
 }
 
 #[test]
@@ -445,49 +289,27 @@ fn other_animations_cost_nothing_and_produce_no_sample() {
 }
 
 #[test]
-fn a_gauge_without_a_player_reports_the_identity_only() {
+fn a_gauge_without_a_player_has_no_gauge_to_fill_from() {
     let mut fake = gauge_fixture();
-    // Player absent (for example a non-quest state): the identity is still the
-    // gauge row, and there is no gauge to fill from.
+    // Player absent (for example a non-quest state): the controller is still the gauge row.
     fake.put(BASE + SESSION_CELL, 0);
     let sample = sample_controller(&fake, 0x6000, BASE).expect("gauge controller");
     assert_eq!(sample.local, Local::default());
     assert_eq!(sample.gauge, None);
-    assert_eq!((sample.animation, sample.objects), (4, 4));
-    let words = sample.words();
-    assert_eq!((words[FIELD_CURRENT], words[FIELD_MAXIMUM]), (0, 0));
 }
 
 #[test]
-fn a_broken_tree_stops_at_its_bounds() {
-    // A chain longer than the visit limit marks the scan truncated, and only
-    // the leading MAX_NODES nodes are copied out.
+fn the_node_count_stops_at_its_bound() {
+    // A chain longer than the visit limit, reached through a controller, counts up to the limit
+    // and reports the count as a floor.
     let mut fake = Fake::default();
     for index in 0..(SCAN_LIMIT as u32 + 16) {
         let node = 0xa000 + index * 0x10;
         fake.put(node + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
-        fake.put(node + NODE_CHILD, 0);
         fake.put(node + NODE_SIBLING, node + 0x10);
     }
-    let scan = scan_walk(&fake, 0xa000);
-    assert_eq!(scan.visited, SCAN_LIMIT);
-    assert!(scan.truncated);
-    assert_eq!(
-        scan.nodes[MAX_NODES - 1].address,
-        0xa000 + (MAX_NODES as u32 - 1) * 0x10
-    );
-    // A dangling link is recorded as truncation, never followed.
-    let mut broken = Fake::default();
-    broken.put(0xb000 + NODE_FLAGS, NODE_VISIBLE);
-    broken.put(0xb000 + NODE_CHILD, 0xcccc_cccc);
-    let scan = scan_walk(&broken, 0xb000);
-    assert_eq!(scan.visited, 1);
-    assert!(scan.truncated);
-    // The node count the insertion gates on shares those bounds: the same chain,
-    // reached through a controller, counts up to the limit and reports the floor.
     fake.put(0x9000 + NODE_CHILD, 0xa000);
-    let (count, cut) = count_nodes(&fake, 0x9000);
-    assert_eq!((count, cut), (SCAN_LIMIT, true));
+    assert_eq!(count_nodes(&fake, 0x9000), (SCAN_LIMIT, true));
 }
 
 /// The gauge tree as the runs show it, with every link the walker follows: the
@@ -528,17 +350,17 @@ fn the_cache_grows_with_the_object_count_not_the_sequence_prefix() {
     // allocates it through the root's vtable slot 0x58 into root+0xa4, and publishes
     // root+0x80 = alloc + sequences * 12. This row's sizing pair at row+8 is 3 objects
     // and 16 sequences, with the published pointer 192 = 16 * 12 into the allocation:
-    // a 56-byte record area of 7 records, and a 248-byte allocation. The inserted tree's
-    // 9 records are 72 bytes, 16 past that area, which is why the insertion grows the
-    // block for 4 objects: 72 bytes, exactly the 9.
+    // a 56-byte record area of 7 records, and a 248-byte allocation. A mask alone emits 9
+    // records, 72 bytes, 16 past that area, so even that shape needs the block grown, here
+    // for 4 objects. The full inserted tree is pinned by the_shade_clip_node_fits_the_grown_tree_exactly.
     assert_eq!(cache_layout(3, 16), (248, 192, 56));
     assert_eq!(cache_layout(4, 16), (264, 192, 72));
     assert_eq!(cache_layout(0, 16), (192, 192, 0));
     assert_eq!(cache_layout(3, 0), (56, 0, 56));
     assert_eq!(56 / 8, 7);
     assert_eq!(72 / 8, 9);
-    // The tree the insertion produces, measured by the walker port: 9 records, exactly the
-    // grown area, and 16 bytes past the row's own 56.
+    // A mask alone, measured by the walker port: 9 records, exactly that area, and 16 bytes past
+    // the row's own 56.
     let mut fake = gauge_fixture();
     let (root, sharp, efx, edge) = gauge_tree(&mut fake, true);
     let mask = 0x7500u32;
@@ -607,8 +429,7 @@ fn the_inserted_mask_gets_its_exit_record() {
     assert!(!plan.overflow);
     assert_eq!(plan.count * 8, 56);
     // Static tier: the edge glyph is visible, so it enters and its exit comes out
-    // inline (byte 0x57 bit 1 is word bit 25, the drawable bit). 9 records is 72
-    // bytes, the grown area, which is why grow_cache rebuilds the block for 4 objects.
+    // inline (byte 0x57 bit 1 is word bit 25, the drawable bit). 9 records is 72 bytes.
     fake.put(edge + NODE_FLAGS, NODE_VISIBLE | NODE_DRAWABLE);
     let full = draw_plan(&fake, root);
     assert_eq!(full.kinds[..full.count as usize], [0, 0, 1, 0, 1, 0, 1, 1, 2]);
@@ -799,8 +620,7 @@ fn the_shade_clip_mask_box_is_built_from_its_own_matrix() {
         "the box is the blade past the cut, one px of nothing at full sharpness"
     );
     assert_eq!(authored_width(10_000), 1, "the zero-width scissor is never asked for");
-    // The accepted cut's own box through the same fold at ratio_bp=6800, kept 66, the ratio the
-    // DEVELOPMENT.md history records.
+    // The accepted cut's own box through the same fold at a kept width of 66.
     assert_eq!(mask_box(template, [66, 128]), [110, 38, 176, 166]);
 }
 

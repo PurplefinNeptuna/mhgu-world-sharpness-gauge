@@ -4,5 +4,5 @@
   "cargo_forge": "tools/cargo/bin/cargo-forge",
   "devkitarm": "tools/devkitARM",
   "python": "python3",
-  "inputs": "work/modern-sharpness-gauge/inputs"
+  "inputs": "work/world-sharpness-gauge/inputs"
 }

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "mod": "modern-sharpness-gauge",
+  "mod": "world-sharpness-gauge",
   "files": [
     ".cargo/config.toml",
     ".cargo/vendor.toml",

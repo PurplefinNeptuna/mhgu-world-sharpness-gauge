@@ -1,12 +1,11 @@
-//! Modern sharpness gauge: the game's sharpness bar, clipped to the local player's own sharpness
-//! ratio, read in the mask's enter hook. The box is built from the accepted cut endpoints, as
-//! offsets on the bar's own rect, scaled by that rect's live width. There are no settings and
-//! therefore no Plugin UI panel.
+//! World sharpness gauge: the game's sharpness bar, clipped to the local player's fill inside the
+//! current tier's band, computed in the mask's enter hook. The box is built from the accepted cut
+//! endpoints, as offsets on the bar's own rect, scaled by that rect's live width. There are no
+//! settings and therefore no Plugin UI panel.
 //!
-//! Four hooks: the draw walker (main+0xa494a0) finds the gauge controller and the local player;
-//! the instance draw entry (main+0xa39300) records the row instance; the row root's destructor
-//! (main+0xa486fc) clears that capture; the scissor mask's enter handler (main+0xa4ba94) writes
-//! the clip box in the call that applies it. The build writes game memory and inserts one GUI
+//! Three hooks: the draw walker (main+0xa494a0) finds the gauge controller and the local player;
+//! the instance draw entry (main+0xa39300) records the row instance; the scissor mask's enter
+//! handler (main+0xa4ba94) writes the clip box in the call that applies it. The build writes game memory and inserts one GUI
 //! object, so it changes what is drawn. `src/gui.rs` names the native code its row gates rest on. Forge supplies lifecycle, allocation and logging; stock Forge filters levels
 //! below ERROR, hence log::error! for diagnostics.
 #![no_std]
@@ -19,7 +18,6 @@ mod memory;
 mod sampling;
 mod signatures;
 
-static LAST_TEARDOWNS: AtomicU32 = AtomicU32::new(0);
 static LAST_MISSES: AtomicU32 = AtomicU32::new(0);
 /// The last reported row-check stage, so the retry cadence prints a change, not a stream.
 static LAST_STAGE: AtomicU32 = AtomicU32::new(0);
@@ -43,7 +41,7 @@ pub unsafe extern "C" fn forge_onLoad(params: *mut forge::PluginInitParams) {
         return;
     }
     let mut name = [0; 64];
-    let label = concat!("Modern Sharpness Gauge ", env!("MSG_VERSION")).as_bytes();
+    let label = concat!("World Sharpness Gauge ", env!("WSG_VERSION")).as_bytes();
     name[..label.len()].copy_from_slice(label);
     // SAFETY: the pinned Forge loader provides the complete writable 70-byte
     // record, as verified by the accepted mod's runtime evidence.
@@ -68,12 +66,12 @@ pub extern "C" fn forge_onInit() {
             // is only reachable from the installation path above.
             core::mem::forget(owner);
             log::info!(concat!(
-                "Modern Sharpness Gauge ",
-                env!("MSG_VERSION"),
-                " loaded (clips the sharpness gauge to the player's sharpness)"
+                "World Sharpness Gauge ",
+                env!("WSG_VERSION"),
+                " loaded (clips the sharpness gauge to the fill inside its tier)"
             ));
         }
-        Err(reason) => log::error!("Modern Sharpness Gauge disabled: {reason}"),
+        Err(reason) => log::error!("World Sharpness Gauge disabled: {reason}"),
     }
 }
 
@@ -89,8 +87,8 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
         match reading.outcome {
             Ok(done) => {
                 log::error!(concat!(
-                    "MSG ",
-                    env!("MSG_VERSION"),
+                    "WSG ",
+                    env!("WSG_VERSION"),
                     " scissor mask inserted: mask={mask:#x} map={map:#x} entries={entries} cache={cache:#x} records={records} dim={dim:#x} clip={clip:#x}"
                 ),
                 mask = done.mask, map = done.map, entries = done.entries, cache = done.cache,
@@ -100,20 +98,20 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
                 // and class test, 52 the fields.
                 if done.dim_stage != 0 {
                     log::error!(concat!(
-                        "MSG ",
-                        env!("MSG_VERSION"),
+                        "WSG ",
+                        env!("WSG_VERSION"),
                         " shade blade not added at stage {stage}"
                     ), stage = done.dim_stage);
                 }
             }
             Err(49) => log::error!(concat!(
-                "MSG ",
-                env!("MSG_VERSION"),
+                "WSG ",
+                env!("WSG_VERSION"),
                 " gauge row already carries the inserted mask marker; not inserting again"
             )),
             Err(stage) => log::error!(concat!(
-                "MSG ",
-                env!("MSG_VERSION"),
+                "WSG ",
+                env!("WSG_VERSION"),
                 " mask insertion failed at stage {stage}: instance={instance} controller={controller} gauge={gauge}"
             ),
             stage = stage,
@@ -127,8 +125,8 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
     let stage = gui::take_failure();
     if stage != 0 && stage != LAST_STAGE.swap(stage, Ordering::Relaxed) {
         log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
+            "WSG ",
+            env!("WSG_VERSION"),
             " gauge row check stopped at stage {stage}: instance={instance} controller={controller} gauge={gauge}"
         ),
         stage = stage,
@@ -136,23 +134,20 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
         controller = hooks::capture().1,
         gauge = sampling::gauge_controller());
     }
-    // Each fire means the game destroyed a gauge row's root: a hunt crosses areas through loading
-    // screens, and each area's HUD is a row of its own.
-    let tears = hooks::teardowns();
-    if tears > LAST_TEARDOWNS.swap(tears, Ordering::Relaxed) {
+    // The fill's gates refused, or a native call was refused, so the stock bar is showing.
+    if insert::take_fill_refused() {
         log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
-            " gauge row root destroyed ({tears} times); captured addresses cleared"
-        ), tears = tears);
+            "WSG ",
+            env!("WSG_VERSION"),
+            " fill refused; the stock bar shows while it stays refused"
+        ));
     }
-    // The inserted mask's links went away, which is a row dying at an area's loading screen. The
-    // mask's own enter hook is where this build can prove that, and it turns the clip off there.
+    // The inserted mask's links went away, which is a gauge row ending with its quest.
     let misses = insert::misses();
     if misses > LAST_MISSES.swap(misses, Ordering::Relaxed) {
         log::error!(concat!(
-            "MSG ",
-            env!("MSG_VERSION"),
+            "WSG ",
+            env!("WSG_VERSION"),
             " inserted mask's links lost ({misses} times); captured addresses cleared"
         ), misses = misses);
     }

@@ -9,7 +9,7 @@ from build import DRAWING_CHANGED,doctor,digest,record,source_hashes
 from mhgu_binary import Nro,main_image
 from native_support import nso_exports
 
-NRO='modern_sharpness_gauge.nro'
+NRO='world_sharpness_gauge.nro'
 HOOK=0xa494a0
 # push {r4,r5,r11,lr} then mov r4,r1: a function entry with no PC-relative
 # operand, so Forge can relocate the first eight bytes into its pool.
@@ -18,7 +18,7 @@ SIGNATURE_WINDOW=[bytes.fromhex(w) for w in
     ['30482de9','0140a0e1','801090e5','000051e3','3088bd08','8c20d0e5','010012e3','4000000a',
      '682090e5','000052e3','3700000a','00c0a0e3']]
 def symbols():
-    elf=CARGO_TARGET/'armv7a-none-eabi/release/libmodern_sharpness_gauge.so'
+    elf=CARGO_TARGET/'armv7a-none-eabi/release/libworld_sharpness_gauge.so'
     result={}
     for line in subprocess.check_output([Path(CONFIG['devkitarm'])/'bin/arm-none-eabi-nm','-n',elf],text=True).splitlines():
         fields=line.split()
@@ -57,7 +57,7 @@ def verify():
     # The local-player chain cells (main+0x188ca48 session, main+0x1885b58
     # sPlayer) live past the end of the NSO file image, in .bss, so no file
     # bytes exist to compare. They are proven from the Ghidra decompilations
-    # recorded in work/modern-sharpness-gauge/PHASE0_RESEARCH.md and each is
+    # recorded in work/world-sharpness-gauge/PHASE0_RESEARCH.md and each is
     # read through the checked mapping in src/memory.rs at runtime.
     if len(image)>0x188ca48: raise ValueError('Chain cells moved into the file image; add byte checks')
     disasm=subprocess.check_output([Path(CONFIG['devkitarm'])/'bin/arm-none-eabi-objdump','-d',elf],text=True)

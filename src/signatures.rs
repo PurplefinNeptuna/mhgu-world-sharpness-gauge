@@ -1,6 +1,6 @@
 //! Exact 32-byte windows from the original main NSO. Ghidra's imported .text differs
-//! from the target, so signatures come only from these bytes (Phase 0 records in
-//! work/modern-sharpness-gauge/PHASE0_RESEARCH.md). scripts/verify.py rechecks every
+//! from the target, so signatures come only from these bytes (recorded in
+//! work/world-sharpness-gauge/PHASE0_RESEARCH.md). scripts/verify.py rechecks every
 //! window against the supplied input before a candidate is packaged.
 pub const HOOK: u32 = 0xa494a0;
 /// The instance draw entry main+0xa39300: the caller of the walker. Its 12-word
@@ -8,10 +8,6 @@ pub const HOOK: u32 = 0xa494a0;
 /// cGUIInstance that owns the row's controller at instance+0xdc.
 /// Same 12-word pattern as the SIGNATURES entry for 0xa39300, from original main.
 pub const INSTANCE_HOOK: u32 = 0xa39300;
-/// The cGUIObjRoot destructor main+0xa486fc, vtable slot 0x04 of main+0x178f9bc.
-/// It is the gauge row's teardown: it frees the row's draw cache and deletes the
-/// root's child chain, which is where the inserted mask and its children are freed.
-pub const ROOT_DESTRUCTOR_HOOK: u32 = 0xa486fc;
 /// The cGUIObjScissorMask enter handler main+0xa4ba94, reached through the class vtable
 /// during the draw walk. It is the call that reads the mask's rectangle at +0xb0..+0xbc and
 /// applies the scissor, rebuilding that rectangle first from the node's own transform and
@@ -159,16 +155,6 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         0, 64, 159, 231, 4, 0, 160, 225,
         102, 123, 245, 235, 0, 16, 144, 229,
         28, 48, 148, 229, 16, 32, 160, 227,
-    ]),
-    // main+0xa486fc: cGUIObjRoot destructor, vtable slot 0x04 of main+0x178f9bc. It
-    // frees the row's draw cache and then deletes the root's child chain. Hook
-    // target: a push of four saved registers plus lr, then the argument copied into a
-    // saved register, so the relocated window has no PC-relative operand.
-    (0xa486fc, [
-        48, 72, 45, 233, 0, 64, 160, 225,
-        144, 0, 159, 229, 0, 0, 159, 231,
-        8, 0, 128, 226, 0, 0, 132, 229,
-        164, 80, 148, 229, 0, 0, 85, 227,
     ]),
     // main+0x7aa47c: MtDti::getAllocator, the DTI's MT allocator getter. Ghidra names it;
     // Key Quest Markers calls the same entry to allocate game-owned GUI memory. Called,
