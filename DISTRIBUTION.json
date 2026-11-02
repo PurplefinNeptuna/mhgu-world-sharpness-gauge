@@ -11,7 +11,7 @@
   "version": "r63",
   "package_name": "modern-sharpness-gauge",
   "archive": "modern-sharpness-gauge-r63.zip",
-  "runtime_test": "NOT RUN for r63. The runtime evidence is accepted r62's Eden run of 2026-11-01: installed NRO 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416, the packaged payload; the crop work/modern-sharpness-gauge/visual/r62/r62-red-1.png (sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb) shows the dark part with the notched bottom edge and the raised tail at the red tier, its kept part red (108,25,14); the retained Eden log's 578 fill lines all read shade_tex= equal to tex=, both 0.0 280.0 88.0 304.0, with one insertion at entries=7 records=13 and no panic in the window (runs/r62-eden-2026-11-01.msg-lines.txt sha256 19b089cc0973b6032257963dd030943ca1b6097ef8cdcb87481abe492c15d1f5). r63's bytes ship on static validation, with the user's explicit choice to promote without a run. r61 was never run and is withdrawn. Orange tier, Ryujinx and Switch hardware unconfirmed.",
+  "runtime_test": "Ran on Eden on 2026-11-02 (log work/shared/runs/eden-2026-11-02.txt, installed NRO matches): MSG r63 scissor mask inserted at 130.479939 and 965.056722 with entries=7 and records=13, inserted mask's links lost at 475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after ForceStop. There is no user report on its picture. The accepted runtime evidence is accepted r62's Eden run of 2026-11-01: installed NRO 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416, the packaged payload; the crop work/modern-sharpness-gauge/visual/r62/r62-red-1.png (sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb) shows the dark part with the notched bottom edge and the raised tail at the red tier, its kept part red (108,25,14); the retained Eden log's 578 fill lines all read shade_tex= equal to tex=, both 0.0 280.0 88.0 304.0, with one insertion at entries=7 records=13 and no panic in the window (runs/r62-eden-2026-11-01.msg-lines.txt sha256 19b089cc0973b6032257963dd030943ca1b6097ef8cdcb87481abe492c15d1f5). r63's bytes ship on static validation, with the user's explicit choice to promote without a run. r61 was never run and is withdrawn. Orange tier, Ryujinx and Switch hardware unconfirmed.",
   "runtime_active": true,
   "gamebanana": {
     "ai_code": {
@@ -81,7 +81,7 @@
     "the coloured part keeps the glow's halo (Txt_sharpefx at PosX 6, PosY -6, 88x32, alpha 120) and the dark part has none: the Phase 5 design question, asked and left open",
     "the worn blade at the orange tier: the accepted crop is the red tier and the retained Eden log window keeps no orange band line, so orange rides the same setter path without being seen",
     "a full session: one quest, one insertion, two scene teardowns, 578 fill lines; Ryujinx and Switch hardware unconfirmed",
-    "r63's bytes have never been run: the release is approved on static validation, so the picture it draws is inferred from accepted r62's run and from a diff that removes logging and the reads behind it",
+    "r63's bytes have one Eden log and no user report on the picture: the release is approved on static validation, so the picture it draws is inferred from accepted r62's run and from a diff that removes logging and the reads behind it",
     "the worn blade at the orange tier: the accepted crop is the red tier, and the retained Eden log window keeps no orange band line, so orange rides the same setter path unseen"
   ],
   "readme": "mods/modern-sharpness-gauge/README.md",

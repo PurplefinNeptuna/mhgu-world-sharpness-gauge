@@ -8,12 +8,12 @@ bit 17, the copy carrying the bar's sampler. 6 tree nodes, the 7-word object arr
 bytes = 13 records, and the walk emits exactly 13. 23 host fixtures pass; verify PASSED with 33 signature
 windows; distribution check PASS.
 
-r63 itself has never been run: it is r62 with the run instruments removed, promoted on static validation
+r63 is r62 with the run instruments removed, promoted on static validation
 by the user's choice. Runtime evidence is r62, accepted on Eden on 2026-11-01 at the red tier ("looks
 correct now, please pin this version as candidate for release"), at
 `build/modern-sharpness-gauge/candidates/r62/` (NRO `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`). Payload NRO
 `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`. `DISTRIBUTION.json` holds the status
-and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log lines.
+and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log lines. Ran on Eden on 2026-11-02 (log `work/shared/runs/eden-2026-11-02.txt`, installed NRO matches): `MSG r63 scissor mask inserted` at 130.479939 and 965.056722 with `entries=7` and `records=13`, `inserted mask's links lost` at 475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after `ForceStop`. There is no user report on its picture.
 
 The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
 slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner

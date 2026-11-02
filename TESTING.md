@@ -21,7 +21,7 @@ r62's. The point of the run is that removing the logging does not disturb the pi
    `entries=7` and `records=13` are the same tree as the accepted run.
 4. If the game faults, send the log.
 
-r63 was released on static validation: the tester approved the promotion without a run, so r63 has no
+r63 was released on static validation and has since run on Eden (2026-11-02, log only), so it has no
 gameplay acceptance of its own - the picture it draws is the accepted r62's, and the byte change is
 logging only. Still open: an orange crop (the accepted crop is red), the shade across a sharpening in
 one crop, the dark part's missing halo as a design question, and Ryujinx and a real Switch.
