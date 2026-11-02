@@ -40,8 +40,8 @@ pub const SHARPNESS_TYPE: u32 = 5_104;
 // not part of the identity. The gauge identity tuple is identical in every
 // inspected language archive and in the HD copy, so identification never uses
 // names, strings or a language prefix.
-/// A full gauge, in the basis points `basis_points` returns: the tip's screen position is
-/// the cut box's width here, and the hidden blade is everything past it.
+/// The fill math in `band_bp` returns: the tip's screen position is the cut box's width here,
+/// and the hidden blade is everything past it.
 pub const FULL_SHARPNESS_BP: u32 = 10_000;
 
 pub const SHARP_ANIMATION: u32 = 4;
@@ -131,17 +131,71 @@ pub fn read_gauge(memory: &dyn Memory, player: u32) -> Option<Gauge> {
     })
 }
 
-/// The fill as integer basis points, so the runtime never formats a float:
-/// `current * 10_000 / maximum` clamped to `0..=10_000`. A positive maximum is
-/// required before any division; depletion below zero draws empty and an
-/// above-maximum value draws full. A zero, negative or unreadable maximum is
-/// unsupported state and yields None, which leaves the native gauge alone.
-pub fn basis_points(gauge: Gauge) -> Option<u32> {
-    if gauge.maximum <= 0 {
+/// The band of points the game's own tier rule puts `current` in, as `(floor, ceiling]`: `floor`
+/// is the last point of the tier below (0 in the lowest tier) and `ceiling` the last point of this
+/// tier, never above `maximum`.
+///
+/// The band comes from binary search on `tier_of`, which the plugin runs through
+/// `uPlayerBase::calculateSharpnessType` (main+0x29cdfc): no weapon, level or table layout is read
+/// here, and the game's own gates apply. The rule that function reaches (`main+0xf4794`) counts
+/// the thresholds strictly below the points, so it is monotonic and every kireaji row is monotonic;
+/// points sitting exactly on a threshold answer with the tier below, which is why `ceiling` is a
+/// point of this tier. In the fixed-tier state that rule answers tier 0 for any points, and the
+/// band is then `0..=maximum`, the same bar the accepted build drew.
+///
+/// The `ceiling` clip to `maximum` is the whole answer for sharpness buffs: `Sharpness_Plus1/2` and
+/// the soul skills raise `mMaxSharpness`, so the top band stops partway through its tier and can
+/// read full there. Without the clip the top band of a buffed weapon could never read full.
+///
+/// A probe `tier_of` cannot read ends the search with `None`, the caller's unsupported state.
+pub fn tier_band(
+    current: i32,
+    maximum: i32,
+    tier_of: &dyn Fn(i32) -> Option<u32>,
+) -> Option<(i32, i32)> {
+    if maximum <= 0 {
         return None;
     }
-    let points = (gauge.current as i64).checked_mul(10_000)? / gauge.maximum as i64;
-    Some(points.clamp(0, 10_000) as u32)
+    let current = current.clamp(0, maximum);
+    let tier = tier_of(current)?;
+    // The smallest point of this tier, and so the top of the tier below.
+    let (mut low, mut high) = (0, current);
+    while low < high {
+        let middle = low + (high - low) / 2;
+        if tier_of(middle)? < tier {
+            low = middle + 1;
+        } else {
+            high = middle;
+        }
+    }
+    let floor = (low - 1).max(0);
+    // The largest point of this tier, inside the maximum the game clamps points to.
+    let (mut low, mut high) = (current, maximum);
+    while low < high {
+        let middle = low + (high - low + 1) / 2;
+        if tier_of(middle)? > tier {
+            high = middle - 1;
+        } else {
+            low = middle;
+        }
+    }
+    (low > floor).then_some((floor, low))
+}
+
+/// The bar's fill in integer basis points, measured inside the band: the points of the band below
+/// `current` over that band's whole width, so the bar refills at every colour and the game's own
+/// tier colour keeps matching it. Depletion below zero draws empty and an above-maximum value
+/// draws full, as before; a `maximum` of zero or less, or a tier the native rule cannot answer, is
+/// unsupported state and yields `None`, which leaves the native gauge alone. Nothing is divided by
+/// an unverified band width.
+pub fn band_bp(
+    current: i32,
+    maximum: i32,
+    tier_of: &dyn Fn(i32) -> Option<u32>,
+) -> Option<u32> {
+    let (floor, ceiling) = tier_band(current, maximum, tier_of)?;
+    let points = (current.clamp(0, maximum) - floor) as i64;
+    Some((points * 10_000 / (ceiling - floor) as i64).clamp(0, 10_000) as u32)
 }
 
 pub fn is_sharp_animation(animation: u32, objects: u32, first_object: u32, sequences: u32) -> bool {

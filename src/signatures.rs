@@ -18,6 +18,12 @@ pub const ROOT_DESTRUCTOR_HOOK: u32 = 0xa486fc;
 /// authored pair while `+0xa4` bit 1 is set, so it is the point where written inputs are
 /// certain to be the ones that get applied.
 pub const MASK_ENTER_HOOK: u32 = 0xa4ba94;
+/// `uPlayerBase::calculateSharpnessType`, `(player, s32 points) -> u32 tier`: the game's own
+/// points-to-tier rule. The fill calls it, never hooks it, and its 32-byte window below is one of
+/// the required signatures, so no call happens unless these bytes are in place. It tail-calls the
+/// level object's vtable slot 0x84 (main+0xf4794) with the points, and returns 0, the red tier, on
+/// every gate and lookup failure.
+pub const CALCULATE_SHARPNESS_TYPE: u32 = 0x29cdfc;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     // main+0xa494a0: draw walker entry; the hook target. A push of four saved
     // registers plus lr, so the relocated window has no PC-relative operand; unique
@@ -91,7 +97,9 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         30, 255, 47, 225, 0, 0, 160, 227,
         30, 255, 47, 225, 0, 0, 160, 227,
     ]),
-    // main+0x29cdfc: uPlayerBase::calculateSharpnessType
+    // main+0x29cdfc: uPlayerBase::calculateSharpnessType; the fill's points-to-tier call. Its
+    // window contains a relative `bl`, which is fine for a compare window and fatal only for a
+    // relocated hook, and nothing hooks this function.
     (0x29cdfc, [
         240, 72, 45, 233, 1, 64, 160, 225,
         1, 16, 160, 227, 0, 96, 160, 225,

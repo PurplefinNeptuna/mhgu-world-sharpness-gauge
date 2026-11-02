@@ -25,7 +25,7 @@ use crate::{gui, memory, sampling};
 use core::sync::atomic::{AtomicU32, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
-    basis_points, cut_box, dim_box, NODE_CHILD, NODE_DRAWABLE, NODE_PARENT, NODE_RECT, NODE_SIBLING,
+    cut_box, dim_box, NODE_CHILD, NODE_DRAWABLE, NODE_PARENT, NODE_RECT, NODE_SIBLING,
     NODE_TEXTURE_RECT,
 };
 
@@ -548,11 +548,12 @@ pub fn enter(mask: u32) {
         return;
     }
     let (dim, clip) = (DIM.load(Ordering::Relaxed), CLIP.load(Ordering::Relaxed));
-    // The live fill: the local player's own sharpness points, read fresh in this call through
-    // the same checked mapping discovery uses. No valid gauge - no player yet, a zero maximum,
-    // points above the maximum - is unsupported state, so the clip is turned off here and the
-    // native gauge is left as the game draws it.
-    let ratio = match sampling::live_gauge().and_then(|gauge| basis_points(gauge)) {
+    // The live fill: the local player's sharpness points measured inside the tier band they sit
+    // in, so the bar refills at every colour change while the game keeps colouring it. No fill -
+    // no player the session still names, a zero maximum, a tier the native rule cannot answer -
+    // is unsupported state, so the clip is turned off here and the native gauge is left as the
+    // game draws it. `sampling::fill` runs its safety gates before any native call.
+    let ratio = match sampling::fill() {
         Some(bp) => bp,
         None => {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);

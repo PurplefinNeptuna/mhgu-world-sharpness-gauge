@@ -1,9 +1,10 @@
 # Modern Sharpness Gauge
 
-The mod turns the sharpness bar into a continuous gauge. Full sharpness shows the whole blade.
-Every hit cuts the blade back a little from the tip toward the hilt, and empty sharpness leaves
-only the hilt. Sharpening moves the cut back toward the tip. The coloured part keeps the game's
-own colour, pulse, glow and edge glyph.
+The mod turns the sharpness bar into a continuous gauge. The bar measures the blade inside the colour
+it has, so it refills at every colour change: the blade is shorter at each colour, and the bar is full
+at the top of each one. Every hit cuts the blade back a little from the tip toward the hilt, and empty
+sharpness leaves only the hilt. Sharpening moves the cut back toward the tip. The coloured part keeps
+the game's own colour, pulse, glow and edge glyph.
 
 The part of the blade past the cut is drawn in dark grey-blue, in the same blade shape. At orange
 and red it shows the same worn notches as the coloured part. It has no glow and does not pulse.
@@ -18,21 +19,23 @@ else on the HUD changes, and there is nothing to set up.
 ## Installation
 
 1. Close the emulator.
-2. Extract `modern-sharpness-gauge-r63.zip`.
+2. Extract `modern-sharpness-gauge-r64-candidate.zip`.
 3. Copy the whole `modern-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `modern-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r63`
+Open Forge's overlay and check **Loaded Plugins**: `Modern Sharpness Gauge r64`
 should be listed.
 
 ## Usage
 
-Start a quest with a melee weapon that has sharpness, and play normally. As the blade dulls, the
-coloured part gets shorter and the dark part grows from the tip. When you sharpen, the coloured
-part grows back.
+Start a quest with a melee weapon that has sharpness, and play normally. The bar measures the blade
+inside the colour it has, so each colour starts full: hits walk the bar down to the colour below, and
+a blade that is short at green shows a full bar there. Sharpening fills the bar back up in the new
+colour, and a tier change moves it straight away, without easing. Sharpness +1 and +2 and the soul
+skills raise the maximum; a weapon fresh from the box shows the colour that maximum reaches as full.
 
 Each area of a quest builds its own gauge behind its loading screen, and the mod sets up each new
 gauge as it appears.

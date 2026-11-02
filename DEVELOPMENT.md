@@ -1,19 +1,31 @@
 # Modern Sharpness Gauge: development
 
-**Current state.** r63, READY_TO_DISTRIBUTE, the mod as it ships: the accepted cut and the accepted shade.
-The shade's atlas window is the bar's own live four floats - `u` = `0..88` of the authored 88, `v` = the
-bar's current tier band - published through the `mTextureRect` setter every frame. The shade is the clip
-mask's sibling, one clip mask with the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying
-bit 17, the copy carrying the bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104
-bytes = 13 records, and the walk emits exactly 13. 23 host fixtures pass; verify PASSED with 33 signature
-windows; distribution check PASS.
+**Current state.** r64, DEVELOPMENT candidate: the accepted cut, the accepted shade, and a bar whose
+length is measured inside the tier band its points sit in. The fill is
+`(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and
+`ceiling` the top of this tier clipped to `mMaxSharpness`, so the bar refills at every colour change
+and a raised maximum reads full partway through its tier. The band is not read from a table: it is
+found by binary search on the game's own points-to-tier function `calculateSharpnessType`
+(main+0x29cdfc), which is called, never hooked, behind its 32-byte signature window and three safety
+gates (see *Fill, per tier* below). The cut, the shade and the colour code are untouched: the ratio
+feeds the same `cut_box` and `dim_box`. No settings, no panel. The shade's atlas window is the bar's
+own live four floats - `u` = `0..88` of the authored 88, `v` = the bar's current tier band - published
+through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask
+with the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying
+the bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and
+the walk emits exactly 13. 29 host fixtures pass; verify PASSED with 33 signature windows; the
+distribution check is the gate for packaging.
 
-r63 is r62 with the run instruments removed, promoted on static validation
-by the user's choice. Runtime evidence is r62, accepted on Eden on 2026-11-01 at the red tier ("looks
+The runtime evidence on screen is accepted r62's Eden run of 2026-11-01 at the red tier ("looks
 correct now, please pin this version as candidate for release"), at
-`build/modern-sharpness-gauge/candidates/r62/` (NRO `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`). Payload NRO
-`202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`. `DISTRIBUTION.json` holds the status
-and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log lines. Ran on Eden on 2026-11-02 (log `work/shared/runs/eden-2026-11-02.txt`, installed NRO matches): `MSG r63 scissor mask inserted` at 130.479939 and 965.056722 with `entries=7` and `records=13`, `inserted mask's links lost` at 475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after `ForceStop`. There is no user report on its picture.
+`build/modern-sharpness-gauge/candidates/r62/` (NRO `51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416`,
+payload `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`); r63 is that drawing with
+the run instruments removed, released on static validation, logged on Eden on 2026-11-02
+(`work/shared/runs/eden-2026-11-02.txt`, installed NRO matching): `MSG r63 scissor mask inserted` at
+130.479939 and 965.056722 with `entries=7` and `records=13`, `inserted mask's links lost` at
+475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after `ForceStop`. r64's
+fill has not been run. `DISTRIBUTION.json` holds the status and hashes, `EVIDENCE.json` the exact
+results, `TESTING.md` the tester steps and log lines.
 
 The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
 slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner
@@ -46,28 +58,31 @@ Inputs come from `build.local.json` (`main`, `sdk`, `forge` under `inputs`,
 copied from `work/shared/game-exefs/`); `build.local.example.json` documents
 the keys. Outputs go to `build/modern-sharpness-gauge/candidates/VERSION/` and
 scratch to `work/modern-sharpness-gauge/candidates/VERSION/`, where VERSION is
-`scripts/paths.py`'s current version. `package` refuses to run for a
-`READY_TO_DISTRIBUTE` spec: no distribution approval exists.
+`scripts/paths.py`'s current version. `package` runs the builder for a
+`DEVELOPMENT` spec and refuses a `READY_TO_DISTRIBUTE` one.
+`./build.sh test` runs the host fixtures for `x86_64-unknown-linux-gnu` and then
+`verify`, so it must run after `build` and before `package`.
 
-r63's source comments were corrected after its release, with no
-line added or moved. A scratch rebuild of the corrected source gives the released
-NRO `202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f`, so the bytes
-are unchanged, while the `source_sha256` values in r63's `build.json` still name the
-source as it stood at the build.
+The native facts the fill rests on are re-checked against the original bytes by
+`work/modern-sharpness-gauge/scripts/verify_tier_gauge.py`: the 0x29cdfc window and that it is unique
+in the image, its ABI and failure returns, the gate's two unchecked dereferences, the tier rule's
+seven strict compares, the init's maximum formula and the two field offsets, and all 164 kireaji rows
+for monotonicity, with the tester's log samples and the brief's example weapon carried as fixtures.
 
 ## Files
 
 - `core/src/lib.rs`: `#![no_std]` decisions only: the local-player chain, the
-  gauge read, the fill math in basis points, the gauge-HUD identity, the cut
-  box from the accepted rect offsets, the node count and cache sizing the
-  insertion gates on, the walker ports the fixtures pin, and the copied `Sample`
-  with its 11 field names. No Forge, no FFI, no `unsafe`.
-- `core/tests/behavior.rs`: 23 host fixtures over a fake memory map.
+  gauge read, the band search and the fill in basis points, the gauge-HUD
+  identity, the cut box from the accepted rect offsets, the node count and cache
+  sizing the insertion gates on, the walker ports the fixtures pin, and the copied `Sample`
+  with its 11 field names. No Forge, no FFI, no `unsafe`: the band arrives through a
+  `&dyn Fn(i32) -> Option<u32>` the plugin fills with the native call.
+- `core/tests/behavior.rs`: 29 host fixtures over a fake memory map and plain tier rules.
 - `src/hooks.rs`: the four Forge hooks (walker, instance draw, row root
   destructor, mask enter), their signature gate and rollback.
 - `src/sampling.rs`: discovery in the walker's hot path: the slow attempt
-  cadence, the captured controller and player, the gauge-present gate, and the
-  capture's teardown.
+  cadence, the captured controller and player, the gauge-present gate, the capture's
+  teardown, and the per-frame fill with the three gates in front of its native calls.
 - `src/gui.rs`: the row gates 21..34 and the retry cadence.
 - `src/insert.rs`: the mask, clip mask and copy, the map and cache growth, the
   per-frame writes at the mask's enter handler, and the liveness checks.
@@ -99,9 +114,14 @@ bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0x61912c` | HUD widget driver, a required signature only; its case 8 reads `+0x2784` through vtable `+0x1a0`, not the tier | batch 2, bytes |
 | `0x62bb0c` | the gauge's sequence driver: tier through vtable `+0x1fc`, clamped to 6, indexes `0x1638ecc` or, with `player+0x2844 & 0x200`, `0x1638ee8` | vtable word `0x177633c`, bytes |
 | `0x26893c` | `uPlayerBase::getSharpnessType`, returns `mSharpnessType` | batch 2 |
-| `0x29cdfc` | `uPlayerBase::calculateSharpnessType` | batch 2 |
+| `0x29cdfc` | `uPlayerBase::calculateSharpnessType`, `(player, s32 points) -> u32 tier`, 196 bytes: the fill's band call. Called, never hooked; its window is a required signature. Gate `0x27c7ec(player, 1)` nonzero → 0; fixed-tier `0x27b918` picks vtable `+0x144`, else the equip record's `+0x4` field `(& 0x3ff) >> 5` goes to vtable `+0x84` with the points; every gate and lookup failure returns 0, the red tier. No store in the body | window unique in `.text`; disassembly bytes |
+| `0x27c7ec` | the gate that call runs first: case 1 loads `*(player+0x13c4)` and reads the byte at `+0x4d4`, and answers 1 for the values `(v-4) & 7` that bit 0x47 selects | bytes `main+0x27c844..0x27c86c` |
+| `0x27b918` | the fixed-tier state: `(byte at player+0x13cc >> 3) & 1`; its meaning is unread | bytes |
+| `0xdf814` | not a dereference: `(cell, index) -> cell + index * 44 + 20`, the equip-record address the band call indexes | bytes |
+| `0xf4794` | level object slot 0x84, the tier rule: counts the thresholds `i` in 0..6 with `threshold[i] < points`, unsigned and strict, and answers 7 only when all seven are below; 23 vtable words equal it | bytes, `research word 0xf4794` |
+| `0xf4724` | level object slot 0x80, the threshold lookup: the u16 at `row + 4 + 2*i` of the row picked by slot 0x20, through the data singleton (`0x13f290`, then `0x12db78`) | bytes |
 | `0x2ad288` | `uPlayerQuest::adjustSharpness`, the writer of `mSharpness` during a quest | batch 2 |
-| `0x29b7d4` | player init: the only non-zero writer of `mMaxSharpness`, and it sets `mSharpness` to it | bytes, scan of `.text` for the offset |
+| `0x29b7d4` | player init: the only non-zero writer of `mMaxSharpness` (`+0x2778` = 10104) as `min(vft+0x15c(player, 14) * 25 + 150, 450)`, and it sets `mSharpness` (`+0x2774` = 10100) to the same value, then `calculateSharpnessType` into `+0x13f0` (5104) | bytes at `0x29b870..0x29b8bc`, scan of `.text` for the offsets |
 | `0x3f8398` | local hunter index reader over the session singleton | batch 3 |
 | `0x276278` | `sPlayer::getMainPlayer` | batch 3 |
 | `0xa4faf0`, `0xa4fb58` | `cGUIObjTexture` setTexture / setTextureRect | batch 3, bytes |
@@ -121,8 +141,9 @@ Runtime state read by the hook:
 | `main+0x188ca48` | session singleton; `+0x30` is the local hunter index, valid 0..3 |
 | `main+0x1885b58` | `sPlayer` singleton; `+0x1c + 4*index` is the local player pointer |
 | player `+10100` | `uPlayerQuest::mSharpness`, signed points |
-| player `+10104` | `uPlayerQuest::mMaxSharpness`, signed points |
-| player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index: 0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple (mapping from the tester, 2026-10-22). A tier is a per-weapon segment of points |
+| player `+10104` | `uPlayerQuest::mMaxSharpness`, signed points: `min(stat 14 * 25 + 150, 450)`, written once by init and by nothing else, so it never changes inside a quest. Stat 14 (`s16` at `mpPlParam + 0x338`) carries the weapon's sharpness level plus the skill bonus, and `0xe1eec` caps it at 12 |
+| player `+5104` | `uPlayerBase::mSharpnessType`, unsigned tier index: 0 red, 1 orange, 2 yellow, 3 green, 4 blue, 5 white, 6 purple (mapping from the tester, 2026-10-22). A tier is a per-weapon segment of points. The fill does not read this field: 67 sites build the offset and only about 10 were opened, so its writers are not fully known |
+| player `+0x13c4` | the param cell `calculateSharpnessType` loads; the byte at that pointer `+ 0x4d4` is the sharpness state its gate reads. Both are read by the fill's third gate before the first native call |
 | controller `+0x68/+0x80/+0x8c/+0x9c/+0xa0` | tree root, draw cache, rebuild flags, animation row, map alias |
 | row `+0/+4/+0xc/+0x14` | animation id; counts packed in one word (objects low u16, sequences high u16); first object row; the word at `+0x14` is a pointer into the sequence block, not a row index |
 | node `+0x54` | flag word: `.agents/skills/mhgu-understanding/references/native-gui.md` has the bits |
@@ -154,16 +175,27 @@ above and is read through the mapping query at runtime.
 - Discovery cadence: one attempt every 60 walker calls, so a few fractions of a
   second per HUD. Nothing is queued, and `FIELDS` names the copied words;
   formatting and logging happen only in `forge_onUpdate`.
-- Fill math, in `core`: require a live player and a maximum `> 0`, compute in
-  `i64` basis points, clamp to 0..=10000. A zero, negative, missing or
-  above-maximum state yields no ratio; above maximum draws full, depletion
-  floors at empty. Nothing is ever divided by an unverified maximum.
+- Fill math, in `core`: require a maximum `> 0`, find the band by binary search on the supplied
+  points-to-tier function, compute `(current - floor) * 10_000 / (ceiling - floor)` in `i64`, clamp
+  to `0..=10000`, and keep every probe inside `0..=maximum`. A zero, negative, missing or
+  above-maximum state yields no ratio; above maximum draws full, depletion floors at empty. Nothing
+  is divided by an unverified band width, and no native call happens before `src/sampling.rs`'s gates.
+- Native calls run only in the mask's enter handler, from `sampling::fill`: about 18 per frame
+  (two searches over at most 450 points), each behind `memory::executable`. Nothing is cached, so a
+  weapon change needs no invalidation; add a band cache keyed by `(points, maximum, tier)` only if a
+  run shows a cost.
 
 ## Accepted shape
 
-- **Scope, set by the tester.** The bar's length is `current / maximum` and nothing else. The mod computes
-  no tier and picks no colour; the tier colour stays the game's. The native HUD is untouched in every
-  unsupported state.
+- **Scope, set by the tester.** The bar's length is the fill inside the tier band its points sit in.
+  The tester's words: "the bar is per tier, so for example, weapon with purple tier max, the bar will
+  show the fill as between max sharpness, and the sharpness point at white, then it became full again
+  until it reach sharpness point for blue, etc.", "coloring is already managed by game, so you only
+  need to control the bar", "dont forget any buff that might increase sharpness and might change how
+  the calculation at max tier sharpness", and "thin band sharpness tier are okay, the need is
+  approximation, so jumpy is okay, no need for fancy smooth animations or lerp". So the computed fill
+  is published directly: nothing is smoothed, interpolated or animated. The mod picks no colour,
+  touches no animation sequence, and leaves the native HUD alone in every unsupported state.
 - **Tree.** The controller's first child is the mask over bar, glow and edge; the clip mask is the mask's
   sibling, with the copy as its child. The walk emits mask enter, bar/glow/edge enter+exit, mask exit, clip
   enter, copy enter/exit, clip exit, terminator, so the copy is outside the accepted scissor and inside its
@@ -195,6 +227,47 @@ above and is read through the mapping query at runtime.
   read-only; on failure it runs `hooks::teardown_gauge_row`, so the next row is read and inserted like the
   first. The mask's enter disables a mask whose links are gone. Forge has no plugin unload, so nothing is undone at removal.
 
+## Fill, per tier
+
+The ratio at `src/insert.rs`'s mask enter is the fill inside the band; the cut, the shade and the
+colour code are untouched, because `cut_box` and `dim_box` take the same number.
+
+```text
+tier    = the game's own rule on the current points        (0 red .. 6 purple)
+floor   = the top of the tier below, 0 in tier 0
+ceiling = the top of this tier, clipped to mMaxSharpness
+fill    = (current - floor) * 10_000 / (ceiling - floor)
+```
+
+The band is found by binary search on `calculateSharpnessType` (main+0x29cdfc), so the mod reads no
+weapon id, level row or kireaji table, and the game's own gates apply. Points sitting exactly on a
+threshold answer with the tier below, which is why `ceiling` is a point of the tier it closes; the
+tier rule (`main+0xf4794`) counts thresholds strictly below the points, and all 164 kireaji rows are
+monotonic, so the rule is monotonic and the search is sound. In the fixed-tier state
+(`main+0x27b918`) the rule answers tier 0 for any points, and the fill is then `current / maximum`,
+the accepted bar. A band of 5 points moves the bar about 14 px per point and then drops to the next
+tier at full; 70 of the 164 rows have a zero-width band and the rule never lands in one.
+
+The `ceiling` clip to `mMaxSharpness` is the whole buff answer, because that field is what the game
+clamps points against:
+
+| Effect | Source | What it does to the bar |
+| --- | --- | --- |
+| `Sharpness_Plus1`, `HonedBlade`, `BoltreaverSoul(X)` | `0xe1eec` | +1 level = +25 maximum, read through `mMaxSharpness` |
+| `Sharpness_Plus2`, `HellbladeSoul(X)` | `0xe1eec` | +2 levels = +50 maximum, and takes precedence over the +1 group |
+| Level cap | `0xe1eec` | Level 12, so 450 maximum. A bonus on a level 12 row adds nothing, and no melee row is level 11 |
+| Whetstone and any positive `adjustSharpness` amount | 14 call sites | Current only, clamped to the maximum; sharpening has no partial steps (tester) |
+| `RazorSharp`, `StonefistSoul(X)`, `SteadyHand`, `NightcloakSoul(X)`, `BluntEdge` | `0x2ad288` | The rate of loss only |
+| `ChallengeSheath` | `0x2ac990` | A random gain on a condition; current only |
+| `HeavyPolish` | `0x2ad288`, timer `+0x277c` | Zeroes the loss while the timer runs; its flag `+0x2844 & 0x200` switches the colour sequence to the static set. No threshold and no maximum change |
+
+Example, great sword level id 149 with kireaji row 119 (`30 100 250 330 410 430 450`): maximum 400
+ends tier 4 blue at 400, +1 gives 425 in tier 5 white, +2 gives 450 in tier 6 purple, and each reads
+full at its maximum. Fixtures in `core/tests/behavior.rs` reproduce the tester's logged samples
+(150, 131, 130, 100, 90, 8, 0 at maximum 150 on kireaji row 10, fills 10000, 500, 10000, 2500, 10000,
+888, 0), the three buffed maxima, a `..., 450, 450` row at 450, and constant tier 0 as `current / maximum`.
+No saved log was identified as using a Sharpness skill, so the +1 and +2 paths have no runtime check.
+
 ## Sharpness chain
 
 `adjustSharpness` (main+0x2ad288) fires event `0x1c` (tier down), `0x1d` (tier up) or `0x1e` (reached the
@@ -211,6 +284,20 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Do not
 
+- **Call native code on a player that has not passed the fill's gates.** `calculateSharpnessType`
+  dereferences `player + 0x13c4` (main+0x29ce34) and then `+ 0x4d4` (main+0x27c848, main+0x27c84c)
+  with no check, so a stale capture can fault the game. `sampling::fill` re-derives the player from
+  the session and requires it to equal the capture, requires a positive maximum, and requires both
+  pointers to read, in that order, before its first call.
+- **Take the maximum from stat 14, a level row or the kireaji table.** `mMaxSharpness` is what the
+  game clamps points against. `0xe1eec` is also reached from the player update path `0x27b9c8`, and
+  rerunning it does not move `mMaxSharpness`.
+- **Read `mSharpnessType` for the fill.** The stored tier is not the band, and 67 sites build that
+  offset while only about 10 were opened, so its writers are not fully known.
+- **Smooth, interpolate or animate the fill.** "jumpy is okay, no need for fancy smooth animations
+  or lerp" (tester). The computed fill is published as it is.
+- **Cache the band between frames.** It depends on the points, the maximum and the fixed-tier state,
+  so a cache needs its own invalidation; the ~18 native calls per frame have no measured cost.
 - **Leave the glow and edge outside the mask, or set only the rebuild bit.** A mask whose tree never closes has no exit record, so its scissor never ends; `a_mask_left_open_never_stops_clipping` pins that shape. `+0xa4` bit 1 only rebuilds, and bit 0 asks for the scissor.
 - **Publish a mask's links before the mask.** A parent chain that ends at 0 or a parent cycle is fatal to a rebuild on the draw thread, so publish the mask first. Grow map and cache before linking.
 - **Re-read the row after insertion with the gates written for the tree before it.** The per-frame path must accept the inserted tree, and `read_row` detects the marker for that.
@@ -248,6 +335,17 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Open items
 
+- **The bar and the colour on the same frame.** `mSharpnessType` changes inside `adjustSharpness` and
+  the sequence driver (main+0x62bb0c) reads it live, but its order against the draw is unread. If it
+  runs a frame later, a tier drop shows one frame of a full bar in the old colour. Only a crop or a
+  slow capture can show this; if it is visible, read the driver's order before changing anything.
+- **The fixed-tier state.** `0x27b918` (the low nibble of `player + 0x13cc`, bit 3) makes the tier
+  rule answer 0 and the maximum 150 with no sharpness change; its meaning is unread. The band design
+  handles it without knowing what it is.
+- The fill calls native code on the draw walker's thread, roughly 18 checked calls per frame while
+  the gauge is visible: the thread is one thread by static reading, still unconfirmed at runtime, and
+  the gates above are the mitigation. A test build comparing the current thread in the walker and in
+  `forge_onUpdate` would confirm it.
 - The draw walker's thread: one thread by static reading, unconfirmed at runtime. `forge_onUpdate` runs after
   `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c
   main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot

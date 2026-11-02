@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "mod": "modern-sharpness-gauge",
-  "version": "r63",
+  "version": "r64",
   "kind": "plugin",
   "runtime_platform": "forge-switch",
   "status": "DEVELOPMENT",
@@ -14,7 +14,9 @@
       "ghidra-batch3"
     ],
     "ai_assistance": "DeepSeek Harness; see THIRD_PARTY.md",
-    "phase2_research": "work/modern-sharpness-gauge/PHASE2_RESEARCH.md"
+    "phase2_research": "work/modern-sharpness-gauge/PHASE2_RESEARCH.md",
+    "tier_gauge_research": "work/modern-sharpness-gauge/TIER_GAUGE_RESEARCH.md",
+    "tier_gauge_fact_check": "work/modern-sharpness-gauge/scripts/verify_tier_gauge.py"
   },
   "game": {
     "title_id": "0100770008DD8000",
@@ -146,12 +148,27 @@
       "release_zip_sha256": "998462185db66966042c05df818828b0d2387f659a7c8fa98bc2f2f9e267f452",
       "release_zip_sha256_before_readme_refresh": "b344b9fd184ddd0680e438fdc844bca21e35730794fe3139ee57ea2f2ab67441",
       "release": "build/modern-sharpness-gauge/releases/r63/modern-sharpness-gauge-r63.zip"
+    },
+    "r64": {
+      "nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
+      "runtime": "NOT RUN. Preparing r64 installed, activated, launched, published and pushed nothing; the fill has never been seen on screen",
+      "adds": "the per-tier fill: core::tier_band and core::band_bp replace core::basis_points, and the ratio at src/insert.rs\u2019s mask enter is the fill inside the band. The band is binary search on the game\u2019s own points-to-tier function calculateSharpnessType (main+0x29cdfc), called behind its signature window and three gates in src/sampling.rs: the session\u2019s own player equal to the capture, read_gauge with a positive maximum, and both pointers that function dereferences (player+0x13c4, that +0x4d4) read through the mapping check. The cut, the shade, the colour code, the tree, the hooks and the logging are accepted r63\u2019s",
+      "tests": "29 host fixtures passed, including the tester\u2019s log samples, the three buffed maxima, a zero-width top band, constant tier 0 as current/maximum, an unreadable probe giving no ratio, and every probe inside 0..=maximum",
+      "verification": "verify.py PASSED: 33 signature windows against the hash-checked main, unique hook window, exact export set, resolved imports, no MSR, no DT_TEXTREL, one-file payload",
+      "limitations": [
+        "the per-tier fill has not been run",
+        "no saved log was identified as using Sharpness+1 or +2, so the raised-maximum paths have no runtime check",
+        "the tier change against the draw is unread, so a tier drop could show one frame of a full bar in the old colour",
+        "the fill calls native code about 18 times per frame on the draw thread; no measured cost",
+        "the fixed-tier state answers tier 0 for any points and its meaning is unread"
+      ],
+      "status": "DEVELOPMENT candidate. Registered at build/modern-sharpness-gauge/candidates/r64/delivery; no distribution approval. Accepted r63 is kept at build/modern-sharpness-gauge/releases/r63 and its bytes are archived under backups/accepted/modern-sharpness-gauge/r63-before-tier-band/"
     }
   },
   "build": {
-    "version": "r63",
+    "version": "r64",
     "status": "BUILT",
-    "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f",
+    "nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
     "forge_rs_revision": "d1865b68e9b194eb3eacc8bd71bbf601a5fac63e",
     "runtime_active": true,
     "drawing_changed": true,
@@ -161,16 +178,16 @@
       ".cargo/config.toml": "f6a8921cede665cd4d67f8da70ef86bcf78700371a84216bb6b0fc036c3e442b",
       "armv7a-none-eabi.json": "92c46f0a6f6568e4e736094b24fa1415cf1135662bceb9627d4ff2fada852e9a",
       "build.rs": "501d49df09658d94e5a06d8291de964a54d736409f808c6e5a8b8e098191c67e",
-      "src/gui.rs": "f65305a0057e57ef44548a62a1b9bb5ff61615b126ea3b4850cfe6feac9abe3b",
-      "src/hooks.rs": "47f0c03f738012fde4d80b3002a14a391a0bc24a1cfd420517dffbf7a39cf545",
-      "src/insert.rs": "bb09933af38107af4352f77957e7c8568d868dea4d01ca1cb8b31e83d0e77253",
+      "src/gui.rs": "0fa6648198e525bec79ef6e28724d6a72c887350f636878d58dfedc05855b800",
+      "src/hooks.rs": "1ae50851d48dd980e272bc25775cc1f7546e89b3c9b492788160c6a9002676c5",
+      "src/insert.rs": "28f5c50cc2adc65ac6c3699a2106f11e59d2c296d450ef03a1d45740b77a79d3",
       "src/lib.rs": "3295fa9284509030e12c57540c9b051117af1a5b1dc0150c53e787247b0ad555",
       "src/memory.rs": "42a973c6a0a48f806ca9267abf415eda87f176d8a51381cc35a4c06fe37d443c",
-      "src/sampling.rs": "0ab041627f712dd46e7023892a66d45793d339f9c8b1cb5eb385d523df0b3b97",
-      "src/signatures.rs": "4bc9ee37a5b81ae869966fc107edd4c28ed6c9395e163358feb853d8e585fda7",
+      "src/sampling.rs": "18acd5e3a0cdc4913168d49bb2134bdae10ba080a8aed1e4738d3eea4de5a35d",
+      "src/signatures.rs": "a7beaf0d2b7663693a7f15351008e8f050a26da08fdbddb751d5544ce3ae3453",
       "src/svc.S": "4dd152c659c8dec0c0bed74e485a041734288d19da81d81b94358bef3abf76b2",
-      "core/src/lib.rs": "a9948f757b8120421076b464fa0af01ac02df997cc67e698d5acdac6d192427e",
-      "core/tests/behavior.rs": "68fa908aad1d830da3f3bdadef0f2bbe9b4ebc49e79676ca41ecb168086acbdb",
+      "core/src/lib.rs": "19c1e8eb3f1c334cc1397dfb70282bc68492dfbae5d1d69c4ddf63bef6942e9f",
+      "core/tests/behavior.rs": "89f6a9614168b22557510258826a0c9d0486125a9a4d7852c58581346da8ac39",
       "link/exported.txt": "bc8ae60be80bf5472c8afd251d6a5b4eaf2aa51be703674f54f7569a17f7ef5c",
       "link/switch32.ld": "dfa3102bf0a910ad89aaa60e286153a087f44d74cb19c5f694a9542866540aa5"
     },
@@ -178,113 +195,46 @@
   },
   "verify": {
     "status": "PASSED",
-    "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f",
-    "elf_sha256": "eb70725e24752bf8245866bfa91f105a8068e978b159c25eb526b3ba4f68bc36",
-    "exports": [
-      "fini",
-      "forge_onInit",
-      "forge_onLoad",
-      "forge_onUpdate",
-      "init"
-    ],
-    "strong_imports": [
-      "forge_hook_create",
-      "forge_log",
-      "forge_log_getLevel",
-      "forge_mem_getMainTextAddr",
-      "forge_patch_create",
-      "forge_patch_destroy",
-      "forge_patch_disable",
-      "forge_patch_enable"
-    ],
-    "signature_windows": [
-      "0xa494a0",
-      "0xa49b28",
-      "0xa39300",
-      "0xa37c1c",
-      "0xa4e628",
-      "0x61912c",
-      "0x276278",
-      "0x3f8398",
-      "0x2ad288",
-      "0x26893c",
-      "0x29cdfc",
-      "0xa4faf0",
-      "0xa4fb58",
-      "0xa4ba20",
-      "0xa4ba40",
-      "0xa4844c",
-      "0xa48460",
-      "0xa4b6cc",
-      "0xa486fc",
-      "0x7aa47c",
-      "0xa4ba94",
-      "0xa47a04",
-      "0xa47a94",
-      "0xa4a9f4",
-      "0xa4aa24",
-      "0xa4aa5c",
-      "0xa4aa94",
-      "0xa4aac8",
-      "0xa4aafc",
-      "0xa4dc24",
-      "0xa4dc54",
-      "0xa4dca0",
-      "0xa4fa5c"
-    ],
-    "hook_address": "0xa494a0",
-    "hook_window_words": 12,
-    "hook_signature_unique_matches": 1,
-    "hook_abi_bytes": 24,
-    "forge_trampoline_bytes": 32,
-    "forge_pool_chunk_bytes": 16384,
-    "compiled_status_writes": [],
-    "local_player_cells": [
-      "main+0x188ca48 session",
-      "main+0x1885b58 sPlayer (.bss, Ghidra-proven)"
-    ],
-    "runtime_active": true,
-    "drawing_changed": true,
-    "text_relocations": false,
-    "observes": [
-      "gauge controller identity",
-      "local player pointer",
-      "local player sharpness fields"
-    ],
-    "runtime_test": "NOT RUN"
+    "nro_sha256": "a5f6f2c9b263a608331597e88c8d7d39b9c62943f96fcf082e55af36019e82ae",
+    "checks": "verify.py: pinned doctor, build receipt against the staged NRO, current sources and the drawing flag; the exact export set fini/forge_onInit/forge_onLoad/forge_onUpdate/init; imports resolved against main, sdk and forge; all 33 signature windows compared with the hash-checked main; the hook prologue; the hook window unique in .text; no MSR/MSR-APSR producer in the disassembly of the relocated window; no DT_TEXTREL; the one-file payload inventory",
+    "signature_windows": 33,
+    "runtime_test": "NOT RUN",
+    "note": "verify.py prints one PASS line; r63 kept the export and import lists it printed then. r64 lists only what this run read."
   },
   "host_tests": {
     "status": "PASSED",
     "suite": "core/tests/behavior.rs",
     "target": "x86_64-unknown-linux-gnu",
-    "count": 23,
+    "count": 29,
     "covers": [
-      "fill ratio: partial, empty, full, above maximum, depleted, zero maximum, negative maximum, extreme negative",
-      "the copied sample's named slots: identity tuple, hunter index, player, and the signed sharpness trio",
+      "the band fill over the tester\u2019s logged samples: 150 10000, 131 500, 130 10000, 100 2500, 90 10000, 8 888, 0 0 at maximum 150 on kireaji row 10, with the tiers the log recorded",
+      "the top band clipped to mMaxSharpness: 400/400, 425/425 and 450/450 all read full on great sword level 149 (kireaji row 119), a band that stops partway (411 of 410..425 is 666), 430 above a 425 maximum draws full, and 430 is the top of tier 5 and 410 of tier 4 at maximum 450",
+      "a `.., 450, 450` row at maximum 450: tier 5 at 450, full there, and tier 6 unreachable for every point 0..450",
+      "the fixed-tier state: one tier for every point gives exactly current / maximum, the accepted bar (150/160, 0/160, 160/160, 7/3)",
+      "a probe the rule cannot answer gives no ratio, while a readable search answers 5250 for 100 in 200",
+      "the fill needs a positive maximum and clamps its points: 0 and -1 maximum give none, 500 of 400 draws full, -5 floors at empty, i32::MIN of 3 floors at empty",
+      "every probe stays inside 0..=maximum: (0,450) (1,1) (7,12) (449,450) (450,450) (-9,100) (999,380)",
+      "the copied sample\u2019s named slots: identity tuple, hunter index, player, and the signed sharpness trio",
       "gauge HUD identity tuple versus pl_gauge0 and stamina rows",
       "local player chain: hunter index 0..3, index out of range, null session, empty slot",
-      "signed sharpness points, tier index, null player",
+      "signed sharpness points, tier index, null player, and a depleted gauge whose fill floors at empty",
       "controller sample: identity, row and controller addresses, local player, 150/160 at tier 2",
       "gauge controller without a player: identity reported, no gauge to fill from",
       "non-gauge controller and null row produce no sample",
       "fixture walk node by node: group node then three text siblings with flags, kinds and rectangles; a hidden subtree is not walked",
-      "the row gates' shape: bar, glow and edge as siblings under the root, both chain closings, and the inserted mask's shape",
+      "the row gates\u2019 shape: bar, glow and edge as siblings under the root, both chain closings, and the inserted mask\u2019s shape",
       "tree scan truncation and dangling links, with the node count the insertion gates on reporting the same floor",
       "walker port main+0xa494a0 over the gauge tree before any insertion: 5 records, 40 bytes, every drawable closed",
       "walker port over the inserted tree: mask entered first, exited last, 7 records in the looping tier and 9 with the edge glyph visible",
-      "the r13 shape pinned: mask with the glow and edge outside its subtree emits no exit record, so a scissor started there never ends",
-      "cache sizing main+0xa49b28: (objects << 4 | 8) + sequences * 12, the measured pair (3 objects, 16 sequences): 248-byte allocation, 56-byte area = 7 records, 72 = 9 for the grown 4-object row",
-      "main+0xa47d2c's node count (+1) against the row's object count, on the unmodified and the inserted tree",
-      "the accepted cut on the bar's 110..238 rect: rights 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%, widths 18 / 36 / 54 / 90 px, the box rows covering the bar and the effect glyph's offset, width never below 1 and never past the rect",
-      "the same endpoints as offsets on the measured rect: 64, 128 and 256 px rects cut at the same fraction of their width; a narrow rect scales down",
-      "span_box, the maths cut_box drives: linear in the endpoints, never below width 1 and never past the rect's right",
-      "the dim blade (Phase 5): its rect from the cut's right edge to the bar rect's right edge and its atlas u as the same fraction of the authored 88 columns, at 0 / 25 / 50 / 100% on the measured bar and on a 64 px rect",
-      "the 5-node tree the insertion builds: 5 tree nodes, the 6-entry object array main+0x5456e4 indexes, the walker's 11 records (9 with the edge glyph hidden) and the (5 << 4) | 8 = 88-byte area it must fit in",
-      "the native vertex cache has no fixture - it is game code, and the host suite has no game. The 23 fixtures are accepted r62\u2019s, kept whole through the logging removal: the cut, the box fold, the tree walk, the cache layout, the sampling and the tier maths"
+      "the r13 shape pinned: mask with the glow and edge outside its subtree emits no exit record",
+      "a mask left open never stops clipping: 6-node tree, 13 records, (6 << 4) | 8 = 104 bytes",
+      "the cache grows with the object count, not the sequence prefix: rows 3 and 5 size 88, row 14 sizes 96 for 4 objects",
+      "the object array is sized for the tree it was built with: 4 words for 3 objects, 5 for 4",
+      "box endpoints linear on the authored width and never leaving the rect, at 2x, 0, 0.25, 0.75 and 110..238",
+      "the accepted cut lands at 128/146/164/182/200 px on 110..238, at 256/292/328/364/400 on 220..348, and 124..162 on a 110..150 test rect",
+      "empty ratio rights the cut to the bar\u2019s right edge, full to its left, never past 110..238, and the clip width follows the cut"
     ],
-    "words_per_sample": 11,
-    "note": "22 fixtures: the accepted cut's endpoints and scaling, the box's linearity and bounds, the sample's named slots, the 5-node tree with the mask as the controller's first child and the shadow as its sibling, the walker plan, the cache and object-array sizing, the shadow's rect, and the gauge reading.",
-    "nro_sha256": "202c0719c7edfb28f4b3b359630b60f84ec69ac00c632a573284f7b2d3cc965f"
+    "runtime_test": "NOT RUN"
   },
   "runs": [
     {
@@ -1261,7 +1211,10 @@
     "whether the dark part needs a dark copy of the glow Txt_sharpefx (PosX 6, PosY -6, 88x32, alpha 120): the halo is a Phase 5 design decision, recorded as the user's question, and unchanged",
     "the worn blade at the orange tier: the accepted crop is the red tier, and the retained Eden log window has no orange tex= line, so orange is inferred from the same setter path, not seen",
     "the shade over a full session: the accepted run is one quest with one insertion, two scene teardowns and 578 fill lines, all at the yellow band; the crop's tier is outside the retained log window",
-    "r63's bytes on screen: the release is approved on static validation only. What is proven is that the drawing comes from accepted r62's bytes and that r63's change removes logging and the reads behind it; that the released NRO draws the same picture is inference from the diff, not a run"
+    "r63's bytes on screen: the release is approved on static validation only. What is proven is that the drawing comes from accepted r62's bytes and that r63's change removes logging and the reads behind it; that the released NRO draws the same picture is inference from the diff, not a run",
+    "r64's per-tier fill has not been run: no crop, no log, no acceptance",
+    "no saved log was identified as using Sharpness+1 or +2, so the raised-maximum band ends have no runtime check",
+    "mSharpnessType changes inside adjustSharpness and the sequence driver reads it live, but its order against the draw is unread: a tier drop could show one frame of a full bar in the old colour"
   ],
   "runtime": {
     "status": "The accepted drawing is r44's cut, r59's shade placement, colour, transform and sampler, and r62's window publication: accepted on Eden 2026-11-01, where the crop of the red tier shows the worn blade and the installed NRO matched the packaged payload 51aa1ca0811fa8c509f28069410eaa843ea11fc5c71926edadebd39d4cafe416. r61 was packaged, never run, and is withdrawn. r63 - the same drawing with the run instruments deleted - is the released version and has NOT been run: the user approved its promotion on static validation. r62 stays pinned and frozen at backups/accepted/modern-sharpness-gauge/r62-screen-accepted/.",
@@ -1303,7 +1256,7 @@
     "superseded_by": "r45 DEVELOPMENT candidate; the release bytes are preserved in backups/accepted/modern-sharpness-gauge/r44-before-dim-empty-blade/ with runtime UNCHANGED",
     "basis_scope": "Eden only: one run on 2026-10-30 with the installed NRO matching the packaged payload. Native Switch hardware, Ryujinx, a bar rect other than 110..238 and the draw walker's thread are unconfirmed."
   },
-  "static_summary": "r63: pinned toolchain build; 23 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. r63 is accepted r62 with the run instruments removed: the fill line, the 35-word gauge row facts line, the copy's texture-object/flags/sampler read-backs, the link snapshot, the walker and instance counters and the log clock, plus the queue and hot-hook reads behind them. The contract that makes the shade draw the worn tier frame is untouched: write_shade publishes the bar's own live four floats through the mTextureRect setter (main+0xa4fb58), which stores +0x10c, calls slot 0x28 when +0x108 & 0x30, and tail-calls vtable slot 0x50 (main+0xa4fc68), the writer of the +0xc0 bits 24..26 that the draw slot main+0xa4fc9c's builder main+0xa4feb4 consumes and clears. 6 tree nodes, 7-word object array, (6 << 4) | 8 = 104 bytes = 13 records, and the walk emits exactly 13. See EVIDENCE.json, DEVELOPMENT.md and work/modern-sharpness-gauge/PHASE5_RESEARCH.md.",
+  "static_summary": "r64: pinned toolchain build; 29 host fixtures passed; verify.py PASSED with 33 signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The bar's length is now the fill inside the tier band its points sit in, ceiling clipped to mMaxSharpness; the band comes from binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The accepted tree is untouched: 6 nodes, 7-word object array, (6 << 4) | 8 = 104 bytes = 13 records. The native facts are re-verified against the original bytes by work/modern-sharpness-gauge/scripts/verify_tier_gauge.py (ALL CHECKS PASSED, 2026-11-02). See the r64 record in versions, tier_gauge_fill_2026_11_02, DEVELOPMENT.md and work/modern-sharpness-gauge/TIER_GAUGE_RESEARCH.md.",
   "runtime_r63_eden_2026_11_02": {
     "version": "r63",
     "emulator": "Eden master-7a6d055094",
@@ -1311,5 +1264,69 @@
     "log_sha256": "d386dbe0e15b1bc82fdbace945a673237e395e51c5f11af341d3603a6c53328e",
     "log_copy": "work/shared/runs/eden-2026-11-02.txt",
     "scope": "Ran on Eden on 2026-11-02 (log work/shared/runs/eden-2026-11-02.txt, installed NRO matches): MSG r63 scissor mask inserted at 130.479939 and 965.056722 with entries=7 and records=13, inserted mask's links lost at 475.835413 and 2058.468105, no guest exception, and a host SIGSEGV 0.49 s after ForceStop. There is no user report on its picture."
+  },
+  "tier_gauge_fill_2026_11_02": {
+    "date": "2026-11-02",
+    "evidence_class": "static: original bytes, the dump\u2019s tables, saved Ghidra/DTI and host fixtures. No gameplay evidence",
+    "requirement_verbatim": "make the gauge works like mh world\u2019s gauge, which the bar is per tier, so for example, weapon with purple tier max, the bar will show the fill as between max sharpness, and the sharpness point at white, then it became full again until it reach sharpness point for blue, etc. coloring is already managed by game, so you only need to control the bar, also dont forget any buff that might increase sharpness and might change how the calculation at max tier sharpness. thin band sharpness tier are okay, the need is approximation, so jumpy is okay, no need for fancy smooth animations or lerp",
+    "native_facts_checked_against_original_bytes": {
+      "tool": "work/modern-sharpness-gauge/scripts/verify_tier_gauge.py, run 2026-11-02: ALL CHECKS PASSED; main inputs/main sha256 b3935415499549adaf4c0e89822831daa175cfd456a7990791c79be3997645ef",
+      "checks": [
+        "the 0x29cdfc window in src/signatures.rs equals the image bytes and occurs once in the image; 33 windows total",
+        "calculateSharpnessType keeps the points in r4, calls the gate main+0x27c7ec, loads *(player+0x13c4) at main+0x29ce34, tail-calls vtable slot 0x84 with the points in r1, and returns 0 (the red tier) on every failure; no store in its 196 bytes",
+        "the gate case 1 reads *(player+0x13c4) at main+0x27c848 and the byte at +0x4d4 at main+0x27c84c: the two unchecked dereferences the fill gates on",
+        "the tier rule main+0xf4794 compares seven thresholds against the points, stops at threshold >= points, and answers 7 only when all are below (movwlo r6, #0x7); no store",
+        "init main+0x29b870..0x29b8a4 writes mMaxSharpness (+0x2778 = 10104) as stat 14 * 25 + 150 clamped to 450, mSharpness (+0x2774 = 10100) the same value, and calls main+0x29cdfc",
+        "kireajiData: 164 rows of seven u16 thresholds, every row monotonic, every row ending at 450 so tier 7 is unreachable, none starting below 10"
+      ]
+    },
+    "fixtures_from_the_data": {
+      "log_row_10": [
+        90,
+        130,
+        240,
+        310,
+        370,
+        450,
+        450
+      ],
+      "fills_at_maximum_150": {
+        "150": 10000,
+        "131": 500,
+        "130": 10000,
+        "100": 2500,
+        "90": 10000,
+        "8": 888,
+        "0": 0
+      },
+      "tiers_from_the_rule": {
+        "150": 2,
+        "131": 2,
+        "130": 1,
+        "100": 1,
+        "90": 0,
+        "8": 0
+      },
+      "example_row_119": [
+        30,
+        100,
+        250,
+        330,
+        410,
+        430,
+        450
+      ],
+      "full_top_band_at": {
+        "400": 4,
+        "425": 5,
+        "450": 6
+      },
+      "at_maximum_450": {
+        "430": "tier 5, full",
+        "410": "tier 4, full"
+      },
+      "zero_width_rows": "70 rows have a zero-width band, 58 of them tier 6 ending 450, 450; at maximum 450 the points top out at tier 5 and read full there"
+    },
+    "runtime": "NOT RUN"
   }
 }

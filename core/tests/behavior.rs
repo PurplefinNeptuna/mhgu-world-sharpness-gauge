@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    basis_points, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
-    mask_box, read_gauge, sample_controller, scan_walk, span_box,
+    band_bp, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
+    mask_box, read_gauge, sample_controller, scan_walk, span_box, tier_band,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, FIELDS, FIELD_CURRENT, FIELD_MAXIMUM, FIELD_TIER, Gauge, Local,
     MAX_HUNTERS, MAX_NODES, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_EFFECTIVE_RECT, NODE_FLAGS,
@@ -31,24 +31,139 @@ impl Memory for Fake {
     }
 }
 
+/// The accepted bar: `current * 10_000 / maximum` clamped, in basis points. It is the reference
+/// for a gauge whose points sit in one band, which is what the fixed-tier state gives.
 fn ratio(current: i32, maximum: i32) -> Option<u32> {
-    basis_points(Gauge {
-        current,
-        maximum,
-        tier: 0,
-    })
+    if maximum <= 0 {
+        return None;
+    }
+    Some(((current as i64 * 10_000 / maximum as i64).clamp(0, 10_000)) as u32)
+}
+
+fn tier_of_row(row: &[u16; 7]) -> impl Fn(i32) -> Option<u32> + '_ {
+    // main+0xf4794: the tier is how many thresholds are strictly below the points.
+    move |points| Some(row.iter().filter(|threshold| (**threshold as i32) < points).count() as u32)
+}
+
+/// The kireaji row the tester's log weapon used, and its maximum without a Sharpness skill.
+const LOG_ROW: [u16; 7] = [90, 130, 240, 310, 370, 450, 450];
+
+/// The brief's example weapon: great sword level id 149, kireaji row 119. Its maximum is 400
+/// with no skill, 425 with Sharpness+1 and 450 with Sharpness+2 (`min(level * 25 + 150, 450)`).
+const EXAMPLE_ROW: [u16; 7] = [30, 100, 250, 330, 410, 430, 450];
+
+#[test]
+fn the_log_samples_refill_the_bar_at_every_tier() {
+    // The verbatim samples of one controller in `runs/r42-eden-2026-10-30-run2.txt`, with kireaji
+    // row 10 and maximum 150: each point value fills the bar inside its own tier's band.
+    let tier_of = tier_of_row(&LOG_ROW);
+    let fill = |points| band_bp(points, 150, &tier_of);
+    assert_eq!(fill(150), Some(10_000)); // tier 2, band 130..150
+    assert_eq!(fill(131), Some(500)); // one point into that band
+    assert_eq!(fill(130), Some(10_000)); // tier 1, band 90..130: the threshold itself is its top
+    assert_eq!(fill(100), Some(2_500));
+    assert_eq!(fill(90), Some(10_000)); // tier 0, band 0..90
+    assert_eq!(fill(8), Some(888));
+    assert_eq!(fill(0), Some(0));
+    // The tiers those samples logged, from the same rule.
+    for (points, tier) in [(150, 2), (131, 2), (130, 1), (100, 1), (90, 0), (8, 0)] {
+        assert_eq!(tier_of(points), Some(tier), "{points} is tier {tier}");
+    }
 }
 
 #[test]
-fn ratio_needs_a_positive_maximum_then_clamps() {
-    assert_eq!(ratio(150, 160), Some(9_375));
-    assert_eq!(ratio(0, 160), Some(0));
-    assert_eq!(ratio(160, 160), Some(10_000));
-    assert_eq!(ratio(200, 160), Some(10_000)); // above maximum draws full
-    assert_eq!(ratio(-5, 160), Some(0)); // depletion floors at empty
-    assert_eq!(ratio(100, 0), None); // unverified maximum
-    assert_eq!(ratio(100, -1), None); // negative maximum is unsupported
-    assert_eq!(ratio(i32::MIN, 3), Some(0));
+fn the_top_band_is_clipped_to_the_maximum_so_a_buff_reads_full() {
+    // Sharpness+1 and +2 raise mMaxSharpness, so the top band ends partway through the tier's
+    // points. Without that clip the top band of a buffed weapon could never read full.
+    let tier_of = tier_of_row(&EXAMPLE_ROW);
+    assert_eq!(band_bp(400, 400, &tier_of), Some(10_000)); // no skill: top tier 4 blue
+    assert_eq!(band_bp(425, 425, &tier_of), Some(10_000)); // Sharpness+1: top tier 5 white
+    assert_eq!(band_bp(450, 450, &tier_of), Some(10_000)); // Sharpness+2: top tier 6 purple
+    // A fresh weapon at a buffed maximum is full in every tier below it too.
+    for maximum in [400, 425, 450] {
+        for points in 0..=maximum {
+            assert_eq!(band_bp(points, maximum, &tier_of).is_some(), true, "{points}/{maximum}");
+        }
+    }
+    // A buffed maximum stops partway through a band: at 425 the top band is 410..425, so one
+    // point above its floor is a tenth of the bar; at 450 tier 6 runs 430..450.
+    assert_eq!(band_bp(411, 425, &tier_of), Some(666), "1 of 15 points");
+    assert_eq!(band_bp(430, 425, &tier_of), Some(10_000), "430 is above the maximum, draws full");
+    assert_eq!(band_bp(431, 450, &tier_of), Some(500), "1 of 20 points");
+    // The brief's own pair: at maximum 450, 430 is the top of tier 5 and 410 the top of tier 4.
+    assert_eq!(band_bp(430, 450, &tier_of), Some(10_000));
+    assert_eq!(band_bp(410, 450, &tier_of), Some(10_000));
+    // The bands of the no-skill maximum, from the tier rule.
+    assert_eq!(tier_band(380, 400, &tier_of), Some((330, 400)), "top band clipped to 400");
+    assert_eq!(tier_band(300, 400, &tier_of), Some((250, 330)), "a band below the maximum");
+}
+
+#[test]
+fn a_zero_width_top_band_is_never_landed_in() {
+    // 58 kireaji rows end `.., 450, 450`, so their tier 6 band is zero-width and the tier rule
+    // never lands in it: the points cannot pass 450, and 450 is tier 5, where it reads full.
+    let row = [30u16, 100, 250, 330, 410, 450, 450];
+    let tier_of = tier_of_row(&row);
+    assert_eq!(tier_of(450), Some(5));
+    assert_eq!(band_bp(450, 450, &tier_of), Some(10_000));
+    assert_eq!(tier_band(450, 450, &tier_of), Some((410, 450)));
+    for points in 0..=450 {
+        assert_ne!(tier_of(points), Some(6), "{points} cannot be tier 6");
+    }
+}
+
+#[test]
+fn one_tier_for_every_points_is_the_plain_ratio() {
+    // The fixed-tier state answers tier 0 for any points, and then the band is the whole
+    // maximum, so the fill is `current / maximum`, exactly what the accepted build drew.
+    let every_probe = |_points| Some(0u32);
+    for (current, maximum) in [(150, 160), (0, 160), (160, 160), (7, 3)] {
+        assert_eq!(
+            band_bp(current, maximum, &every_probe),
+            ratio(current, maximum),
+            "{current}/{maximum}"
+        );
+    }
+}
+
+#[test]
+fn a_probe_the_rule_cannot_answer_gives_no_ratio() {
+    // A tier the plugin cannot read is the caller's unsupported state: no ratio, native gauge
+    // alone. The upper search's first probe of 100..=400 is 250, the unreadable point here.
+    let read = |points| (points <= 200).then_some((points / 40) as u32);
+    assert_eq!(band_bp(100, 400, &read), None);
+    // A search that reads every probe still answers.
+    assert_eq!(band_bp(100, 200, &read), Some(5_250), "band 79..=119, 21 of 40 points");
+}
+
+#[test]
+fn the_fill_needs_a_positive_maximum_and_clamps_its_points() {
+    let tier_of = tier_of_row(&EXAMPLE_ROW);
+    assert_eq!(band_bp(100, 0, &tier_of), None); // unverified maximum
+    assert_eq!(band_bp(100, -1, &tier_of), None); // negative maximum is unsupported
+    assert_eq!(band_bp(500, 400, &tier_of), Some(10_000)); // above maximum draws full
+    assert_eq!(band_bp(-5, 400, &tier_of), Some(0)); // depletion floors at empty
+    assert_eq!(band_bp(i32::MIN, 3, &tier_of), Some(0));
+}
+
+#[test]
+fn every_probe_stays_within_the_maximum() {
+    // The native function reads the weapon of the player it is called with, so a probe outside
+    // the points the game can hand it is a call the game never makes.
+    for (current, maximum) in [(0, 450), (1, 1), (7, 12), (449, 450), (450, 450), (-9, 100), (999, 380)] {
+        let probes = std::cell::RefCell::new(Vec::new());
+        let read = |points| {
+            probes.borrow_mut().push(points);
+            Some((points / 40) as u32)
+        };
+        band_bp(current, maximum, &read);
+        let probes = probes.borrow();
+        assert!(
+            probes.iter().all(|points| *points >= 0 && *points <= maximum.max(0)),
+            "{current}/{maximum} probed {probes:?}"
+        );
+        assert!(!probes.is_empty(), "{current}/{maximum} probed nothing");
+    }
 }
 
 #[test]
@@ -154,10 +269,9 @@ fn gauge_fields_are_signed_points_and_the_tier_is_the_native_index() {
         })
     );
     fake.put(0x9c00 + SHARPNESS, (-7i32) as u32);
-    assert_eq!(
-        read_gauge(&fake, 0x9c00).map(|g| (g.current, basis_points(g))),
-        Some((-7, Some(0)))
-    );
+    let depleted = read_gauge(&fake, 0x9c00).expect("gauge");
+    assert_eq!(depleted.current, -7, "signed points keep their sign through the read");
+    assert_eq!(band_bp(depleted.current, depleted.maximum, &tier_of_row(&LOG_ROW)), Some(0));
     assert_eq!(read_gauge(&fake, 0), None);
 }
 
