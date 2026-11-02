@@ -13,7 +13,7 @@
       "ghidra-batch2",
       "ghidra-batch3"
     ],
-    "ai_assistance": "Qwen 3.8 Flash Next through DeepSeek Harness, and Claude Code; see THIRD_PARTY.md",
+    "ai_assistance": "Qwen 3.8 Flash Next through DeepSeek Harness, and Opus 5.5 through Claude Code; see THIRD_PARTY.md",
     "phase2_research": "work/world-sharpness-gauge/PHASE2_RESEARCH.md",
     "tier_gauge_research": "work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md",
     "tier_gauge_fact_check": "work/world-sharpness-gauge/scripts/verify_tier_gauge.py"
@@ -1472,7 +1472,7 @@
     "archive": "world-sharpness-gauge-r65.zip",
     "archive_sha256": "2fec934f68cfa732da84ac0c56ac74b92e4838f9efb17fb5c358fb32aed2d7ae",
     "source_check": "All 17 source files recorded in the candidate's build.json hash the same in the tree at promotion.",
-    "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 8f141b5 (the r65 rename and consolidation) among them. The user stated the rest on 2026-11-02: \"the one without AI trailer is using qwen 3.8 flash next via deepseek harness\".",
+    "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 8f141b5 (the r65 rename and consolidation) among them. The user stated the rest on 2026-11-02: \"the one without AI trailer is using qwen 3.8 flash next via deepseek harness\" and \"claude code is opus 5.5\".",
     "basis_scope": "Eden only. The picture was accepted on r64 and r62; r65's run is log evidence. Sharpness+1/+2, Heavy Polish, Ryujinx and Switch hardware are unconfirmed."
   }
 }

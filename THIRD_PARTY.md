@@ -43,7 +43,7 @@ export, the build recipe, or any delivered package. `scripts/verify.py` needs
 
 Code, tests, build scripts and documentation in this folder were written with AI
 assistance from Qwen 3.8 Flash Next through DeepSeek Harness
-(https://github.com/deepseek-ai/deepseek-harness) and from Claude Code (https://claude.com/claude-code).
+(https://github.com/deepseek-ai/deepseek-harness) and from Opus 5.5 through Claude Code (https://claude.com/claude-code).
 No offset, signature, license text or provenance claim was invented: every
 address carries its proof in `DEVELOPMENT.md`, every byte window is compared
 against the supplied NSO by `scripts/verify.py`, and each license file is copied
