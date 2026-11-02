@@ -52,10 +52,3 @@ restart the game.
 
 Works with the base game. The MHGU HD Project is optional. Tested on Eden only: Ryujinx and Switch
 hardware are untested.
-
-## Credits
-
-- [MHGU Forge](https://github.com/Fexty12573/forge) by Fexty.
-- [Original Forge](https://github.com/jeffi6375/forge) by Jeffi and the Skyline Project.
-- [forge-rs](https://github.com/Fexty12573/forge-rs) by Fexty.
-- [libnx](https://github.com/switchbrew/libnx) by Hydrosphere Developers.
