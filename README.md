@@ -42,9 +42,8 @@ nothing.
 
 ## Update and removal
 
-Close the emulator before updating or removing the mod. If you have the older Modern Sharpness
-Gauge, delete its `modern-sharpness-gauge` folder first, or both mods will load together. To update,
-replace the `world-sharpness-gauge` folder with the one from the new ZIP. To remove it, disable the
+Close the emulator before updating or removing the mod. To update, replace the
+`world-sharpness-gauge` folder with the one from the new ZIP. To remove it, disable the
 package or delete the folder from the emulator's mod directory. The mod writes no save data. Forge
 has no unload step, so if you remove the mod while the game runs, the changed gauge stays until you
 restart the game.

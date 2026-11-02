@@ -22,9 +22,8 @@ lines.
 
 The name is World because the per-tier bar works like Monster Hunter: World's, while the later games' long
 gauge spans all sharpness. Builds through r64, the log lines quoted in `EVIDENCE.json` and `DISTRIBUTION.json`,
-and the notes in `work/` carry the old name: Modern Sharpness Gauge, folder `modern-sharpness-gauge`,
-`modern_sharpness_gauge.nro`, log prefix `MSG`. The two folders must not be active together, because both
-plugins would load and hook the same functions.
+and the notes in `work/` use an earlier name and the log prefix `MSG`. An r64 folder must not be active
+beside r65's, because both plugins would load and hook the same functions.
 
 The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
 slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner
