@@ -1492,5 +1492,16 @@
     "note": "drawn equals rect, as a plain game must. The lost-links line is at [1123.819780], after the area line at [1123.344770] showing the player back at area 7, so it marks the quest's end. The suyu log has only the stage 21 line, which TESTING.md reads as no gauge HUD or a weapon with no sharpness; the user explains it: \"they played as prowler so no sharpness is right\".",
     "foreign_plugins": "Foreign plugins active on Eden: 11 NRO loads match the 11 NROs in the load folder, including BetterBox, better-inputs and MHGU-DPS-Meter-v1.2.0; only 'finish cheat' is disabled. No foreign hook is shown over an entry at this mod's install. KatLib and UIScale were not installed.",
     "exceptions": "No exception, data abort or panic text in either log. Eden stopped through ForceStop."
+  },
+  "runtime_r67_katlib_attempt_2026_11_05": {
+    "version": "r67",
+    "emulator": "Eden master-07677aa500-master",
+    "scope": "Logs only. KatLib and UIScale were in the load folder but never active, so this does not test r67 beside them.",
+    "lines": [
+      "[ERROR] Failed to load plugin app:/nativeNX/plugins/katlib.nro: 0x00000616",
+      "[ERROR] Failed to load plugin app:/nativeNX/plugins/uiscale.nro: 0x00000616",
+      "[ERROR] WSG r67 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]"
+    ],
+    "build_ids": "katlib.nro, uiscale.nro and betterbox.nro all have an all-zero build ID at header +0x40; betterbox.nro has no failure line. Reading 0x616 as already loaded is from the RO result table as remembered, not checked against Eden source."
   }
 }

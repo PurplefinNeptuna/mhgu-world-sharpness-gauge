@@ -6,7 +6,8 @@ report, and what the log lines mean.
 ## What to check on r67
 
 r67 should look the same as r65 in a plain game, so first check a normal quest on Eden. Then, on
-MHGURecomp with UI mode Center:
+MHGURecomp with UI mode Center (on Eden, KatLib and UIScale log `Failed to load plugin ...: 0x00000616` and
+are not active, so that run tests nothing about them):
 
 1. Install `00_KatLib` and r67, with no UIScale. The log must have `World Sharpness Gauge r67 loaded`
    and no `code mismatch` line, and the bar should cut as usual.
