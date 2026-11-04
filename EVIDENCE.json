@@ -1489,7 +1489,7 @@
       "[ERROR] WSG r67 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]",
       "[ERROR] WSG r67 inserted mask's links lost (1 times); captured addresses cleared"
     ],
-    "note": "drawn equals rect, as a plain game must. The lost-links line is at [1123.819780], after the area line at [1123.344770] showing the player back at area 7, so it marks the quest's end. The suyu log has only the stage 21 line, which TESTING.md reads as no gauge HUD or a weapon with no sharpness; the other player's weapon was not reported.",
+    "note": "drawn equals rect, as a plain game must. The lost-links line is at [1123.819780], after the area line at [1123.344770] showing the player back at area 7, so it marks the quest's end. The suyu log has only the stage 21 line, which TESTING.md reads as no gauge HUD or a weapon with no sharpness; the user explains it: \"they played as prowler so no sharpness is right\".",
     "foreign_plugins": "Foreign plugins active on Eden: 11 NRO loads match the 11 NROs in the load folder, including BetterBox, better-inputs and MHGU-DPS-Meter-v1.2.0; only 'finish cheat' is disabled. No foreign hook is shown over an entry at this mod's install. KatLib and UIScale were not installed.",
     "exceptions": "No exception, data abort or panic text in either log. Eden stopped through ForceStop."
   }
