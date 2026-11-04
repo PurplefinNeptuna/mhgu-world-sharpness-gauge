@@ -1,10 +1,10 @@
 # World Sharpness Gauge: development
 
-**Current state.** r66, DEVELOPMENT candidate at `build/world-sharpness-gauge/candidates/r66/`, gameplay
-not run. r66 is r65 with two compatibility changes. A required code window may now carry another plugin's
-Forge entry hook over its first eight bytes, because all three of this mod's hooks chain to the original
-(`window_matches` in core). The cut mask's corner now comes from the bar's rect, so the cut follows a
-plugin that rescales the HUD. The fill, the shade and the tree are r65's. The bar's length is measured
+**Current state.** r67, DEVELOPMENT candidate at `build/world-sharpness-gauge/candidates/r67/`, gameplay
+not run. r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
+Forge entry hook over its first eight bytes, because all four of this mod's hooks chain to the original
+(`window_matches` in core). The cut and the shade now follow where the bar is really drawn: a post-hook
+on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source. The fill, the shade and the tree are r65's. The bar's length is measured
 inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor`
 is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by
 binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see *Fill, per
@@ -12,7 +12,7 @@ tier* below). No settings, no panel. The shade's atlas window is the bar's own l
 through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with
 the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the
 bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
-emits exactly 13. 26 host fixtures pass; verify PASSED with 32 signature windows. r65 is the approved
+emits exactly 13. 27 host fixtures pass; verify PASSED with 33 signature windows. r65 is the approved
 release, preserved in `backups/accepted/world-sharpness-gauge/r65-before-katlib-compat/`. The accepted
 picture is r64's, the gameplay-accepted build at `build/world-sharpness-gauge/candidates/r64/` (Eden, "all
 works perfectly"), and accepted r62's crop of the worn blade at the red tier, at
@@ -74,8 +74,8 @@ for monotonicity, with the tester's log samples and the brief's example weapon c
   sizing the insertion gates on, and the walker port the fixtures pin. No Forge,
   no FFI, no `unsafe`: the band arrives through a `&dyn Fn(i32) -> Option<u32>`
   the plugin fills with the native call.
-- `core/tests/behavior.rs`: 25 host fixtures over a fake memory map and plain tier rules.
-- `src/hooks.rs`: the three Forge hooks (walker, instance draw, mask enter), their signature gate and rollback.
+- `core/tests/behavior.rs`: 27 host fixtures over a fake memory map and plain tier rules.
+- `src/hooks.rs`: the four Forge hooks (walker, instance draw, mask enter, texture draw), their signature gate and rollback.
 - `src/sampling.rs`: discovery in the walker's hot path: the slow attempt
   cadence, the captured controller and player, the gauge-present gate, the capture's
   teardown, and the per-frame fill with the three gates in front of its native calls.
@@ -85,7 +85,7 @@ for monotonicity, with the tester's log samples and the brief's example weapon c
 - `src/memory.rs`, `src/svc.S`: mapping-checked reads and the three SVC
   wrappers Forge does not expose (query memory, GetInfo program id, process
   cache flush). Gap documented beside each use.
-- `src/signatures.rs`: 32 32-byte windows taken from the original main NSO.
+- `src/signatures.rs`: 33 32-byte windows taken from the original main NSO.
 - `src/lib.rs`: metadata record, install, and the log lines outside the hooks.
 
 ## Offsets, units and proof
@@ -105,6 +105,7 @@ bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 | `0xa37c1c` | scissor routine: writes the render target's scissor and stores the request at context `+0xd0..+0xdc` | batch 1 |
 | `0xa4e628` | `cGUIObjTexture` slot 0x38, its enter: unions the live scissor with its rect only when `+0xcc`'s low nibble is 3 or 6 and `+0x56` bit 6 is clear | vtable word, bytes |
 | `0xa4fc9c`, `0xa4feb4` | texture draw slot 0x3c; rebuilds the quad's UVs and colours only on the `+0xc0` mark | batch 1, bytes |
+| `0xa4fc9c` | hook site, post only: texture draw `(node, context)`. Uploads `node+0x10` once, through `0xa4eb9c`, or `0xa3e3b0` with `+0x56` bit 6; each stores the block's address at `*(context+4)+0x18bc` and copies matrix words 0..13 unchanged | bytes |
 | `0xa4fc68` | texture slot 0x50: sets the `+0xc0` bits 24..26 | bytes |
 | `0xa4964c`, `0xa4915c` | transform walk (slot 0x44 only with bit 17); row update with the bit 19 child re-sort on `+0x60` | bytes |
 | `0x61912c` | HUD widget driver, a required signature only; its case 8 reads `+0x2784` through vtable `+0x1a0`, not the tier | batch 2, bytes |
@@ -157,7 +158,7 @@ above and is read through the mapping query at runtime.
 
 ## Hot path rules
 
-- Three hooks, each `e51ff004` + target. Forge copies the first 8 bytes without
+- Four hooks, each `e51ff004` + target. Forge copies the first 8 bytes without
   relocating them, so each entry is checked for position independence; install
   validates the 16-byte continuation (original bytes, branch opcode, `target+8`)
   and rolls back on any mismatch. Hook struct size 24, `context` at 12, `ctx_cell`
@@ -208,12 +209,8 @@ above and is read through the mapping query at runtime.
   rect top; its authored width is the blade past the cut and its height the bar's rect height. r62 logged
   `shade_box=128 38 200 166` at `ratio_bp=0`. The copy keeps the bar's quad from the build, and only its
   window changes per frame. The dark part has no glow by design.
-- **Cut corner.** Each frame the mask's enter writes the bar rect's corner over the mask's translation
-  (`+0x40/+0x44`), the original builds the box, and the hook puts the walk's value back, because a child's
-  setMatrix reads its parent's `+0x10` (main+0xa496b0). In a plain game the rect's corner is the walk's
-  (110,38). UIScale post-processes `main+0xa4f420`'s output, the bar's `+0xe0`, with the sprite's own rule,
-  so the rect already moves and scales with the sprite. It edits the sprite through the uploaded matrix
-  block at `*(ctx+4)+0x18bc`, after main+0xa4eb9c or main+0xa3e3b0, so the bar's own `+0x10` stays unscaled.
+- **Following a rescaled bar.** UIScale edits a sprite in the uploaded matrix block at `*(ctx+4)+0x18bc`, after main+0xa4eb9c or main+0xa3e3b0, so the node's own `+0x10` stays unscaled. Its rewrite of `+0xe0` (main+0xa4f420's output) refreshes only on a rebuild and takes a different anchor branch from the sprite (`+0x22` on a hit, UIScale `0x5200`). So `wsg_texture_draw` reads the block after the original returns, which holds in either hook order. A block address unchanged by the draw means nothing was uploaded. Words 0, 1, 4, 5, 12 and 13 equal to the node's mean a plain draw, and the game's rect stays the source. Otherwise `drawn_rect` gives the box, one frame old at the mask's enter. Each frame the mask's enter writes the box's corner over the mask's translation (`+0x40/+0x44`), the original builds the box, and the hook puts the walk's value back, because a child's setMatrix reads its parent's `+0x10` (main+0xa496b0).
+- **The copy under UIScale.** UIScale picks the element from KatLib's stack of instances being drawn (`0x4138`), not from the node, and keys the anchor box on that instance (`0x13b8`), so the copy and the bar get one transform.
 - **Copy construction.** DTI allocator slot 0x20 with `(bytes, align, dti id)`, a zeroed 304-byte block,
   constructor main+0xa4f60c, the mod's marker at `+0x50`, the bar's `+0x64/+0x74/+0x78`, the twelve style setters in Key Quest
   Markers' order, `SamplerState` from the bar (authored 2, stored in the low nibble of `+0x108` by
@@ -289,6 +286,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 - **Take the maximum from stat 14, a level row or the kireaji table.** `mMaxSharpness` is what the
   game clamps points against. `0xe1eec` is also reached from the player update path `0x27b9c8`, and
   rerunning it does not move `mMaxSharpness`.
+- **Size the cut from `+0xe0` alone under a rescaling plugin.** It goes stale between rebuilds and is not guaranteed to match the sprite. The uploaded block is what was drawn.
 - **Leave a moved corner on the cut mask past its enter.** The bar is its child, so the next transform update of the bar alone would read the moved parent matrix, and a rescaling plugin would scale that again.
 - **Read `mSharpnessType` for the fill.** The stored tier is not the band, and 67 sites build that
   offset while only about 10 were opened, so its writers are not fully known.
@@ -335,7 +333,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Open items
 
-- **Running beside KatLib and UIScale.** Static reading only; no run. The rect follows the sprite only when `+0xe0` is rebuilt (`+0xd0` bit 0, set by slot 0x44 on a transform update), so editing the layout live may leave the cut behind until the next rebuild. Whether UIScale resolves the inserted copy to the gauge's element, so the shade scales with the bar, is unread (UIScale's `0x4454`). If the cut lags, the exact source is the bar's uploaded block, read after main+0xa4fc9c returns.
+- **Running beside KatLib and UIScale.** Static reading only; no run. `drawn_rect` runs only for a rescaled bar, so a plain game never exercises it, but the `bar drawn plain` line prints its result beside the game's rect, and those must agree.
 - **Steps not seen on screen.** Sharpness +1/+2 and Heavy Polish over the banded bar have host fixtures and static reading, and no run. `TESTING.md` has the steps if anyone plays them.
 - **The bar and the colour on the same frame.** The colour driver main+0x62bb0c (slot 0x3c of the widget vtable at main+0x1776300) reads the tier, stores its sequence at `+0x50` and applies it through main+0x546c74 and main+0xa3896c in that one call. When that call runs against `adjustSharpness` and against the draw is unread; it depends on the unit move order (`sUnit::registerUnit` main+0xc067ec takes the line). A tier drop could show a full bar in the old colour for a frame or more. The player reports nothing wrong, and only a slow capture can show it. Read the order only if it is ever seen.
 - **The draw walker's thread.** One thread by static reading, unconfirmed at runtime; the fill makes about 18 checked native calls per frame on it. `forge_onUpdate` runs after `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot 0x3c main+0xa39300. So `insert::run` follows the walker and the mask's enter rather than overlapping them. Untraced: 13 other unit-draw callers and 10 other slot 0x3c sites, and the per-frame job main+0x3daf88, which can outlive `forge_onUpdate` while its sUIObject pass destroys `cUIO*` objects. Only a test build comparing the current thread in the walker and in `forge_onUpdate` can confirm it. Offsets are in `work/world-sharpness-gauge/THREAD_RESEARCH.md`.

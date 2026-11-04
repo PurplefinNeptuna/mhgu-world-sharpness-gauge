@@ -20,6 +20,9 @@ pub const MASK_ENTER_HOOK: u32 = 0xa4ba94;
 /// level object's vtable slot 0x84 (main+0xf4794) with the points, and returns 0, the red tier, on
 /// every gate and lookup failure.
 pub const CALCULATE_SHARPNESS_TYPE: u32 = 0x29cdfc;
+/// The texture draw slot 0x3c main+0xa4fc9c, `(node, context)`. It uploads the node's matrix through
+/// main+0xa4eb9c or main+0xa3e3b0, and a plugin that rescales the HUD edits that uploaded block.
+pub const TEXTURE_DRAW_HOOK: u32 = 0xa4fc9c;
 pub const SIGNATURES: &[(u32, [u8; 32])] = &[
     // main+0xa494a0: draw walker entry; the hook target. A push of four saved
     // registers plus lr, so the relocated window has no PC-relative operand; unique
@@ -255,6 +258,12 @@ pub const SIGNATURES: &[(u32, [u8; 32])] = &[
         216, 45, 193, 225, 240, 32, 192, 225,
     ]),
     // main+0x0a4fa5c: cGUIObjTexture SamplerState setter
+    (0xa4fc9c, [
+        240, 71, 45, 233, 8, 208, 77, 226,
+        0, 80, 160, 225, 1, 64, 160, 225,
+        4, 1, 149, 229, 0, 0, 80, 227,
+        40, 0, 144, 21, 0, 0, 80, 19,
+    ]),
     (0xa4fa5c, [
         8, 33, 144, 229, 15, 48, 2, 226,
         1, 0, 83, 225, 30, 255, 47, 1,

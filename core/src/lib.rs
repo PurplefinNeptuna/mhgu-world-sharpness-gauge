@@ -17,6 +17,34 @@ pub fn window_matches(actual: &[u8; 32], expected: &[u8; 32]) -> bool {
         || (actual[..4] == 0xe51f_f004u32.to_le_bytes() && actual[8..] == expected[8..])
 }
 
+/// The bar's box on screen, from the matrix words it was actually drawn with: the same corners as
+/// main+0xa4b390 for a size at `+0xd8/+0xdc` and the anchor modes at `+0xa0`, taken over the drawn
+/// scale and translation. A sprite that is flipped, sheared or unscalable has no such box.
+pub fn drawn_rect(
+    [x_scale, x_shear, y_shear, y_scale, x, y]: [f32; 6],
+    anchors: u32,
+    flipped: bool,
+    size: [i32; 2],
+) -> Option<[i32; 4]> {
+    let span = |mode: u32, length: f32| match mode {
+        0 => (0.0, length),
+        1 => (-length / 2.0, length / 2.0),
+        2 => (-length, 0.0),
+        _ => (0.0, 0.0),
+    };
+    if flipped || x_scale <= 0.0 || y_scale <= 0.0 || x_shear != 0.0 || y_shear != 0.0 {
+        return None;
+    }
+    let (left, right) = span(anchors & 3, size[0] as f32);
+    let (top, bottom) = span((anchors >> 2) & 3, size[1] as f32);
+    Some([
+        (x + x_scale * left) as i32,
+        (y + y_scale * top) as i32,
+        (x + x_scale * right) as i32,
+        (y + y_scale * bottom) as i32,
+    ])
+}
+
 /// One checked native word read. The plugin implements it with the mapping
 /// checks in `src/memory.rs`; tests implement it with a flat table.
 pub trait Memory {

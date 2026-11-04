@@ -1,13 +1,13 @@
-//! Three Forge-owned trampolines: the draw walker (main+0xa494a0), the instance draw entry
+//! Four Forge-owned trampolines: the draw walker (main+0xa494a0), the instance draw entry
 //! that hands it a controller (main+0xa39300, its first argument is the cGUIInstance owning
-//! the row), and the scissor mask's enter handler (main+0xa4ba94). Installation is all-or-nothing: every signature window is checked before
+//! the row), the scissor mask's enter handler (main+0xa4ba94) and the texture draw (main+0xa4fc9c). Installation is all-or-nothing: every signature window is checked before
 //! any write, and a failure restores the originals it touched.
 use crate::{
     gui,
     insert,
     memory,
     sampling,
-    signatures::{HOOK, INSTANCE_HOOK, MASK_ENTER_HOOK, SIGNATURES},
+    signatures::{HOOK, INSTANCE_HOOK, MASK_ENTER_HOOK, SIGNATURES, TEXTURE_DRAW_HOOK},
 };
 use alloc::vec::Vec;
 use core::{
@@ -19,7 +19,8 @@ use forge::patch::Patch;
 core::arch::global_asm!(
     ".hidden wsg_walker\n.hidden wsg_walker_original\n.hidden wsg_active\n\
      .hidden wsg_instance\n.hidden wsg_instance_original\n.hidden wsg_instance_active\n\
-     .hidden wsg_mask_enter\n.hidden wsg_mask_enter_original\n.hidden wsg_mask_enter_active"
+     .hidden wsg_mask_enter\n.hidden wsg_mask_enter_original\n.hidden wsg_mask_enter_active\n\
+     .hidden wsg_texture_draw\n.hidden wsg_texture_draw_original\n.hidden wsg_texture_draw_active"
 );
 #[unsafe(no_mangle)]
 pub static wsg_walker_original: AtomicU32 = AtomicU32::new(0);
@@ -33,6 +34,10 @@ pub static wsg_instance_active: AtomicBool = AtomicBool::new(false);
 pub static wsg_mask_enter_original: AtomicU32 = AtomicU32::new(0);
 #[unsafe(no_mangle)]
 pub static wsg_mask_enter_active: AtomicBool = AtomicBool::new(false);
+#[unsafe(no_mangle)]
+pub static wsg_texture_draw_original: AtomicU32 = AtomicU32::new(0);
+#[unsafe(no_mangle)]
+pub static wsg_texture_draw_active: AtomicBool = AtomicBool::new(false);
 // The instance whose +0xdc is the gauge controller, as plain integers: readers use them
 // synchronously on the thread the game called them on.
 static INSTANCE: AtomicU32 = AtomicU32::new(0);
@@ -117,6 +122,25 @@ pub unsafe extern "C" fn wsg_mask_enter(mask: u32, _context: u32) {
     if let Some(corner) = corner {
         insert::restore_corner(mask, corner);
     }
+}
+
+/// The texture draw entry takes (node, context). Every HUD texture pays one compare. For the bar,
+/// the read follows the original so that any other plugin's edit of the uploaded matrix, inner or
+/// outer in the hook chain, is already done or is nested inside this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wsg_texture_draw(node: u32, context: u32) {
+    let original = wsg_texture_draw_original.load(Ordering::Acquire);
+    if original == 0 {
+        return;
+    }
+    let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
+    if !wsg_texture_draw_active.load(Ordering::Acquire) || !insert::is_bar(node) {
+        unsafe { f(node, context) };
+        return;
+    }
+    let before = insert::uploaded_block(context);
+    unsafe { f(node, context) };
+    insert::capture_drawn(node, context, before);
 }
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
@@ -264,6 +288,12 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
             &wsg_mask_enter_original,
             &wsg_mask_enter_active,
         ),
+        (
+            TEXTURE_DRAW_HOOK,
+            wsg_texture_draw as *const () as u32,
+            &wsg_texture_draw_original,
+            &wsg_texture_draw_active,
+        ),
     ];
     let mut planted: Vec<Patch> = Vec::new();
     for (offset, detour, published, armed) in plan {
@@ -288,5 +318,6 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
     wsg_active.store(true, Ordering::Release);
     wsg_instance_active.store(true, Ordering::Release);
     wsg_mask_enter_active.store(true, Ordering::Release);
+    wsg_texture_draw_active.store(true, Ordering::Release);
     Ok(planted)
 }

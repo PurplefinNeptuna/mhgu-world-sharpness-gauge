@@ -22,7 +22,7 @@
 //! hook during the draw walk. No game pointer is kept between calls: addresses are plain integers,
 //! cleared by the liveness checks in `check_liveness` and `enter`.
 use crate::{gui, memory, sampling};
-use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU8, Ordering};
 use forge::mt::dti::MtDti;
 use sharpness_gauge_core::{
     cut_box, dim_box, NODE_CHILD, NODE_DRAWABLE, NODE_PARENT, NODE_RECT, NODE_SIBLING,
@@ -153,11 +153,105 @@ static MISSES: AtomicU32 = AtomicU32::new(0);
 static MASK: AtomicU32 = AtomicU32::new(0);
 static BAR: AtomicU32 = AtomicU32::new(0);
 static ROOT: AtomicU32 = AtomicU32::new(0);
+/// The bar's box as last drawn, when the draw's matrix differs from the node's: a plugin rescaled it.
+static DRAWN: [AtomicI32; 4] = [const { AtomicI32::new(0) }; 4];
+static DRAWN_SET: AtomicBool = AtomicBool::new(false);
+/// One report per row of the modelled box against the game's rect: 0 due, 1 ready to log, 2 logged.
+static RECT_REPORT: AtomicU32 = AtomicU32::new(0);
+static REPORT_RECT: [AtomicI32; 4] = [const { AtomicI32::new(0) }; 4];
+static REPORT_PLAIN: AtomicBool = AtomicBool::new(false);
 /// Whether `sampling::fill` refused this row: 0 not refused, 1 refused and not logged yet, 2
 /// logged. One log line per row, so a row stuck on the stock bar cannot flood the log.
 static FILL_REFUSED: AtomicU8 = AtomicU8::new(0);
 
 /// The four words of a rectangle field as signed pixels (the bar's screen rect).
+pub fn is_bar(node: u32) -> bool {
+    node != 0 && BAR.load(Ordering::Relaxed) == node
+}
+
+/// The matrix block of the context's latest upload: main+0xa4eb9c and main+0xa3e3b0 store its address
+/// at `*(context+4)+0x18bc`. Zero when unreadable.
+pub fn uploaded_block(context: u32) -> u32 {
+    memory::word(context + 4)
+        .and_then(|target| memory::word(target + 0x18bc))
+        .unwrap_or(0)
+}
+
+/// Record where the bar really drew. A draw that uploaded nothing leaves the block address as it
+/// was, and that block belongs to another node. The block's words 0..13 are the node's `+0x10`
+/// matrix unless a plugin edited them, so equal words mean a plain draw and the game's rect stays
+/// the source. Only a rescaled bar reaches the model, so a plain game's cut never depends on it.
+pub fn capture_drawn(node: u32, context: u32, before: u32) {
+    let block = uploaded_block(context);
+    if block == 0 || block == before {
+        return;
+    }
+    let mut drawn = [0u32; 6];
+    let mut native = [0u32; 6];
+    for (slot, index) in [0u32, 1, 4, 5, 12, 13].into_iter().enumerate() {
+        match (memory::word(block + index * 4), memory::word(node + 0x10 + index * 4)) {
+            (Some(d), Some(n)) => (drawn[slot], native[slot]) = (d, n),
+            _ => return,
+        }
+    }
+    let plain = drawn == native;
+    let (Some(anchors), Some(flags), Some(width), Some(height)) = (
+        memory::word(node + 0xa0),
+        memory::word(node + 0x54),
+        memory::word(node + 0xd8),
+        memory::word(node + 0xdc),
+    ) else {
+        return;
+    };
+    let box_words = sharpness_gauge_core::drawn_rect(
+        drawn.map(f32::from_bits),
+        anchors,
+        flags & 0x0040_0000 != 0,
+        [width as i32, height as i32],
+    );
+    if RECT_REPORT.load(Ordering::Relaxed) == 0 {
+        for (cell, value) in REPORT_RECT.iter().zip(box_words.unwrap_or([0; 4])) {
+            cell.store(value, Ordering::Relaxed);
+        }
+        REPORT_PLAIN.store(plain, Ordering::Relaxed);
+        RECT_REPORT.store(1, Ordering::Release);
+    }
+    match box_words {
+        Some(words) if !plain => {
+            for (cell, value) in DRAWN.iter().zip(words) {
+                cell.store(value, Ordering::Relaxed);
+            }
+            DRAWN_SET.store(true, Ordering::Release);
+        }
+        _ => DRAWN_SET.store(false, Ordering::Release),
+    }
+}
+
+/// The box the cut and the shade work from.
+fn bar_rect(bar: u32) -> [i32; 4] {
+    if DRAWN_SET.load(Ordering::Acquire) {
+        return core::array::from_fn(|edge| DRAWN[edge].load(Ordering::Relaxed));
+    }
+    rect_at(bar, NODE_RECT)
+}
+
+/// The modelled box, the game's rect and whether the draw was plain, once per row, for the log.
+pub fn take_rect_report() -> Option<([i32; 4], [i32; 4], bool)> {
+    let bar = BAR.load(Ordering::Relaxed);
+    if bar == 0
+        || RECT_REPORT
+            .compare_exchange(1, 2, Ordering::AcqRel, Ordering::Relaxed)
+            .is_err()
+    {
+        return None;
+    }
+    Some((
+        core::array::from_fn(|edge| REPORT_RECT[edge].load(Ordering::Relaxed)),
+        rect_at(bar, NODE_RECT),
+        REPORT_PLAIN.load(Ordering::Relaxed),
+    ))
+}
+
 fn rect_at(node: u32, offset: u32) -> [i32; 4] {
     let mut out = [0i32; 4];
     for edge in 0..4 {
@@ -191,6 +285,8 @@ pub fn on_teardown() {
     ROOT.store(0, Ordering::Release);
     MASK.store(0, Ordering::Release);
     BAR.store(0, Ordering::Release);
+    DRAWN_SET.store(false, Ordering::Release);
+    RECT_REPORT.store(0, Ordering::Release);
     DIM.store(0, Ordering::Release);
     CLIP.store(0, Ordering::Release);
 }
@@ -563,12 +659,12 @@ pub fn enter(mask: u32) -> Option<[u32; 2]> {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
             if dim != 0 && clip != 0 {
-                write_shade(dim, clip, bar, rect_at(bar, NODE_RECT), u32::MAX);
+                write_shade(dim, clip, bar, bar_rect(bar), u32::MAX);
             }
             return None;
         }
     };
-    let rect = rect_at(bar, NODE_RECT);
+    let rect = bar_rect(bar);
     // The box is a fraction of the bar's rect, a layout box and not the sprite: the accepted
     // endpoints were measured on it. The bar's own size fields do not work as a width: +0xa8 is an
     // animated word that reads 0 here, and the authored 88 at +0xb4 cuts the blade near the tip.
@@ -610,10 +706,10 @@ pub fn enter(mask: u32) -> Option<[u32; 2]> {
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
     // 4. The corner. The walk fills the translation with the gauge's unscaled corner, which is the
-    //    rect's corner in a plain game. A plugin that rescales the HUD rewrites the rect
-    //    (main+0xa4f420's output) to follow the sprite, and the rect is what sizes this box, so the
-    //    corner comes from it too. The children's setMatrix reads this matrix (main+0xa496b0), so
-    //    the walk's value goes back once the original has built the box.
+    //    rect's corner in a plain game. For a rescaled bar `bar_rect` is where it was last drawn, and
+    //    that box also sizes this one, so the corner comes from it too. The children's setMatrix
+    //    reads this matrix (main+0xa496b0), so the walk's value goes back once the original has
+    //    built the box.
     let corner = [
         memory::word(mask + MASK_TRANSLATION)?,
         memory::word(mask + MASK_TRANSLATION + 4)?,

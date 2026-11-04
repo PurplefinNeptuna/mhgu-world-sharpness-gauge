@@ -16,14 +16,14 @@ draws it. Nothing else on the HUD changes, and there is nothing to set up.
 ## Installation
 
 1. Close the emulator.
-2. Extract `world-sharpness-gauge-r66-candidate.zip`.
+2. Extract `world-sharpness-gauge-r67-candidate.zip`.
 3. Copy the whole `world-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `world-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `World Sharpness Gauge r66`
+Open Forge's overlay and check **Loaded Plugins**: `World Sharpness Gauge r67`
 should be listed.
 
 ## Usage
@@ -43,6 +43,5 @@ restart the game.
 
 Works with the base game. Tested on Eden only: Ryujinx and Switch hardware are untested.
 
-It can load alongside plugins that hook the same game functions, such as KatLib, and the cut is built
-to follow a gauge scaled or moved by UIScale. Neither pairing has been tested yet. If you move the
-gauge in UIScale's editor, the cut may stay behind until the next quest.
+It can load alongside plugins that hook the same game functions, such as KatLib, and the cut follows
+a gauge scaled or moved by UIScale, including in UIScale's editor. Neither pairing has been tested yet.

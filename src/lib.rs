@@ -134,6 +134,15 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
         controller = hooks::capture().1,
         gauge = sampling::gauge_controller());
     }
+    // Whether the bar was drawn as the game placed it, and the box modelled from that draw against
+    // the game's own rect: in a plain game the two must agree.
+    if let Some((drawn, rect, plain)) = insert::take_rect_report() {
+        log::error!(concat!(
+            "WSG ",
+            env!("WSG_VERSION"),
+            " bar drawn {kind}: drawn={drawn:?} rect={rect:?}"
+        ), kind = if plain { "plain" } else { "rescaled" }, drawn = drawn, rect = rect);
+    }
     // The fill's gates refused, or a native call was refused, so the stock bar is showing.
     if insert::take_fill_refused() {
         log::error!(concat!(

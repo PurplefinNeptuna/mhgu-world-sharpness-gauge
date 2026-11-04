@@ -3,17 +3,20 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r66
+## What to check on r67
 
-r66 should look the same as r65 in a plain game, so first check a normal quest on Eden. Then, on
+r67 should look the same as r65 in a plain game, so first check a normal quest on Eden. Then, on
 MHGURecomp with UI mode Center:
 
-1. Install `00_KatLib` and r66, with no UIScale. The log must have `World Sharpness Gauge r66 loaded`
+1. Install `00_KatLib` and r67, with no UIScale. The log must have `World Sharpness Gauge r67 loaded`
    and no `code mismatch` line, and the bar should cut as usual.
 2. Add `UIScale` with its default layout. Hit something with the blade until it dulls. The cut and
    the dark part should stay lined up with the scaled blade.
-3. Open UIScale's editor and move the gauge. Say whether the cut follows straight away or only after
-   the next quest.
+3. Open UIScale's editor and drag or resize the gauge. The cut should follow straight away.
+
+On every run, also send the `bar drawn` line. In a plain game it must say `bar drawn plain` with
+`drawn` equal to `rect`. If the line is missing, the game's upload could not be read, and the cut
+falls back to the game's rect.
 
 Delete any older folder of this mod first, or both builds will load together.
 
@@ -47,9 +50,14 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `WSG r66`.
+lines that matter start with `WSG r67`.
 
 ## The log lines
+
+- `bar drawn plain: drawn=[...] rect=[...]`: printed once per gauge row. Nothing has moved the bar.
+  The two boxes must match; a difference means the box model is wrong for this bar.
+- `bar drawn rescaled: drawn=[...] rect=[...]`: another plugin moved or scaled the bar. `drawn` is
+  the box the cut follows. If it shows `[0, 0, 0, 0]`, the cut uses `rect` instead.
 
 The mod logs one line per lifecycle event and nothing per frame. `scissor mask inserted` means the
 mask went into the gauge: `mask=` and `map=` the nodes, `entries=` the map entries (7), `cache=` and

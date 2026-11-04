@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     band_bp, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
-    mask_box, read_gauge, sample_controller, span_box, tier_band, window_matches,
+    drawn_rect, mask_box, read_gauge, sample_controller, span_box, tier_band, window_matches,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, Gauge, Local,
     MAX_HUNTERS, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_FLAGS,
@@ -709,4 +709,18 @@ fn a_window_accepts_another_plugins_entry_hook_and_nothing_else() {
     let mut changed_later = hooked;
     changed_later[8] ^= 1;
     assert!(!window_matches(&changed_later, &original));
+}
+
+#[test]
+fn the_drawn_box_follows_the_drawn_scale_and_position() {
+    let at = |scale: f32, x: f32, y: f32| [scale, 0.0, 0.0, scale, x, y];
+    // The measured plain rect, then UIScale's default 0.75 around a moved corner.
+    assert_eq!(drawn_rect(at(1.0, 110.0, 38.0), 0, false, [128, 128]), Some([110, 38, 238, 166]));
+    assert_eq!(drawn_rect(at(0.75, 100.0, 20.0), 0, false, [128, 128]), Some([100, 20, 196, 116]));
+    // Anchor modes: x centred, y ending at the origin.
+    assert_eq!(drawn_rect(at(1.0, 100.0, 100.0), 1 | (2 << 2), false, [10, 20]), Some([95, 80, 105, 100]));
+    // Nothing a flip, a shear or a zero scale could turn into a box.
+    assert_eq!(drawn_rect(at(1.0, 0.0, 0.0), 0, true, [128, 128]), None);
+    assert_eq!(drawn_rect([1.0, 0.5, 0.0, 1.0, 0.0, 0.0], 0, false, [128, 128]), None);
+    assert_eq!(drawn_rect(at(0.0, 0.0, 0.0), 0, false, [128, 128]), None);
 }
