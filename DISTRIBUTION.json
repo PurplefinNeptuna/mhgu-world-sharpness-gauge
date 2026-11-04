@@ -1,18 +1,18 @@
 {
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
-  "status": "READY_TO_DISTRIBUTE",
-  "reason": "r65 approved for distribution by the user on 2026-11-02 and promoted unchanged from its candidate. r65 consolidates r64, whose per-tier fill the player accepted on Eden. The fill, the cut, the shade, the colour code and the tree (6 nodes, 7-word map, 13 records) are unchanged. Removed: the cGUIObjRoot destructor hook, its log line and its signature window, because it fired in no saved log while the mask's link checks caught every row's end; the unused per-frame read of mSharpnessType; and core code only the tests used (scan_walk, Node, Walk, FIELDS, the sample's identity fields). Added: one `fill refused` log line per gauge row, so a stock bar during a hunt can be told from a failed insertion. 25 host fixtures pass; verify PASSED with 32 signature windows. r65 ran on Eden, log only; r64 stays the build whose picture the player accepted.",
+  "status": "DEVELOPMENT",
+  "reason": "r66 lets the gauge load beside plugins that hook the same game functions, such as KatLib, and bases the cut mask's corner on the bar rect so the cut follows a HUD rescaled by UIScale. Not approved and gameplay not run.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r65",
+  "version": "r66",
   "package_name": "world-sharpness-gauge",
-  "archive": "world-sharpness-gauge-r65.zip",
-  "runtime_test": "r65, Eden master-7a6d055094, 2026-11-02, log only, no player report of its picture: installed NRO aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791 is the r65 payload. WSG r65 lines: gauge row check stopped at stage 21 at 26.534176; scissor mask inserted at 200.371389, 792.621557 and 1613.561990, each with entries=7 records=13; inserted mask's links lost at 716.527334 (1 times), 1265.082368 (2 times) and 2640.511103 (3 times). No `fill refused`, insertion failure or 'shade blade not added' line and no guest exception. See EVIDENCE.json runtime_r65_eden_2026_11_02. The player's acceptance is on other bytes: r64 on Eden (\"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\"), see EVIDENCE.json runtime_r64_eden_2026_11_02 and runtime_r64_eden_2026_11_02_second_session, and for the drawing of the cut and the shade accepted r62's Eden run of 2026-11-01 at the red tier (crop sha256 bb02addc7e2fe678977f453a08af0fcffdf7d6d68fc8e708dfc62329d16a1fdb). Sharpness+1/+2 and Heavy Polish were not exercised. Ryujinx and Switch hardware remain unconfirmed.",
-  "runtime_active": true,
+  "archive": "world-sharpness-gauge-r66-candidate.zip",
+  "runtime_test": "NOT RUN for r66. r65 ran on Eden on 2026-11-02, log only; r64 is the build whose picture the player accepted.",
+  "runtime_active": false,
   "gamebanana": {
     "compact_html": true,
     "ai_code": {
@@ -65,7 +65,8 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
-    "r65's Eden run is log evidence only, with no player report of its picture; its fill, cut, shade and tree code is r64's, and r64 is the accepted build",
+    "r66 has no run on any emulator: its KatLib and UIScale behaviour rests on static reading of their NROs and of MHGURecomp's hook code",
+    "with UIScale, the cut follows the bar rect, which is rebuilt only on a transform update, so a live layout edit may leave the cut behind until then",
     "the fill is accepted by the player's eye on the bar, not by a recorded number: the build logs no fill value, so no run carries a band value",
     "the raised-maximum band ends have no runtime check: no saved log was identified as using a Sharpness skill, so host fixtures and static reading are the evidence",
     "Heavy Polish over the banded bar has no runtime check",
@@ -99,7 +100,7 @@
     "manual": [
       "mods/world-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r65: pinned toolchain build; 25 host fixtures passed; verify.py PASSED with 32 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The fill is (current - floor) * 10000 / (ceiling - floor) inside the tier band, with ceiling clipped to mMaxSharpness; the band is found by binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The native facts are re-verified against the original bytes by work/world-sharpness-gauge/scripts/verify_tier_gauge.py. See EVIDENCE.json, DEVELOPMENT.md, work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md and work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md.",
+    "static_summary": "r66: pinned toolchain build; 26 host fixtures passed; verify.py PASSED with 32 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The fill is (current - floor) * 10000 / (ceiling - floor) inside the tier band, with ceiling clipped to mMaxSharpness; the band is found by binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The native facts are re-verified against the original bytes by work/world-sharpness-gauge/scripts/verify_tier_gauge.py. See EVIDENCE.json, DEVELOPMENT.md, work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md and work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md.",
     "manual_summary": "r65 ran on Eden on 2026-11-02 with the installed NRO matching the payload: three rows inserted and three released in the log, no player report of its picture. r64, its source for the fill, was played on Eden in two sessions on 2026-11-02, the installed NRO matching the packaged payload both times, and accepted by eye: \"from playing and look at the visuals it looks right\", and \"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\". The worn-blade drawing was accepted on r62 at the red tier on 2026-11-01. r61 was packaged, never run, withdrawn. Ryujinx and Switch hardware unconfirmed."
   },
   "dependencies": [
@@ -115,12 +116,10 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/world_sharpness_gauge.nro": {
-      "source": "build/world-sharpness-gauge/candidates/r65/package/romfs/nativeNX/plugins/world_sharpness_gauge.nro",
-      "sha256": "aeb9d1be49f1dfbf66a1c755d82442e6b262f2c3e440e83f496f796abebd8791"
+      "source": "build/world-sharpness-gauge/candidates/r66/package/romfs/nativeNX/plugins/world_sharpness_gauge.nro",
+      "sha256": "b9abad0163591158bdfe258563c0c9e459ed38c0f8a3f4da81792d784b372b21"
     }
   },
-  "approval": {
-    "date": "2026-11-02",
-    "basis": "The user approved this on 2026-11-02: \"promote world-sharpness-gauge to ready to distribute\". r65 is the candidate that is installed, by hash. The player's acceptance of the picture is r64's; r65's own run is log evidence. This does not cover Sharpness+1/+2, Heavy Polish, Ryujinx or native Switch."
-  }
+  "candidate": "build/world-sharpness-gauge/candidates/r66/delivery",
+  "candidate_builder": "scripts/build.py"
 }

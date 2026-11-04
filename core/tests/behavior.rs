@@ -1,7 +1,7 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
     band_bp, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
-    mask_box, read_gauge, sample_controller, span_box, tier_band,
+    mask_box, read_gauge, sample_controller, span_box, tier_band, window_matches,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, Gauge, Local,
     MAX_HUNTERS, MAX_SHARPNESS, Memory, NODE_CHILD, NODE_DRAWABLE, NODE_FLAGS,
@@ -690,4 +690,23 @@ fn the_shade_clip_node_fits_the_grown_tree_exactly() {
     assert_eq!(looping.count, 11);
     assert_eq!(looping.count * 8, 88);
     assert!(looping.count * 8 <= cache_layout(6, 16).2);
+}
+
+#[test]
+fn a_window_accepts_another_plugins_entry_hook_and_nothing_else() {
+    let original = core::array::from_fn::<u8, 32, _>(|i| i as u8 + 1);
+    assert!(window_matches(&original, &original));
+
+    let mut hooked = original;
+    hooked[..4].copy_from_slice(&0xe51f_f004u32.to_le_bytes());
+    hooked[4..8].copy_from_slice(&0x0320_1000u32.to_le_bytes());
+    assert!(window_matches(&hooked, &original));
+
+    let mut other_patch = original;
+    other_patch[0] ^= 1;
+    assert!(!window_matches(&other_patch, &original));
+
+    let mut changed_later = hooked;
+    changed_later[8] ^= 1;
+    assert!(!window_matches(&changed_later, &original));
 }

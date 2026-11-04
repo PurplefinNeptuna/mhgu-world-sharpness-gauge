@@ -530,9 +530,9 @@ pub fn check_liveness() {
 /// ours, and drops the addresses when the links that made it ours are gone: a mask whose row's
 /// links broke can still be entered, and it would keep applying its last box. A mask freed with
 /// its row is not entered at all, which is `check_liveness`'s case.
-pub fn enter(mask: u32) {
+pub fn enter(mask: u32) -> Option<[u32; 2]> {
     if memory::word(mask + MASK_ID) != Some(MARKER) {
-        return;
+        return None;
     }
     let (bar, root) = (BAR.load(Ordering::Relaxed), ROOT.load(Ordering::Relaxed));
     let alive = bar != 0
@@ -548,7 +548,7 @@ pub fn enter(mask: u32) {
         MISSES.fetch_add(1, Ordering::Relaxed);
         let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
         crate::hooks::teardown_gauge_row(root);
-        return;
+        return None;
     }
     let (dim, clip) = (DIM.load(Ordering::Relaxed), CLIP.load(Ordering::Relaxed));
     // The live fill: the local player's sharpness points measured inside the tier band they sit
@@ -565,7 +565,7 @@ pub fn enter(mask: u32) {
             if dim != 0 && clip != 0 {
                 write_shade(dim, clip, bar, rect_at(bar, NODE_RECT), u32::MAX);
             }
-            return;
+            return None;
         }
     };
     let rect = rect_at(bar, NODE_RECT);
@@ -573,14 +573,14 @@ pub fn enter(mask: u32) {
     // endpoints were measured on it. The bar's own size fields do not work as a width: +0xa8 is an
     // animated word that reads 0 here, and the authored 88 at +0xb4 cuts the blade near the tip.
     if rect[2] <= rect[0] {
-        return;
+        return None;
     }
     // The box runs between the accepted endpoints, which core scales by this rect's width, so a
     // bar laid out wider or narrower cuts the same fraction of its blade.
     let box_words = cut_box(rect, ratio);
     // The rectangle is the game's own arithmetic, and main+0xa4b390 shows its inputs, so these
-    // are the writes that matter: the anchor modes, the transform's x row and the authored pair.
-    // The box's corner is the fourth input, this node's own translation, left as the walk fills it.
+    // are the writes that matter: the anchor modes, the transform's x row, the authored pair and
+    // the corner.
 
     // 1. The anchor modes, bits 0-3 of +0xa0: `& 3` is +0xa8's and `& 0xc` is +0xac's, mode 0 spans
     //    0..size, 1 centres, 2 spans -size..0, 3 collapses the axis. The factory writes
@@ -604,11 +604,22 @@ pub fn enter(mask: u32) {
     //    top to bottom; the width is the ratio's share of it. The position at +0x80 is a DTI
     //    property that the row's layout resolves into the matrix for animated nodes, and this
     //    node has no animation entry, so writing it does nothing: the rectangle's origin is this
-    //    node's translation at +0x40/+0x44, which the walk fills with the gauge's corner (110,38).
+    //    node's translation at +0x40/+0x44.
     let height = (rect[3] - rect[1]).max(1);
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
     let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
+    // 4. The corner. The walk fills the translation with the gauge's unscaled corner, which is the
+    //    rect's corner in a plain game. A plugin that rescales the HUD rewrites the rect
+    //    (main+0xa4f420's output) to follow the sprite, and the rect is what sizes this box, so the
+    //    corner comes from it too. The children's setMatrix reads this matrix (main+0xa496b0), so
+    //    the walk's value goes back once the original has built the box.
+    let corner = [
+        memory::word(mask + MASK_TRANSLATION)?,
+        memory::word(mask + MASK_TRANSLATION + 4)?,
+    ];
+    let _ = memory::write_word(mask + MASK_TRANSLATION, (rect[0] as f32).to_bits());
+    let _ = memory::write_word(mask + MASK_TRANSLATION + 4, (rect[1] as f32).to_bits());
     // The shade follows the cut from here: its clip mask's translation goes to the cut's right edge,
     // its authored width spans forward from there to the blade's end, and the copy's atlas window
     // goes through its setter as the bar's own live four floats. The copy's quad, rect and flags
@@ -616,6 +627,13 @@ pub fn enter(mask: u32) {
     if dim != 0 && clip != 0 {
         write_shade(dim, clip, bar, rect, ratio);
     }
+    Some(corner)
+}
+
+/// Put back the translation `enter` replaced, after the original mask enter has built its box.
+pub fn restore_corner(mask: u32, corner: [u32; 2]) {
+    let _ = memory::write_word(mask + MASK_TRANSLATION, corner[0]);
+    let _ = memory::write_word(mask + MASK_TRANSLATION + 4, corner[1]);
 }
 
 /// Insert the mask under the row root, over the bar, glow and edge, after the row's map and

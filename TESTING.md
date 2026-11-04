@@ -3,16 +3,19 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r65
+## What to check on r66
 
-r65 is r64 under a new name, with unused code removed and one new log line: the
-fill, the cut, the dark part and the colours are meant to look exactly the same. Its log on Eden shows rows inserting and releasing, with no report on how it looks. r64 is the build the
-player accepted on Eden: "all works perfectly" over two quests with different weapons, the first
-fainting until it failed, on a blade dulled from yellow to red.
+r66 should look the same as r65 in a plain game, so first check a normal quest on Eden. Then, on
+MHGURecomp with UI mode Center:
 
-No more testing is planned. If anyone does play it, these are the steps nobody has run, and the
-first thing to report is any difference from r64. Delete any r64 folder first, or both builds will
-load together.
+1. Install `00_KatLib` and r66, with no UIScale. The log must have `World Sharpness Gauge r66 loaded`
+   and no `code mismatch` line, and the bar should cut as usual.
+2. Add `UIScale` with its default layout. Hit something with the blade until it dulls. The cut and
+   the dark part should stay lined up with the scaled blade.
+3. Open UIScale's editor and move the gauge. Say whether the cut follows straight away or only after
+   the next quest.
+
+Delete any older folder of this mod first, or both builds will load together.
 
 The requirement is the tester's own: "make the gauge works like mh world's gauge, which the bar is
 per tier, so for example, weapon with purple tier max, the bar will show the fill as between max
@@ -44,7 +47,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `WSG r65`.
+lines that matter start with `WSG r66`.
 
 ## The log lines
 

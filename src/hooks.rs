@@ -107,11 +107,16 @@ pub unsafe extern "C" fn wsg_mask_enter(mask: u32, _context: u32) {
     if original == 0 {
         return;
     }
-    if wsg_mask_enter_active.load(Ordering::Acquire) {
-        insert::enter(mask);
-    }
+    let corner = if wsg_mask_enter_active.load(Ordering::Acquire) {
+        insert::enter(mask)
+    } else {
+        None
+    };
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
     unsafe { f(mask, _context) };
+    if let Some(corner) = corner {
+        insert::restore_corner(mask, corner);
+    }
 }
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the
@@ -232,7 +237,7 @@ pub fn install() -> Result<Vec<Patch>, &'static str> {
         let mut actual = [0; 32];
         if !memory::executable(base + offset, 32)
             || !memory::copy(base + offset, &mut actual)
-            || actual != bytes
+            || !sharpness_gauge_core::window_matches(&actual, &bytes)
         {
             return Err("MHGU 1.4.0 code mismatch at a required function");
         }

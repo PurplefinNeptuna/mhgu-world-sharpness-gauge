@@ -1,29 +1,28 @@
 # World Sharpness Gauge: development
 
-**Current state.** r65, READY_TO_DISTRIBUTE (2026-11-02), unpublished, release at
-`build/world-sharpness-gauge/releases/r65/`: the consolidation of r64, with the fill, the cut, the
-shade and the tree unchanged. The bar's length is measured inside the tier band its points sit in:
-`(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and
-`ceiling` the top of this tier clipped to `mMaxSharpness`, so the bar refills at every colour change
-and a raised maximum reads full partway through its tier. The band is found by binary search on the
-game's own points-to-tier function `calculateSharpnessType` (main+0x29cdfc), which is called, never
-hooked, behind its 32-byte signature window and three safety gates (see *Fill, per tier* below). No
-settings, no panel. The shade's atlas window is the bar's own live four floats, published through the
-`mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy
-as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's
-sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
-emits exactly 13. 25 host fixtures pass; verify PASSED with 32 signature windows. r65 ran on Eden with
-the payload installed: the log shows three rows inserted and released, with no player report of its
-picture. The accepted picture is r64's, the gameplay-accepted build at
-`build/world-sharpness-gauge/candidates/r64/` (Eden, "all works perfectly"), and accepted r62's crop
-of the worn blade at the red tier, at `build/world-sharpness-gauge/candidates/r62/`. `DISTRIBUTION.json`
-holds the status and hashes, `EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log
-lines.
+**Current state.** r66, DEVELOPMENT candidate at `build/world-sharpness-gauge/candidates/r66/`, gameplay
+not run. r66 is r65 with two compatibility changes. A required code window may now carry another plugin's
+Forge entry hook over its first eight bytes, because all three of this mod's hooks chain to the original
+(`window_matches` in core). The cut mask's corner now comes from the bar's rect, so the cut follows a
+plugin that rescales the HUD. The fill, the shade and the tree are r65's. The bar's length is measured
+inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor`
+is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by
+binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see *Fill, per
+tier* below). No settings, no panel. The shade's atlas window is the bar's own live four floats, published
+through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with
+the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the
+bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
+emits exactly 13. 26 host fixtures pass; verify PASSED with 32 signature windows. r65 is the approved
+release, preserved in `backups/accepted/world-sharpness-gauge/r65-before-katlib-compat/`. The accepted
+picture is r64's, the gameplay-accepted build at `build/world-sharpness-gauge/candidates/r64/` (Eden, "all
+works perfectly"), and accepted r62's crop of the worn blade at the red tier, at
+`build/world-sharpness-gauge/candidates/r62/`. `DISTRIBUTION.json` holds the status and hashes,
+`EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log lines.
 
 The name is World because the per-tier bar works like Monster Hunter: World's, while the later games' long
 gauge spans all sharpness. Builds through r64, the log lines quoted in `EVIDENCE.json` and `DISTRIBUTION.json`,
 and the notes in `work/` use an earlier name and the log prefix `MSG`. An r64 folder must not be active
-beside r65's, because both plugins would load and hook the same functions.
+beside a later build's, because both plugins would load and hook the same functions.
 
 The window is published through the setter because the drawn quad's UVs are a cache: the texture's draw
 slot main+0xa4fc9c calls main+0xa4feb4, which reads the UVs from `+0x10c..+0x118` and the four corner
@@ -209,6 +208,12 @@ above and is read through the mapping query at runtime.
   rect top; its authored width is the blade past the cut and its height the bar's rect height. r62 logged
   `shade_box=128 38 200 166` at `ratio_bp=0`. The copy keeps the bar's quad from the build, and only its
   window changes per frame. The dark part has no glow by design.
+- **Cut corner.** Each frame the mask's enter writes the bar rect's corner over the mask's translation
+  (`+0x40/+0x44`), the original builds the box, and the hook puts the walk's value back, because a child's
+  setMatrix reads its parent's `+0x10` (main+0xa496b0). In a plain game the rect's corner is the walk's
+  (110,38). UIScale post-processes `main+0xa4f420`'s output, the bar's `+0xe0`, with the sprite's own rule,
+  so the rect already moves and scales with the sprite. It edits the sprite through the uploaded matrix
+  block at `*(ctx+4)+0x18bc`, after main+0xa4eb9c or main+0xa3e3b0, so the bar's own `+0x10` stays unscaled.
 - **Copy construction.** DTI allocator slot 0x20 with `(bytes, align, dti id)`, a zeroed 304-byte block,
   constructor main+0xa4f60c, the mod's marker at `+0x50`, the bar's `+0x64/+0x74/+0x78`, the twelve style setters in Key Quest
   Markers' order, `SamplerState` from the bar (authored 2, stored in the low nibble of `+0x108` by
@@ -284,6 +289,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 - **Take the maximum from stat 14, a level row or the kireaji table.** `mMaxSharpness` is what the
   game clamps points against. `0xe1eec` is also reached from the player update path `0x27b9c8`, and
   rerunning it does not move `mMaxSharpness`.
+- **Leave a moved corner on the cut mask past its enter.** The bar is its child, so the next transform update of the bar alone would read the moved parent matrix, and a rescaling plugin would scale that again.
 - **Read `mSharpnessType` for the fill.** The stored tier is not the band, and 67 sites build that
   offset while only about 10 were opened, so its writers are not fully known.
 - **Smooth, interpolate or animate the fill.** "jumpy is okay, no need for fancy smooth animations
@@ -329,6 +335,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Open items
 
+- **Running beside KatLib and UIScale.** Static reading only; no run. The rect follows the sprite only when `+0xe0` is rebuilt (`+0xd0` bit 0, set by slot 0x44 on a transform update), so editing the layout live may leave the cut behind until the next rebuild. Whether UIScale resolves the inserted copy to the gauge's element, so the shade scales with the bar, is unread (UIScale's `0x4454`). If the cut lags, the exact source is the bar's uploaded block, read after main+0xa4fc9c returns.
 - **Steps not seen on screen.** Sharpness +1/+2 and Heavy Polish over the banded bar have host fixtures and static reading, and no run. `TESTING.md` has the steps if anyone plays them.
 - **The bar and the colour on the same frame.** The colour driver main+0x62bb0c (slot 0x3c of the widget vtable at main+0x1776300) reads the tier, stores its sequence at `+0x50` and applies it through main+0x546c74 and main+0xa3896c in that one call. When that call runs against `adjustSharpness` and against the draw is unread; it depends on the unit move order (`sUnit::registerUnit` main+0xc067ec takes the line). A tier drop could show a full bar in the old colour for a frame or more. The player reports nothing wrong, and only a slow capture can show it. Read the order only if it is ever seen.
 - **The draw walker's thread.** One thread by static reading, unconfirmed at runtime; the fill makes about 18 checked native calls per frame on it. `forge_onUpdate` runs after `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot 0x3c main+0xa39300. So `insert::run` follows the walker and the mask's enter rather than overlapping them. Untraced: 13 other unit-draw callers and 10 other slot 0x3c sites, and the per-frame job main+0x3daf88, which can outlive `forge_onUpdate` while its sUIObject pass destroys `cUIO*` objects. Only a test build comparing the current thread in the walker and in `forge_onUpdate` can confirm it. Offsets are in `work/world-sharpness-gauge/THREAD_RESEARCH.md`.

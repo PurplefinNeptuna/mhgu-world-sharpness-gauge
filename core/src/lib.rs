@@ -9,6 +9,14 @@
 //! base; main-relative code addresses are irrelevant to this crate.
 #![no_std]
 
+/// A required code window as it may legitimately be found: the original bytes, or the original
+/// bytes with another plugin's Forge entry hook (`ldr pc, [pc, #-4]` plus the detour address) over
+/// its first eight. Chaining onto such a hook keeps the game's function running behind it.
+pub fn window_matches(actual: &[u8; 32], expected: &[u8; 32]) -> bool {
+    actual == expected
+        || (actual[..4] == 0xe51f_f004u32.to_le_bytes() && actual[8..] == expected[8..])
+}
+
 /// One checked native word read. The plugin implements it with the mapping
 /// checks in `src/memory.rs`; tests implement it with a flat table.
 pub trait Memory {
