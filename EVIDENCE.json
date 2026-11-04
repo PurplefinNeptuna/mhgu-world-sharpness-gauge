@@ -1474,5 +1474,23 @@
     "source_check": "All 17 source files recorded in the candidate's build.json hash the same in the tree at promotion.",
     "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 8f141b5 (the r65 rename and consolidation) among them. The user stated the rest on 2026-11-02: \"the one without AI trailer is using qwen 3.8 flash next via deepseek harness\" and \"claude code is opus 5.5\".",
     "basis_scope": "Eden only. The picture was accepted on r64 and r62; r65's run is log evidence. Sharpness+1/+2, Heavy Polish, Ryujinx and Switch hardware are unconfirmed."
+  },
+  "runtime_r67_2026_11_05": {
+    "version": "r67",
+    "emulators": [
+      "Eden master-07677aa500-master",
+      "suyu v14.1.0-v14.1.0 (Android), the other player; its installed hashes were not available"
+    ],
+    "installed_nro_sha256": "06990cd19a0549d7c92646007ff654c9ce312b03329bab87b8b12c5f236058ee",
+    "scope": "Logs only. Two-player session with one quest. No player report of what appeared on screen.",
+    "lines_eden": [
+      "[ERROR] WSG r67 gauge row check stopped at stage 21: instance=0 controller=0 gauge=0",
+      "[ERROR] WSG r67 scissor mask inserted: mask=0x484cca70 map=0x48489fd0 entries=7 cache=0x4433bbc0 records=13 dim=0x47ddb550 clip=0x47ddb6d0",
+      "[ERROR] WSG r67 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]",
+      "[ERROR] WSG r67 inserted mask's links lost (1 times); captured addresses cleared"
+    ],
+    "note": "drawn equals rect, as a plain game must. The lost-links line is at [1123.819780], after the area line at [1123.344770] showing the player back at area 7, so it marks the quest's end. The suyu log has only the stage 21 line, which TESTING.md reads as no gauge HUD or a weapon with no sharpness; the other player's weapon was not reported.",
+    "foreign_plugins": "Foreign plugins active on Eden: 11 NRO loads match the 11 NROs in the load folder, including BetterBox, better-inputs and MHGU-DPS-Meter-v1.2.0; only 'finish cheat' is disabled. No foreign hook is shown over an entry at this mod's install. KatLib and UIScale were not installed.",
+    "exceptions": "No exception, data abort or panic text in either log. Eden stopped through ForceStop."
   }
 }
