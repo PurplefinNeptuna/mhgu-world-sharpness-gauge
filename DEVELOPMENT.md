@@ -1,6 +1,6 @@
 # World Sharpness Gauge: development
 
-**Current state.** r67, DEVELOPMENT candidate at `build/world-sharpness-gauge/candidates/r67/`, the gameplay-accepted build on
+**Current state.** r67, READY_TO_DISTRIBUTE (2026-11-05), unpublished, release at `build/world-sharpness-gauge/releases/r67/`, the gameplay-accepted build on
 MHGURecomp 0.14.0 beside KatLib and UIScale on the user's report (`bar drawn rescaled`), where the approved r65 is refused
 with `code mismatch`; logs from one plain Eden quest (`bar drawn plain`, `drawn` equal to `rect`). r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
 Forge entry hook over its first eight bytes, because all four of this mod's hooks chain to the original

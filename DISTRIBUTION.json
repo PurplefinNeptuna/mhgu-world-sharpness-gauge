@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
-  "status": "DEVELOPMENT",
-  "reason": "r67 lets the gauge load beside plugins that hook the same game functions, such as KatLib, and makes the cut and shade follow where the bar is really drawn, read from its uploaded matrix, so they track UIScale live. A plain draw keeps r65's rect as the source. Not approved and gameplay not run.",
+  "status": "READY_TO_DISTRIBUTE",
+  "reason": "r67 approved for distribution. It loads beside plugins that hook the same functions, and its cut follows a bar UIScale rescales.",
   "publication": {
     "published": false,
     "url": null,
@@ -10,9 +10,9 @@
   },
   "version": "r67",
   "package_name": "world-sharpness-gauge",
-  "archive": "world-sharpness-gauge-r67-candidate.zip",
-  "runtime_test": "USER REPORTED for r67 on MHGURecomp 0.14.0 beside KatLib and UIScale, 2026-11-05: \"i did with fixed first, doing quest and its working\". The approved r65 was refused there. See EVIDENCE.json recomp_r67_vs_r65_2026_11_05.",
-  "runtime_active": false,
+  "archive": "world-sharpness-gauge-r67.zip",
+  "runtime_test": "The user reported r67 on MHGURecomp 0.14.0 beside KatLib and UIScale: \"i did with fixed first, doing quest and its working\", while r65 was refused there. A live drag in UIScale's editor was not reported.",
+  "runtime_active": true,
   "gamebanana": {
     "compact_html": true,
     "ai_code": {
@@ -65,6 +65,7 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
+    "a live drag in UIScale's editor has no report",
     "r67 has a player report on MHGURecomp beside KatLib and UIScale, and logs from one plain Eden session",
     "the box model for a rescaled bar has only host fixtures until a `bar drawn` log line shows it agreeing with the game's rect",
     "the fill is accepted by the player's eye on the bar, not by a recorded number: the build logs no fill value, so no run carries a band value",
@@ -101,7 +102,7 @@
       "mods/world-sharpness-gauge/EVIDENCE.json"
     ],
     "static_summary": "r67: pinned toolchain build; 27 host fixtures passed; verify.py PASSED with 33 NSO signature windows, a unique hook window, the exact export set, resolved imports only, no MSR in the disassembly, no DT_TEXTREL and a one-file payload. The fill is (current - floor) * 10000 / (ceiling - floor) inside the tier band, with ceiling clipped to mMaxSharpness; the band is found by binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The native facts are re-verified against the original bytes by work/world-sharpness-gauge/scripts/verify_tier_gauge.py. See EVIDENCE.json, DEVELOPMENT.md, work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md and work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md.",
-    "manual_summary": "r65 ran on Eden on 2026-11-02 with the installed NRO matching the payload: three rows inserted and three released in the log, no player report of its picture. r64, its source for the fill, was played on Eden in two sessions on 2026-11-02, the installed NRO matching the packaged payload both times, and accepted by eye: \"from playing and look at the visuals it looks right\", and \"just done 2 quests with different weapon, with first quest death to fail, all works perfectly\". The worn-blade drawing was accepted on r62 at the red tier on 2026-11-01. r61 was packaged, never run, withdrawn. Ryujinx and Switch hardware unconfirmed."
+    "manual_summary": "The user reported r67 on MHGURecomp 0.14.0 beside KatLib and UIScale: \"i did with fixed first, doing quest and its working\", while r65 was refused there. A live drag in UIScale's editor was not reported."
   },
   "dependencies": [
     {
@@ -120,6 +121,8 @@
       "sha256": "06990cd19a0549d7c92646007ff654c9ce312b03329bab87b8b12c5f236058ee"
     }
   },
-  "candidate": "build/world-sharpness-gauge/candidates/r67/delivery",
-  "candidate_builder": "scripts/build.py"
+  "approval": {
+    "date": "2026-11-05",
+    "basis": "The user approved this on 2026-11-05: \"ok, make notes about them and promote all the lenient patched mods to ready to distribute, and maybe other mods that still has dev status that i use in eden, while notes the recomp incompabilities when exists (like in please do better)\". The user reported r67 on MHGURecomp 0.14.0 beside KatLib and UIScale: \"i did with fixed first, doing quest and its working\", while r65 was refused there. A live drag in UIScale's editor was not reported. Ryujinx and Switch hardware are unconfirmed."
+  }
 }

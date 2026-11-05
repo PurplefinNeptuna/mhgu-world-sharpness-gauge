@@ -1518,5 +1518,13 @@
     ],
     "installed_r67_prefix": "06990cd19a0549d7",
     "meaning": "The same plugin set refuses r65 and loads r67, and window_matches is the check that differs, so a Forge entry hook was over a required window at install. The log does not name the window or which plugin placed it. The report does not itemize a live drag in the UIScale editor."
+  },
+  "approval_r67_2026_11_05": {
+    "version": "r67",
+    "user_request": "\"ok, make notes about them and promote all the lenient patched mods to ready to distribute, and maybe other mods that still has dev status that i use in eden, while notes the recomp incompabilities when exists (like in please do better)\"",
+    "nro_sha256": {
+      "romfs/nativeNX/plugins/world_sharpness_gauge.nro": "06990cd19a0549d7c92646007ff654c9ce312b03329bab87b8b12c5f236058ee"
+    },
+    "basis": "The user reported r67 on MHGURecomp 0.14.0 beside KatLib and UIScale: \"i did with fixed first, doing quest and its working\", while r65 was refused there. A live drag in UIScale's editor was not reported."
   }
 }
