@@ -3,17 +3,17 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r67
+## What to check on r68
 
-r67 should look the same as r65 in a plain game, so first check a normal quest on Eden. Then, on
-MHGURecomp with UI mode Center (on Eden, KatLib and UIScale log `Failed to load plugin ...: 0x00000616` and
-are not active, so that run tests nothing about them):
+r68 fixes a crash that r67 and earlier could cause soon after a quest starts, or later at a
+loading screen: the gauge's animation state was freed while the game still used it. Ryubing 1.3.3
+showed it every time; Eden rarely does. Play on Ryubing (`/mnt/storage2/Programs/Ryubing-1.3.3/run.sh`):
 
-1. Install `00_KatLib` and r67, with no UIScale. The log must have `World Sharpness Gauge r67 loaded`
-   and no `code mismatch` line, and the bar should cut as usual.
-2. Add `UIScale` with its default layout. Hit something with the blade until it dulls. The cut and
-   the dark part should stay lined up with the scaled blade.
-3. Open UIScale's editor and drag or resize the gauge. The cut should follow straight away.
+1. Start a quest with a blade weapon. The game must keep running past the moment the HUD appears,
+   and the log must have `WSG r68 scissor mask inserted` and `bar drawn plain` with no crash after.
+2. Move between zones a few times, then finish or abandon the quest and return to the village.
+   Repeat with a second quest. The bar should keep cutting by tier the whole time.
+3. On Eden, play one quest and confirm the gauge looks as before.
 
 On every run, also send the `bar drawn` line. In a plain game it must say `bar drawn plain` with
 `drawn` equal to `rect`. If the line is missing, the game's upload could not be read, and the cut
@@ -39,7 +39,7 @@ what the bar did, in the order you played it. Tell me if the bar is missing at a
 or wrongly coloured box appears over the gauge, if the cut is in the wrong place, if the glow or the
 edge glyph is missing, if the bar never refills at a colour change, or if the game stops responding.
 
-Ryujinx and a real Switch are untested. The dark part has no glow, by design.
+A real Switch is untested. The dark part has no glow, by design.
 
 ## Which log to send
 
@@ -47,11 +47,11 @@ Send the whole log file from the emulator you played on, and the Forge log if yo
 have one:
 
 - Eden: `~/.local/share/eden/log/eden_log.txt`
-- Ryujinx-Nextendo: the newest file in `portable/Logs/`
+- Ryubing: the newest file in `portable/Logs/`
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `WSG r67`.
+lines that matter start with `WSG r68`.
 
 ## The log lines
 

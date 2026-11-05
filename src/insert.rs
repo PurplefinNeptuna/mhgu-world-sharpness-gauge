@@ -428,12 +428,20 @@ fn grow_map(instance: u32, root: u32, entries: u32, node: u32, extra: [u32; 3]) 
 
 /// Resize the row's draw block for the extended object count, through the root's own
 /// allocate/free pair (slots 0x58/0x5c) so the root's destructor frees an allocation the root
-/// made.
-fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32> {
+/// made. The block's prefix (`sequences * 12` bytes) is live animation state: row setup
+/// (main+0xa484c4) points every object's `+0x64` at its track slice there, and the row update
+/// (main+0xa4915c) evaluates and writes those tracks each frame. So the prefix is copied and every
+/// `map_words` entry of the published map that points into it is moved to the new block before the
+/// old one is freed; the record area after the prefix starts zeroed.
+fn grow_cache(root: u32, objects: u32, sequences: u32, map: u32, map_words: u32) -> Result<(u32, u32), u32> {
+    const TRACK_POINTER: u32 = 0x64;
     let (size, prefix, area) = sharpness_gauge_core::cache_layout(objects, sequences);
     let allocate = memory::method(root, 0x58).ok_or(44u32)?;
     let release = memory::method(root, 0x5c).ok_or(44u32)?;
     let old_alloc = memory::word(root + 0xa4).unwrap_or(0);
+    if old_alloc == 0 || map_words as usize > 16 {
+        return Err(44);
+    }
     let fresh = memory::call2(allocate, root, size).ok_or(45u32)?;
     if fresh == 0 || fresh & 15 != 0 || !memory::writable(fresh, size as usize) {
         if fresh != 0 {
@@ -441,19 +449,49 @@ fn grow_cache(root: u32, objects: u32, sequences: u32) -> Result<(u32, u32), u32
         }
         return Err(45);
     }
-    if !memory::zero_words(fresh, (size / 4) as usize) {
-        let _ = memory::call2(release, root, fresh);
-        return Err(46);
-    }
-    if !memory::write_word(root + 0xa4, fresh) || !memory::write_word(root + 0x80, fresh + prefix)
+    if !memory::zero_words(fresh, (size / 4) as usize)
+        || !memory::copy_words(old_alloc, fresh, (prefix / 4) as usize)
     {
         let _ = memory::call2(release, root, fresh);
         return Err(46);
     }
-    // The root's own destructor frees root+0xa4 through slot 0x5c, so the block it replaces
-    // goes back the same way. Leaving it unreleased stops the bar drawing, so the replacement
-    // only works with the old block returned to the root's allocator.
-    if old_alloc != 0 && old_alloc != fresh {
+    // Every new track pointer is worked out and its word proven writable before any is written,
+    // so a failure leaves no object pointing into a block that is about to be released.
+    let mut moves = [(0u32, 0u32); 16];
+    let mut count = 0;
+    for index in 0..map_words {
+        let node = memory::word(map + index * 4).unwrap_or(0);
+        if node == 0 {
+            continue;
+        }
+        let Some(pointer) = memory::word(node + TRACK_POINTER) else {
+            let _ = memory::call2(release, root, fresh);
+            return Err(46);
+        };
+        if let Some(moved) = sharpness_gauge_core::relocate_prefix(pointer, old_alloc, prefix, fresh) {
+            if !memory::writable(node + TRACK_POINTER, 4) {
+                let _ = memory::call2(release, root, fresh);
+                return Err(46);
+            }
+            moves[count] = (node + TRACK_POINTER, moved);
+            count += 1;
+        }
+    }
+    for &(address, moved) in &moves[..count] {
+        let _ = memory::write_word(address, moved);
+    }
+    if !memory::write_word(root + 0xa4, fresh) || !memory::write_word(root + 0x80, fresh + prefix)
+    {
+        // Put the objects back on the old block, which is still live, before releasing the new one.
+        for &(address, moved) in &moves[..count] {
+            let _ = memory::write_word(address, moved - fresh + old_alloc);
+        }
+        let _ = memory::call2(release, root, fresh);
+        return Err(46);
+    }
+    // The root's own destructor frees root+0xa4 through slot 0x5c, so the block it replaces goes
+    // back the same way, now that no object's track pointer is left in it.
+    if old_alloc != fresh {
         let _ = memory::call2(release, root, old_alloc);
     }
     Ok((fresh, area / 8))
@@ -814,7 +852,7 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     // (mask enter, bar/glow/edge enter+exit, mask exit, clip enter, copy enter+exit, clip exit,
     // terminator). The grown area is (6 << 4) | 8 = 104 bytes = 13 records, so they fit exactly;
     // without the shade the row grows to 4 objects, area 72 = 9 records.
-    let cache = match grow_cache(root, objects + 1 + shade * 2, sequences) {
+    let cache = match grow_cache(root, objects + 1 + shade * 2, sequences, map, nodes + 2 + shade * 2) {
         Ok(done) => done,
         Err(stage) => {
             // The map is published and the tree untouched, so main+0x5456e4 never reaches the

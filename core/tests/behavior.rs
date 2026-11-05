@@ -1,6 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    band_bp, count_nodes, cache_layout, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
+    band_bp, count_nodes, cache_layout, relocate_prefix, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
     drawn_rect, mask_box, read_gauge, sample_controller, span_box, tier_band, window_matches,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, Gauge, Local,
@@ -723,4 +723,19 @@ fn the_drawn_box_follows_the_drawn_scale_and_position() {
     assert_eq!(drawn_rect(at(1.0, 0.0, 0.0), 0, true, [128, 128]), None);
     assert_eq!(drawn_rect([1.0, 0.5, 0.0, 1.0, 0.0, 0.0], 0, false, [128, 128]), None);
     assert_eq!(drawn_rect(at(0.0, 0.0, 0.0), 0, false, [128, 128]), None);
+}
+
+/// Row setup (main+0xa484c4) points each object's `+0x64` into the draw block's 192-byte prefix,
+/// and the row update evaluates those tracks every frame, so a replaced block must carry them.
+#[test]
+fn track_pointers_follow_the_replaced_draw_block() {
+    let (old, fresh, prefix) = (0x4801_9000, 0x4802_6000, cache_layout(3, 16).1);
+    assert_eq!(relocate_prefix(old, old, prefix, fresh), Some(fresh));
+    assert_eq!(relocate_prefix(old + 36, old, prefix, fresh), Some(fresh + 36));
+    // An object with no tracks holds the cursor at the prefix's end.
+    assert_eq!(relocate_prefix(old + prefix, old, prefix, fresh), Some(fresh + prefix));
+    // The record area past the prefix, earlier memory and zero are not track slices.
+    assert_eq!(relocate_prefix(old + prefix + 4, old, prefix, fresh), None);
+    assert_eq!(relocate_prefix(old - 4, old, prefix, fresh), None);
+    assert_eq!(relocate_prefix(0, old, prefix, fresh), None);
 }

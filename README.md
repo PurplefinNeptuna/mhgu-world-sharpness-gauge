@@ -16,14 +16,14 @@ draws it. Nothing else on the HUD changes, and there is nothing to set up.
 ## Installation
 
 1. Close the emulator.
-2. Extract `world-sharpness-gauge-r67.zip`.
+2. Extract `world-sharpness-gauge-r68-candidate.zip`.
 3. Copy the whole `world-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
    - Ryujinx: `mods/contents/0100770008dd8000/` inside its data directory.
 4. Enable `world-sharpness-gauge` and launch MHGU.
 
-Open Forge's overlay and check **Loaded Plugins**: `World Sharpness Gauge r67`
+Open Forge's overlay and check **Loaded Plugins**: `World Sharpness Gauge r68`
 should be listed.
 
 ## Usage

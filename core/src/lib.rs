@@ -367,6 +367,16 @@ pub fn cache_layout(objects: u32, sequences: u32) -> (u32, u32, u32) {
     (area + prefix, prefix, area)
 }
 
+/// Where an object's track pointer moves when the row's draw block is replaced. Row setup
+/// (main+0xa484c4) stores each object's `+0x64` as its slice of the block's prefix, the animation
+/// tracks the row update (main+0xa4915c) evaluates every frame, so a pointer inside
+/// `old..=old + prefix` keeps its offset in `fresh`. The end is inclusive: an object with no tracks
+/// gets the cursor at the prefix's end. Anything else is not the block's and stays as it is.
+pub fn relocate_prefix(pointer: u32, old: u32, prefix: u32, fresh: u32) -> Option<u32> {
+    let offset = pointer.checked_sub(old)?;
+    (offset <= prefix).then(|| fresh + offset)
+}
+
 pub const SCAN_STACK: usize = 16;
 pub const SCAN_LIMIT: u32 = 64;
 /// The draw cache the walker at main+0xa494a0 writes for a tree, as the entry kinds

@@ -1,8 +1,11 @@
 # World Sharpness Gauge: development
 
-**Current state.** r67, READY_TO_DISTRIBUTE (2026-11-05), unpublished, release at `build/world-sharpness-gauge/releases/r67/`, the gameplay-accepted build on
-MHGURecomp 0.14.0 beside KatLib and UIScale on the user's report (`bar drawn rescaled`), where the approved r65 is refused
-with `code mismatch`; logs from one plain Eden quest (`bar drawn plain`, `drawn` equal to `rect`). r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
+**Current state.** r68 DEVELOPMENT candidate, gameplay NOT RUN, at `build/world-sharpness-gauge/candidates/r68/`. r68 is r67 with the
+draw block replaced safely: `grow_cache` copies the block's animation prefix and moves every object's track pointer (`+0x64`) into the
+new block before freeing the old one (see *Draw block prefix*). r67 freed it under them, which crashed Ryubing 1.3.3 106 ms after
+insertion. r67 is the approved release, preserved in `backups/accepted/world-sharpness-gauge/r67-before-prefix-relocation/`, and the
+gameplay-accepted build on MHGURecomp 0.14.0 beside KatLib and UIScale on the user's report (`bar drawn rescaled`), its ZIP kept in
+`build/world-sharpness-gauge/candidates/r67/`; logs from one plain Eden quest (`bar drawn plain`, `drawn` equal to `rect`). r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
 Forge entry hook over its first eight bytes, because all four of this mod's hooks chain to the original
 (`window_matches` in core). The cut and the shade now follow where the bar is really drawn: a post-hook
 on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source. The fill, the shade and the tree are r65's. The bar's length is measured
@@ -13,8 +16,8 @@ tier* below). No settings, no panel. The shade's atlas window is the bar's own l
 through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with
 the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the
 bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
-emits exactly 13. 27 host fixtures pass; verify PASSED with 33 signature windows. r65 is the approved
-release, preserved in `backups/accepted/world-sharpness-gauge/r65-before-katlib-compat/`. The accepted
+emits exactly 13. 28 host fixtures pass; verify PASSED with 33 signature windows. r65, the release before r67, is
+preserved in `backups/accepted/world-sharpness-gauge/r65-before-katlib-compat/`. The accepted
 picture is r64's, the gameplay-accepted build at `build/world-sharpness-gauge/candidates/r64/` (Eden, "all
 works perfectly"), and accepted r62's crop of the worn blade at the red tier, at
 `build/world-sharpness-gauge/candidates/r62/`. `DISTRIBUTION.json` holds the status and hashes,
@@ -32,6 +35,14 @@ afterwards, and the setter main+0xa4fb58 - early return while the four floats ma
 `+0x108 & 0x30`, tail-call of vtable slot 0x50 (main+0xa4fc68) - is the only path to that mark. A raw
 write to the copy's `+0x10c` marks nothing and never repaints. `work/world-sharpness-gauge/PHASE5_RESEARCH.md`
 carries these facts with their bytes.
+
+## Draw block prefix
+
+The row's draw block (`root+0xa4`) starts with `sequences * 12` bytes of animation tracks, 192 here. Row setup loads the block at
+main+0xa38cfc and main+0xa484c4 stores each object's slice of it at `+0x64`, writing the object's address at `+8` of each 12-byte
+track. The row update main+0xa4915c walks the first `row+4` map entries (controller, bar, glow, edge) and, for an object with bit 23,
+evaluates its tracks through `+0x64` at main+0xb349c0. The copy is given the bar's `+0x64`, so it points there too. A replaced block
+therefore keeps the prefix bytes and every `+0x64` inside `old..=old + prefix` moves to the same offset (`relocate_prefix` in core).
 
 General GUI rules (masks, cache and map growth, teardown) are in the forge-modding skill's
 `references/native-gui-extensions.md`; row, field and table facts are in the mhgu-understanding skill's
@@ -279,6 +290,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Do not
 
+- **Free or zero the draw block's prefix while objects point into it.** The bar, glow and edge animate through `+0x64` every frame; r67 did, and Ryubing crashed at main+0xb349c0 from main+0xa49238.
 - **Call native code on a player that has not passed the fill's gates.** `calculateSharpnessType`
   dereferences `player + 0x13c4` (main+0x29ce34) and then `+ 0x4d4` (main+0x27c848, main+0x27c84c)
   with no check, so a stale capture can fault the game. `sampling::fill` re-derives the player from
