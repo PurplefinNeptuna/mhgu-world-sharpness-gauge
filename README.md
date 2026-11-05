@@ -1,6 +1,6 @@
 # World Sharpness Gauge
 
-The mod turns the sharpness bar into a bar gauge, like the one in Monster Hunter: World. The bar
+The mod turns the sharpness bar into a gauge like the one in Monster Hunter: World. The bar
 measures the blade inside the colour it has, so it refills at every colour change. Every hit cuts the
 blade back a little from the tip toward the hilt, and empty sharpness leaves only the hilt.
 
@@ -28,8 +28,8 @@ should be listed.
 
 ## Usage
 
-Start a quest with a melee weapon that has sharpness, and play normally. With a bowgun or the prowler,
-there is no sharpness gauge, and the mod changes nothing.
+Start a quest with a melee weapon that has sharpness, and play normally. A bowgun or the Prowler has no sharpness
+gauge, so the mod changes nothing.
 
 ## Update and removal
 
