@@ -11,7 +11,7 @@
   "version": "r67",
   "package_name": "world-sharpness-gauge",
   "archive": "world-sharpness-gauge-r67-candidate.zip",
-  "runtime_test": "LOG ONLY for r67: Eden master-07677aa500-master, 2026-11-05, installed NRO matches, no player report. See EVIDENCE.json runtime_r67_2026_11_05.",
+  "runtime_test": "USER REPORTED for r67 on MHGURecomp 0.14.0 beside KatLib and UIScale, 2026-11-05: \"i did with fixed first, doing quest and its working\". The approved r65 was refused there. See EVIDENCE.json recomp_r67_vs_r65_2026_11_05.",
   "runtime_active": false,
   "gamebanana": {
     "compact_html": true,
@@ -65,7 +65,7 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
-    "r67 has one plain Eden session, logs only; its KatLib and UIScale behaviour rests on static reading of their NROs and of MHGURecomp's hook code",
+    "r67 has a player report on MHGURecomp beside KatLib and UIScale, and logs from one plain Eden session",
     "the box model for a rescaled bar has only host fixtures until a `bar drawn` log line shows it agreeing with the game's rect",
     "the fill is accepted by the player's eye on the bar, not by a recorded number: the build logs no fill value, so no run carries a band value",
     "the raised-maximum band ends have no runtime check: no saved log was identified as using a Sharpness skill, so host fixtures and static reading are the evidence",

@@ -1503,5 +1503,20 @@
       "[ERROR] WSG r67 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]"
     ],
     "build_ids": "katlib.nro, uiscale.nro and betterbox.nro all have an all-zero build ID at header +0x40; betterbox.nro has no failure line. Reading 0x616 as already loaded is from the RO result table as remembered, not checked against Eden source."
+  },
+  "recomp_r67_vs_r65_2026_11_05": {
+    "emulator": "MHGURecomp 0.14.0 Linux, with 00_KatLib and UIScale loaded and please-do-better out",
+    "user_report": "\"i did with fixed first, doing quest and its working / then with old unfixed, doing quest and sharpness not working / last launch use fixed version but run no quest\"",
+    "r67_lines": [
+      "[forge] [INFO] World Sharpness Gauge r67 loaded (clips the sharpness gauge to the fill inside its tier)",
+      "[forge] [ERROR] WSG r67 scissor mask inserted: mask=0xc43d850 map=0xc3e9150 entries=7 cache=0xc449310 records=13 dim=0xc259ce0 clip=0xc259e60",
+      "[forge] [ERROR] WSG r67 bar drawn rescaled: drawn=[85, 31, 181, 127] rect=[85, 32, 181, 128]",
+      "[forge] [ERROR] WSG r67 inserted mask's links lost (1 times); captured addresses cleared"
+    ],
+    "r65_lines": [
+      "[forge] [ERROR] World Sharpness Gauge disabled: MHGU 1.4.0 code mismatch at a required function"
+    ],
+    "installed_r67_prefix": "06990cd19a0549d7",
+    "meaning": "The same plugin set refuses r65 and loads r67, and window_matches is the check that differs, so a Forge entry hook was over a required window at install. The log does not name the window or which plugin placed it. The report does not itemize a live drag in the UIScale editor."
   }
 }

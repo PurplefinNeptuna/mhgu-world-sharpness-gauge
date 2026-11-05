@@ -1,7 +1,8 @@
 # World Sharpness Gauge: development
 
-**Current state.** r67, DEVELOPMENT candidate at `build/world-sharpness-gauge/candidates/r67/`, logs from one
-plain Eden quest (`bar drawn plain` with `drawn` equal to `rect`) and no player report. r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
+**Current state.** r67, DEVELOPMENT candidate at `build/world-sharpness-gauge/candidates/r67/`, the gameplay-accepted build on
+MHGURecomp 0.14.0 beside KatLib and UIScale on the user's report (`bar drawn rescaled`), where the approved r65 is refused
+with `code mismatch`; logs from one plain Eden quest (`bar drawn plain`, `drawn` equal to `rect`). r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
 Forge entry hook over its first eight bytes, because all four of this mod's hooks chain to the original
 (`window_matches` in core). The cut and the shade now follow where the bar is really drawn: a post-hook
 on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source. The fill, the shade and the tree are r65's. The bar's length is measured
@@ -333,7 +334,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Open items
 
-- **Running beside KatLib and UIScale.** Static reading only. On Eden both fail to load with `0x00000616`, beside BetterBox, because all three NROs have an all-zero build ID, so no Eden run has them active. `drawn_rect` runs only for a rescaled bar, so a plain game never exercises it, but the `bar drawn plain` line prints its result beside the game's rect, and those must agree.
+- **A live drag in UIScale's editor.** The quest beside KatLib and UIScale worked on MHGURecomp, and the log has many `[UIScale] settings saved` lines, but the report does not say the cut followed a drag. On Eden both plugins fail to load with `0x00000616` beside BetterBox, because all three NROs have an all-zero build ID.
 - **Steps not seen on screen.** Sharpness +1/+2 and Heavy Polish over the banded bar have host fixtures and static reading, and no run. `TESTING.md` has the steps if anyone plays them.
 - **The bar and the colour on the same frame.** The colour driver main+0x62bb0c (slot 0x3c of the widget vtable at main+0x1776300) reads the tier, stores its sequence at `+0x50` and applies it through main+0x546c74 and main+0xa3896c in that one call. When that call runs against `adjustSharpness` and against the draw is unread; it depends on the unit move order (`sUnit::registerUnit` main+0xc067ec takes the line). A tier drop could show a full bar in the old colour for a frame or more. The player reports nothing wrong, and only a slow capture can show it. Read the order only if it is ever seen.
 - **The draw walker's thread.** One thread by static reading, unconfirmed at runtime; the fill makes about 18 checked native calls per frame on it. `forge_onUpdate` runs after `sFestaMain::move` (main+0x3da8fc) returns, and that function reaches the walker inline: render slot 0x1c main+0xbc2904, unit manager slot 0x34 main+0x3ea0b0, uGUI slot 0x30 main+0x919760, main+0xa34070, instance slot 0x3c main+0xa39300. So `insert::run` follows the walker and the mask's enter rather than overlapping them. Untraced: 13 other unit-draw callers and 10 other slot 0x3c sites, and the per-frame job main+0x3daf88, which can outlive `forge_onUpdate` while its sUIObject pass destroys `cUIO*` objects. Only a test build comparing the current thread in the walker and in `forge_onUpdate` can confirm it. Offsets are in `work/world-sharpness-gauge/THREAD_RESEARCH.md`.
