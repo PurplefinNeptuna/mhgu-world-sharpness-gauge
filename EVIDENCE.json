@@ -1578,5 +1578,22 @@
       "romfs/nativeNX/plugins/world_sharpness_gauge.nro": "551b957a1502e1a632e6b7c30d2974faf26cf51d857bed8521b0af991c800054"
     },
     "basis": "The user reported r68 on Ryubing 1.3.3 and Eden: \"run done on both eden and ryubing, good on both\"."
+  },
+  "recomp_r68_2026_11_06": {
+    "version": "r68",
+    "emulator": "MHGURecomp 0.14.3 Linux, recomplog.txt 2026-11-06 13:59, launched with run.sh",
+    "installed_nro_sha256": "551b957a1502e1a632e6b7c30d2974faf26cf51d857bed8521b0af991c800054",
+    "lines": [
+      "[forge] [INFO] World Sharpness Gauge r68 loaded (clips the sharpness gauge to the fill inside its tier)",
+      "[forge] [ERROR] WSG r68 gauge row check stopped at stage 21: instance=0 controller=0 gauge=0",
+      "[forge] [ERROR] WSG r68 scissor mask inserted: mask=0xc3c92a0 map=0xc386d30 entries=7 cache=0xc3d6560 records=13 dim=0xc39cc80 clip=0xc39ce00",
+      "[forge] [ERROR] WSG r68 bar drawn rescaled: drawn=[110, 39, 238, 167] rect=[110, 39, 238, 167]",
+      "[forge] [ERROR] WSG r68 inserted mask's links lost (1 times); captured addresses cleared",
+      "[forge] [ERROR] WSG r68 scissor mask inserted: mask=0xc3f9920 map=0xc378420 entries=7 cache=0xc3ed2c0 records=13 dim=0xc3ce740 clip=0xc3ce8c0",
+      "[forge] [ERROR] WSG r68 bar drawn rescaled: drawn=[110, 39, 238, 167] rect=[110, 39, 238, 167]",
+      "[forge] [ERROR] WSG r68 inserted mask's links lost (2 times); captured addresses cleared"
+    ],
+    "note": "Two insertions with the bar drawn, KatLib and UIScale loaded. The stage-21 and links-lost lines are not analysed here.",
+    "user_report": "none for this run"
   }
 }
