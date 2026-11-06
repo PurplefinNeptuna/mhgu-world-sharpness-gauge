@@ -16,7 +16,7 @@ draws it. Nothing else on the HUD changes, and there is nothing to set up.
 ## Installation
 
 1. Close the emulator.
-2. Extract `world-sharpness-gauge-r68-candidate.zip`.
+2. Extract `world-sharpness-gauge-r68.zip`.
 3. Copy the whole `world-sharpness-gauge` folder into your emulator's MHGU mod
    directory:
    - Eden: `~/.local/share/eden/load/0100770008DD8000/`
@@ -41,7 +41,7 @@ restart the game.
 
 ## Compatibility and known issues
 
-Works with the base game on Eden. On MHGURecomp it works beside KatLib and UIScale, and the cut follows a gauge
-scaled by UIScale. Ryujinx and Switch hardware are untested.
+Works with the base game on Eden and on Ryujinx (Ryubing 1.3.3). On MHGURecomp it works beside KatLib and UIScale, and the cut follows a gauge
+scaled by UIScale. Switch hardware is untested.
 
 It can load alongside plugins that hook the same game functions.

@@ -1,9 +1,9 @@
 # World Sharpness Gauge: development
 
-**Current state.** r68 DEVELOPMENT candidate, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden), at `build/world-sharpness-gauge/candidates/r68/`. r68 is r67 with the
+**Current state.** r68 READY_TO_DISTRIBUTE (2026-11-06), unpublished, release at `build/world-sharpness-gauge/releases/r68/`, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden). r68 is r67 with the
 draw block replaced safely: `grow_cache` copies the block's animation prefix and moves every object's track pointer (`+0x64`) into the
 new block before freeing the old one (see *Draw block prefix*). r67 freed it under them, which crashed Ryubing 1.3.3 106 ms after
-insertion. r67 is the approved release, preserved in `backups/accepted/world-sharpness-gauge/r67-before-prefix-relocation/`, and the
+insertion. r67, the previous release, is preserved in `backups/accepted/world-sharpness-gauge/r67-before-prefix-relocation/`, and the
 gameplay-accepted build on MHGURecomp 0.14.0 beside KatLib and UIScale on the user's report (`bar drawn rescaled`), its ZIP kept in
 `build/world-sharpness-gauge/candidates/r67/`; logs from one plain Eden quest (`bar drawn plain`, `drawn` equal to `rect`). r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
 Forge entry hook over its first eight bytes, because all four of this mod's hooks chain to the original

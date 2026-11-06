@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
-  "status": "DEVELOPMENT",
-  "reason": "r68 is r67 with the row's draw block replaced without freeing the animation tracks the bar, glow and edge still use: the prefix is copied and their track pointers moved first. That use-after-free crashed Ryubing 1.3.3 106 ms after insertion.",
+  "status": "READY_TO_DISTRIBUTE",
+  "reason": "r68 approved for distribution. It keeps the gauge's animation state when it enlarges the gauge's draw list, which fixes crashes after a quest starts and at loading screens.",
   "publication": {
     "published": false,
     "url": null,
@@ -10,7 +10,7 @@
   },
   "version": "r68",
   "package_name": "world-sharpness-gauge",
-  "archive": "world-sharpness-gauge-r68-candidate.zip",
+  "archive": "world-sharpness-gauge-r68.zip",
   "runtime_test": "The user reported r68 on Ryubing 1.3.3 and Eden: \"run done on both eden and ryubing, good on both\". The Ryubing log shows three quests with no crash; the Eden log one quest.",
   "runtime_active": true,
   "gamebanana": {
@@ -121,6 +121,8 @@
       "sha256": "551b957a1502e1a632e6b7c30d2974faf26cf51d857bed8521b0af991c800054"
     }
   },
-  "candidate": "build/world-sharpness-gauge/candidates/r68/delivery",
-  "candidate_builder": "scripts/build.py"
+  "approval": {
+    "date": "2026-11-06",
+    "basis": "The user approved this on 2026-11-06: \"world sharpness and damage number promote them, wishlist still in development\". The user reported r68 on Ryubing 1.3.3 and Eden: \"run done on both eden and ryubing, good on both\". Switch hardware is unconfirmed."
+  }
 }
