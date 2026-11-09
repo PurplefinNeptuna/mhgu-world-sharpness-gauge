@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
-  "status": "READY_TO_DISTRIBUTE",
-  "reason": "r68 approved for distribution. It keeps the gauge's animation state when it enlarges the gauge's draw list, which fixes crashes after a quest starts and at loading screens.",
+  "status": "DEVELOPMENT",
+  "reason": "r69 is r68 with the cut and the shade drawn as the sprites' own geometry instead of scissors: each sprite's matrix x row and atlas window are cut just before its draw, so the cut moves with anything that moves the HUD's quads afterwards (gu-native, an Android/Windows port, moves them in its renderer and leaves scissors in place). The masks stay in the tree with their scissor off; the tree, storage and fill are r68's.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r68",
+  "version": "r69",
   "package_name": "world-sharpness-gauge",
-  "archive": "world-sharpness-gauge-r68.zip",
-  "runtime_test": "The user reported r68 on Ryubing 1.3.3 and Eden: \"run done on both eden and ryubing, good on both\". The Ryubing log shows three quests with no crash; the Eden log one quest.",
+  "archive": "world-sharpness-gauge-r69-candidate.zip",
+  "runtime_test": "r69 NOT RUN. The user reported r68 \"good on both\" on Ryubing 1.3.3 and Eden. The user reported that gu-native broke the gauge (2026-11-10, no log or screenshot).",
   "runtime_active": true,
   "gamebanana": {
     "compact_html": true,
@@ -65,6 +65,7 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
+    "r69 gameplay NOT RUN: that the effect and edge reach the texture draw hook, and that the cut picture matches r68's, rest on static reading until the `geometric cut` log line and a look at the bar on Eden",
     "a live drag in UIScale's editor has no report",
     "r67 has a player report on MHGURecomp beside KatLib and UIScale, and logs from one plain Eden session",
     "the box model for a rescaled bar has only host fixtures until a `bar drawn` log line shows it agreeing with the game's rect",
@@ -101,8 +102,8 @@
     "manual": [
       "mods/world-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r68: pinned toolchain build; 28 host fixtures passed, including track pointers following the replaced draw block; verify PASSED. The fill is (current - floor) * 10000 / (ceiling - floor) inside the tier band, with ceiling clipped to mMaxSharpness; the band is found by binary search on uPlayerBase::calculateSharpnessType (main+0x29cdfc) behind three safety gates. The native facts are re-verified against the original bytes by work/world-sharpness-gauge/scripts/verify_tier_gauge.py. See EVIDENCE.json, DEVELOPMENT.md, work/world-sharpness-gauge/TIER_GAUGE_RESEARCH.md and work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md.",
-    "manual_summary": "The user reported r68 on Ryubing 1.3.3 and Eden: \"run done on both eden and ryubing, good on both\". The Ryubing log shows three quests with no crash; the Eden log one quest."
+    "static_summary": "r69: pinned toolchain build; 31 host fixtures passed, three of them for crop_span; verify PASSED. The draw uploads node+0x10 (main+0xa4fd10/0xa4fd38, r1 = node+0x10) and rebuilds the UVs from +0x10c later in the same call (main+0xa4fe44); a mask with +0xa4 bit 0 clear applies and restores no scissor (main+0xa4bbe0, main+0xa4bce4). Fill research as r68: see EVIDENCE.json and work/world-sharpness-gauge/.",
+    "manual_summary": "r69 NOT RUN. The user reported r68 \"good on both\" on Ryubing 1.3.3 and Eden. The user reported that gu-native broke the gauge (2026-11-10, no log or screenshot)."
   },
   "dependencies": [
     {
@@ -117,12 +118,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/world_sharpness_gauge.nro": {
-      "source": "build/world-sharpness-gauge/candidates/r68/package/romfs/nativeNX/plugins/world_sharpness_gauge.nro",
-      "sha256": "551b957a1502e1a632e6b7c30d2974faf26cf51d857bed8521b0af991c800054"
+      "source": "build/world-sharpness-gauge/candidates/r69/package/romfs/nativeNX/plugins/world_sharpness_gauge.nro",
+      "sha256": "0948d5a1e8683c42dc1f94611f13dfb24c14bbef1e6b7ac4e953807c7607c8b7"
     }
-  },
-  "approval": {
-    "date": "2026-11-06",
-    "basis": "The user approved this on 2026-11-06: \"world sharpness and damage number promote them, wishlist still in development\". The user reported r68 on Ryubing 1.3.3 and Eden: \"run done on both eden and ryubing, good on both\". Switch hardware is unconfirmed."
   }
 }

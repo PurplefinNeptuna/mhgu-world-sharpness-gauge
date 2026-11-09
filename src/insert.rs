@@ -44,9 +44,13 @@ const ENABLE_SETTER: u32 = 0xa4ba20;
 const MASK_ANCHORS: u32 = 0xa0; // bits 0-1 anchor +0xa8, bits 2-3 anchor +0xac
 const MASK_FLAGS: u32 = 0xa4; // bit 0 enable the scissor, bit 1 rebuild the rectangle
 const MASK_SIZE: u32 = 0xa8; // authored width/height, signed integers
-/// bit 0 applies it. The rebuild is the game's own arithmetic, and its inputs are the fields
-/// written above it.
-const REBUILD_AND_APPLY: u32 = 3;
+/// Bit 1 only: the rebuild keeps the box the game's own arithmetic builds from the fields written
+/// above it, and bit 0, the scissor, stays clear. The enter main+0xa4ba94 skips its scissor at
+/// main+0xa4bbe0 and the exit main+0xa4bcdc returns at main+0xa4bce4 while bit 0 is clear. A
+/// scissor stays in the game's pixels while a port or plugin can move the HUD's quads, so the cut
+/// is the sprites' own geometry instead (`crop_before`). The masks stay in the tree so the row's
+/// storage and transforms are exactly those of the accepted build.
+const REBUILD_ONLY: u32 = 2;
 /// The halfwords main+0xa49b28 sizes the draw cache from: objects at row+8, sequences at
 /// row+8+2. The pair at row+4 is the row's own reported counts; the sizer does not read it.
 const ROW_SIZING: u32 = 0x08;
@@ -135,6 +139,198 @@ const TEX_SAMPLER: u32 = 0x108;
 static DIM: AtomicU32 = AtomicU32::new(0);
 /// The shade's clip mask node, 0 when the shade has no clip.
 static CLIP: AtomicU32 = AtomicU32::new(0);
+/// The cut mask's other two children, cut with the bar.
+static EFFECT: AtomicU32 = AtomicU32::new(0);
+static EDGE: AtomicU32 = AtomicU32::new(0);
+
+// The cut for this frame, in the bar's own canvas pixels, written at the cut mask's enter, which
+// the draw walk runs before its children's draws and the shade's. CUT is the right edge kept on
+// the bar, effect and edge (+inf keeps them whole); SHADE is the span kept on the copy (empty
+// hides it). f32 bits.
+static CUT: AtomicU32 = AtomicU32::new(0x7f80_0000);
+static SHADE: [AtomicU32; 2] = [const { AtomicU32::new(0) }; 2];
+/// Per sprite (bar, effect, edge, copy): the window the game last gave it and the cut window this
+/// plugin last set. The cut window is left in place between draws, so the setter (which calls
+/// slot 0x28 and marks the quad) runs only when the game's window or the cut changes; a live window
+/// that is not the one set here is the game's new one.
+static GAME_WINDOW: [[AtomicU32; 4]; 4] = [const { [const { AtomicU32::new(0) }; 4] }; 4];
+static SET_WINDOW: [[AtomicU32; 4]; 4] = [const { [const { AtomicU32::new(0) }; 4] }; 4];
+static SEEN: [AtomicBool; 4] = [const { AtomicBool::new(false) }; 4];
+/// Draws cut per sprite this row, for the one report line.
+static CROPS: [AtomicU32; 4] = [const { AtomicU32::new(0) }; 4];
+static BAR_DRAWS: AtomicU32 = AtomicU32::new(0);
+const NODE_MATRIX: u32 = 0x10; // m[0]; m[1] at +0x14, m[4] at +0x20, m[12] at +0x40
+const NODE_ANCHORS: u32 = 0xa0;
+const NODE_FLAGS: u32 = 0x54;
+const NODE_FLIPPED: u32 = 0x0040_0000;
+const NODE_QUAD_WIDTH: u32 = 0xd8;
+
+fn role(node: u32) -> Option<usize> {
+    if node == 0 {
+        return None;
+    }
+    [&BAR, &EFFECT, &EDGE, &DIM].iter().position(|cell| cell.load(Ordering::Relaxed) == node)
+}
+
+/// Whether the texture draw hook has to cut this node.
+pub fn is_cut(node: u32) -> bool {
+    role(node).is_some()
+}
+
+/// The matrix words `crop_before` replaced, for `crop_after`.
+#[derive(Clone, Copy)]
+pub struct Saved {
+    x_scale: u32,
+    x: u32,
+}
+
+fn load4(cells: &[AtomicU32; 4]) -> [u32; 4] {
+    core::array::from_fn(|i| cells[i].load(Ordering::Relaxed))
+}
+
+fn store4(cells: &[AtomicU32; 4], words: [u32; 4]) {
+    for (cell, word) in cells.iter().zip(words) {
+        cell.store(word, Ordering::Relaxed);
+    }
+}
+
+/// The game's window of sprite `slot`, updated from the live one when the game has changed it.
+fn game_window(slot: usize, live: [u32; 4]) -> [u32; 4] {
+    if !SEEN[slot].load(Ordering::Relaxed) || live != load4(&SET_WINDOW[slot]) {
+        store4(&GAME_WINDOW[slot], live);
+        store4(&SET_WINDOW[slot], live);
+        SEEN[slot].store(true, Ordering::Relaxed);
+    }
+    load4(&GAME_WINDOW[slot])
+}
+
+/// Give sprite `slot` this window through its setter, unless it already has it. It is recorded as
+/// set only once the setter has run, so a refused call can never make the next frame take a cut
+/// window for the game's and cut it again.
+fn set_window(node: u32, slot: usize, live: [u32; 4], window: [u32; 4]) {
+    if window != live {
+        let floats = window.map(f32::from_bits);
+        if memory::call2(base() + TEXTURE_RECT_SETTER, node, floats.as_ptr() as u32).is_none() {
+            return;
+        }
+    }
+    store4(&SET_WINDOW[slot], window);
+}
+
+/// Cut one of the four sprites to this frame's span, just before its draw uploads `+0x10` and
+/// rebuilds its UVs from `+0x10c` (main+0xa4fd10 / main+0xa4fe44, both inside the draw). The x scale
+/// and translation are put back by `crop_after`; the window stays until the cut or the game changes
+/// it. A sprite core cannot model is drawn whole with the game's window, and the copy is not drawn.
+pub fn crop_before(node: u32) -> Option<Saved> {
+    let slot = role(node)?;
+    if slot == 0 {
+        BAR_DRAWS.fetch_add(1, Ordering::Relaxed);
+    }
+    let read = |offset: u32| memory::word(node + offset);
+    let (Some(x_scale), Some(x_shear), Some(y_shear), Some(x), Some(anchors), Some(flags), Some(width)) = (
+        read(NODE_MATRIX),
+        read(NODE_MATRIX + 4),
+        read(NODE_MATRIX + 0x10),
+        read(NODE_MATRIX + 0x30),
+        read(NODE_ANCHORS),
+        read(NODE_FLAGS),
+        read(NODE_QUAD_WIDTH),
+    ) else {
+        return None;
+    };
+    let mut live = [0u32; 4];
+    for (edge, word) in live.iter_mut().enumerate() {
+        *word = read(NODE_TEXTURE_RECT + edge as u32 * 4)?;
+    }
+    let saved = Saved { x_scale, x };
+    let shade = slot == 3;
+    // The copy draws the bar's window; the bar is drawn first in the walk, so its game window is
+    // this frame's. The copy's own live window is then only the one this plugin set.
+    let source = if shade {
+        if !SEEN[0].load(Ordering::Relaxed) {
+            let _ = memory::write_word(node + NODE_MATRIX, 0);
+            return Some(saved);
+        }
+        load4(&GAME_WINDOW[0])
+    } else {
+        game_window(slot, live)
+    };
+    let (x0, x1) = if shade {
+        (f32::from_bits(SHADE[0].load(Ordering::Relaxed)), f32::from_bits(SHADE[1].load(Ordering::Relaxed)))
+    } else {
+        (f32::NEG_INFINITY, f32::from_bits(CUT.load(Ordering::Relaxed)))
+    };
+    let cut = sharpness_gauge_core::crop_span(
+        [x_scale, x_shear, y_shear, x].map(f32::from_bits),
+        anchors,
+        flags & NODE_FLIPPED != 0,
+        width as i32,
+        source.map(f32::from_bits),
+        x0,
+        x1,
+    );
+    match cut {
+        Some(cut) => {
+            set_window(node, slot, live, cut.window.map(f32::to_bits));
+            let _ = memory::write_word(node + NODE_MATRIX, cut.x_scale.to_bits());
+            let _ = memory::write_word(node + NODE_MATRIX + 0x30, cut.x.to_bits());
+            CROPS[slot].fetch_add(1, Ordering::Relaxed);
+        }
+        None if shade => {
+            let _ = memory::write_word(node + NODE_MATRIX, 0);
+        }
+        None => set_window(node, slot, live, source),
+    }
+    Some(saved)
+}
+
+/// Put back the matrix words `crop_before` replaced: the next update composes children and the
+/// next frame's cut from the game's own matrix.
+pub fn crop_after(node: u32, saved: Saved) {
+    let _ = memory::write_word(node + NODE_MATRIX, saved.x_scale);
+    let _ = memory::write_word(node + NODE_MATRIX + 0x30, saved.x);
+}
+
+/// Draws cut per sprite (bar, effect, edge, copy) since the row was built, once per row.
+static CROPS_REPORTED: AtomicBool = AtomicBool::new(false);
+pub fn take_crop_report() -> Option<([u32; 4], u32)> {
+    let draws = BAR_DRAWS.load(Ordering::Relaxed);
+    if draws < 120 || CROPS_REPORTED.swap(true, Ordering::Relaxed) {
+        return None;
+    }
+    Some((core::array::from_fn(|i| CROPS[i].load(Ordering::Relaxed)), draws))
+}
+
+fn set_cut(cut: f32, shade: [f32; 2]) {
+    CUT.store(cut.to_bits(), Ordering::Relaxed);
+    SHADE[0].store(shade[0].to_bits(), Ordering::Relaxed);
+    SHADE[1].store(shade[1].to_bits(), Ordering::Relaxed);
+}
+
+/// The bar's box in the space its `+0x10` matrix maps into, which is where the cut is made: the
+/// game's rect, unless the matrix places it elsewhere (a plugin's rect rewrite goes stale between
+/// rebuilds, the matrix does not).
+fn node_rect(bar: u32) -> [i32; 4] {
+    let words = [0u32, 1, 4, 5, 12, 13].map(|index| memory::word(bar + NODE_MATRIX + index * 4));
+    if let (Some(anchors), Some(flags), Some(width), Some(height)) = (
+        memory::word(bar + NODE_ANCHORS),
+        memory::word(bar + NODE_FLAGS),
+        memory::word(bar + NODE_QUAD_WIDTH),
+        memory::word(bar + NODE_QUAD_WIDTH + 4),
+    ) {
+        if words.iter().all(Option::is_some) {
+            if let Some(rect) = sharpness_gauge_core::drawn_rect(
+                words.map(|w| f32::from_bits(w.unwrap_or(0))),
+                anchors,
+                flags & NODE_FLIPPED != 0,
+                [width as i32, height as i32],
+            ) {
+                return rect;
+            }
+        }
+    }
+    rect_at(bar, NODE_RECT)
+}
 
 /// The atlas window of a node, in float pixels: the bar's live blade window, and the authored
 /// pair, are stored as floats.
@@ -181,7 +377,12 @@ pub fn uploaded_block(context: u32) -> u32 {
 /// was, and that block belongs to another node. The block's words 0..13 are the node's `+0x10`
 /// matrix unless a plugin edited them, so equal words mean a plain draw and the game's rect stays
 /// the source. Only a rescaled bar reaches the model, so a plain game's cut never depends on it.
-pub fn capture_drawn(node: u32, context: u32, before: u32) {
+///
+/// The node's words are the cut ones during the draw, so a plain draw matches them. The box is the
+/// uncut bar's: the game's words `crop_before` saved, taken through the same x scale and shift the
+/// drawn words show, so a rescaled bar still reports and places the shade's mask where the whole
+/// bar was drawn.
+pub fn capture_drawn(node: u32, context: u32, before: u32, saved: Option<Saved>) {
     let block = uploaded_block(context);
     if block == 0 || block == before {
         return;
@@ -195,6 +396,17 @@ pub fn capture_drawn(node: u32, context: u32, before: u32) {
         }
     }
     let plain = drawn == native;
+    // The drawn x is `s * cut + t` for whatever x scale `s` a plugin applied after the upload (1 in
+    // a plain draw), so the uncut bar is drawn at scale `s * game` and moved by `s * (game - cut)`.
+    let mut measured = drawn;
+    if let Some(saved) = saved {
+        let [d0, d4, n0, n4] = [drawn[0], drawn[4], native[0], native[4]].map(f32::from_bits);
+        let (g0, g4) = (f32::from_bits(saved.x_scale), f32::from_bits(saved.x));
+        if n0 != 0.0 {
+            let s = d0 / n0;
+            (measured[0], measured[4]) = ((s * g0).to_bits(), (d4 + s * (g4 - n4)).to_bits());
+        }
+    }
     let (Some(anchors), Some(flags), Some(width), Some(height)) = (
         memory::word(node + 0xa0),
         memory::word(node + 0x54),
@@ -204,7 +416,7 @@ pub fn capture_drawn(node: u32, context: u32, before: u32) {
         return;
     };
     let box_words = sharpness_gauge_core::drawn_rect(
-        drawn.map(f32::from_bits),
+        measured.map(f32::from_bits),
         anchors,
         flags & 0x0040_0000 != 0,
         [width as i32, height as i32],
@@ -289,6 +501,15 @@ pub fn on_teardown() {
     RECT_REPORT.store(0, Ordering::Release);
     DIM.store(0, Ordering::Release);
     CLIP.store(0, Ordering::Release);
+    EFFECT.store(0, Ordering::Release);
+    EDGE.store(0, Ordering::Release);
+    set_cut(f32::INFINITY, [0.0, 0.0]);
+    for slot in 0..4 {
+        SEEN[slot].store(false, Ordering::Relaxed);
+        CROPS[slot].store(0, Ordering::Relaxed);
+    }
+    BAR_DRAWS.store(0, Ordering::Relaxed);
+    CROPS_REPORTED.store(false, Ordering::Relaxed);
 }
 
 /// True once per row, the first time `forge_onUpdate` asks after a refused fill.
@@ -375,7 +596,7 @@ fn build_clip_node(owner: u32, resource: u32) -> Result<u32, u32> {
         && memory::word(node + TEX_FLAGS).is_some_and(|word| {
             memory::write_word(node + TEX_FLAGS, word | NODE_DRAWABLE | 1 | TRANSFORM_DIRTY)
         })
-        && memory::write_word(node + MASK_FLAGS, REBUILD_AND_APPLY);
+        && memory::write_word(node + MASK_FLAGS, REBUILD_ONLY);
     if !ready {
         if let Some(destructor) = owned {
             let _ = memory::call1(destructor, node);
@@ -597,24 +818,12 @@ fn build_dim(bar: u32) -> Result<u32, u32> {
     Ok(node)
 }
 
-/// Write the shade for this frame's cut. The clip mask's translation (`+0x40/+0x44`) is the shade
-/// box's left edge and the bar rect's top, and its authored pair (`+0xa8/+0xac`) is the box's width
-/// and height, so the box it builds spans the part of the blade past the cut, and the copy drawn
-/// inside it is clipped to that. The copy's atlas window is the bar's own four floats at `+0x10c`,
-/// given to their setter every frame, so the shade draws the tier frame the bar draws: the notched,
-/// worn blade at orange and red, the straight-bottomed one at yellow and above. The copy's own quad,
-/// rect and flags are not touched: its rect is the bar's layout's output, and a node's rect does not
-/// gate its drawing - the scissor box is.
-fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
-    // The setter is the only way to the copy's window. main+0xa4fb58 stores the four floats at
-    // +0x10c and tail-calls slot 0x50 (main+0xa4fc68), the only writer of the +0xc0 bits 24..26;
-    // it returns at once when the floats already match, so the mark is set exactly when the bar's
-    // band moves. The texture's draw slot main+0xa4fc9c rebuilds its quad from +0x10c..+0x118 and
-    // the colours at +0xa4 only while (global+0x98 & (node+0xc0 >> 24) & 7) is nonzero, and clears
-    // those bits (main+0xa4feb4): the drawn quad carries the window as of its last rebuild, so a
-    // raw write to +0x10c marks nothing and never repaints - the copy keeps the band that was in
-    // +0x10c when its quad was first built.
-    let _ = memory::call2(base() + TEXTURE_RECT_SETTER, dim, bar + NODE_TEXTURE_RECT);
+/// Keep the clip mask's box on the part of the blade past the cut: its translation (`+0x40/+0x44`)
+/// at the shade's left edge and the bar rect's top, its authored pair (`+0xa8/+0xac`) the box's
+/// width and height. The mask no longer clips (`REBUILD_ONLY`); these are the writes the accepted
+/// build made every frame, kept so the copy below the mask is placed exactly as it was. The copy's
+/// window and its cut are `crop_before`'s.
+fn write_shade(clip: u32, rect: [i32; 4], ratio_bp: u32) {
     let box_words = if ratio_bp == u32::MAX {
         [rect[2], rect[1], rect[2], rect[3]]
     } else {
@@ -636,7 +845,7 @@ fn write_shade(dim: u32, clip: u32, bar: u32, rect: [i32; 4], ratio_bp: u32) {
     let _ = memory::write_word(clip + MASK_X_SCALE + 4, 0f32.to_bits());
     let _ = memory::write_word(clip + MASK_SIZE, width);
     let _ = memory::write_word(clip + MASK_SIZE + 4, height);
-    let _ = memory::write_word(clip + MASK_FLAGS, REBUILD_AND_APPLY);
+    let _ = memory::write_word(clip + MASK_FLAGS, REBUILD_ONLY);
 }
 
 /// Read-only reacquire signal, for the draw walker's callback. A mask freed with its row stops
@@ -659,8 +868,9 @@ pub fn check_liveness() {
     crate::hooks::teardown_gauge_row(root);
 }
 
-/// The mask's enter handler is about to read `+0xb0..+0xbc` and apply the scissor, so the box
-/// is written here, in this call. Returns without touching anything for a mask that is not
+/// The mask's enter handler is about to read `+0xb0..+0xbc`, so the box is written here, in this
+/// call; with `REBUILD_ONLY` it builds the box and applies no scissor. This is also where the
+/// frame's cut is decided, before the draw walk reaches the sprites below the mask. Returns without touching anything for a mask that is not
 /// ours, and drops the addresses when the links that made it ours are gone: a mask whose row's
 /// links broke can still be entered, and it would keep applying its last box. A mask freed with
 /// its row is not entered at all, which is `check_liveness`'s case.
@@ -684,6 +894,8 @@ pub fn enter(mask: u32) -> Option<[u32; 2]> {
         crate::hooks::teardown_gauge_row(root);
         return None;
     }
+    // Until this frame's fill is known the sprites are drawn whole and the copy is not drawn.
+    set_cut(f32::INFINITY, [0.0, 0.0]);
     let (dim, clip) = (DIM.load(Ordering::Relaxed), CLIP.load(Ordering::Relaxed));
     // The live fill: the local player's sharpness points measured inside the tier band they sit
     // in, so the bar refills at every colour change while the game keeps colouring it. No fill -
@@ -697,11 +909,18 @@ pub fn enter(mask: u32) -> Option<[u32; 2]> {
             let _ = memory::call2(base() + ENABLE_SETTER, mask, 0);
             // No gauge to cut by: the shadow goes to width 0, the accepted appearance.
             if dim != 0 && clip != 0 {
-                write_shade(dim, clip, bar, bar_rect(bar), u32::MAX);
+                write_shade(clip, bar_rect(bar), u32::MAX);
             }
             return None;
         }
     };
+    // The cut the sprites are drawn with, in the space of the bar's own matrix, so anything that
+    // moves the drawn quads afterwards moves the cut with them.
+    let cut_rect = node_rect(bar);
+    if cut_rect[2] > cut_rect[0] {
+        let shade = dim_box(cut_rect, ratio);
+        set_cut((cut_rect[0] + cut_box(cut_rect, ratio)[2]) as f32, [shade[0] as f32, shade[2] as f32]);
+    }
     let rect = bar_rect(bar);
     // The box is a fraction of the bar's rect, a layout box and not the sprite: the accepted
     // endpoints were measured on it. The bar's own size fields do not work as a width: +0xa8 is an
@@ -742,7 +961,7 @@ pub fn enter(mask: u32) -> Option<[u32; 2]> {
     let height = (rect[3] - rect[1]).max(1);
     let _ = memory::write_word(mask + MASK_SIZE, box_words[2] as u32);
     let _ = memory::write_word(mask + MASK_SIZE + 4, height as u32);
-    let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
+    let _ = memory::write_word(mask + MASK_FLAGS, REBUILD_ONLY);
     // 4. The corner. The walk fills the translation with the gauge's unscaled corner, which is the
     //    rect's corner in a plain game. For a rescaled bar `bar_rect` is where it was last drawn, and
     //    that box also sizes this one, so the corner comes from it too. The children's setMatrix
@@ -754,12 +973,9 @@ pub fn enter(mask: u32) -> Option<[u32; 2]> {
     ];
     let _ = memory::write_word(mask + MASK_TRANSLATION, (rect[0] as f32).to_bits());
     let _ = memory::write_word(mask + MASK_TRANSLATION + 4, (rect[1] as f32).to_bits());
-    // The shade follows the cut from here: its clip mask's translation goes to the cut's right edge,
-    // its authored width spans forward from there to the blade's end, and the copy's atlas window
-    // goes through its setter as the bar's own live four floats. The copy's quad, rect and flags
-    // are not written.
+    // The shade's clip mask keeps its accepted box; the copy itself is cut by `crop_before`.
     if dim != 0 && clip != 0 {
-        write_shade(dim, clip, bar, rect, ratio);
+        write_shade(clip, rect, ratio);
     }
     Some(corner)
 }
@@ -808,7 +1024,7 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     let ready = memory::write_word(mask + MASK_ID, MARKER)
         && memory::write_word(mask + MASK_OWNER, owner)
         && memory::write_word(mask + MASK_RESOURCE, resource)
-        && memory::write_word(mask + MASK_FLAGS, REBUILD_AND_APPLY);
+        && memory::write_word(mask + MASK_FLAGS, REBUILD_ONLY);
     if !ready {
         if let Some(destructor) = owned {
             let _ = memory::call1(destructor, mask);
@@ -897,6 +1113,8 @@ pub fn run(row: &gui::Row, instance: u32) -> Result<Outcome, u32> {
     MASK.store(mask, Ordering::Release);
     DIM.store(dim, Ordering::Release);
     CLIP.store(clip, Ordering::Release);
+    EFFECT.store(row.effect, Ordering::Release);
+    EDGE.store(row.edge, Ordering::Release);
     Ok(Outcome {
         mask,
         map,

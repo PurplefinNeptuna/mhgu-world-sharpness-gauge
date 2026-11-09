@@ -1,6 +1,6 @@
 # World Sharpness Gauge: development
 
-**Current state.** r68 READY_TO_DISTRIBUTE (2026-11-06), unpublished, release at `build/world-sharpness-gauge/releases/r68/`, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden). r68 is r67 with the
+**Current state.** r69 DEVELOPMENT, gameplay NOT RUN, candidate at `build/world-sharpness-gauge/candidates/r69/`. r69 is r68 with the cut and the shade drawn as the sprites' own geometry instead of scissors (see *Geometric cut*), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The tree, storage, fill and masks are r68's; the masks' scissor is off. r68, the previous release (unpublished), is preserved in `backups/accepted/world-sharpness-gauge/r68-before-geometric-cut/`, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden). r68 is r67 with the
 draw block replaced safely: `grow_cache` copies the block's animation prefix and moves every object's track pointer (`+0x64`) into the
 new block before freeing the old one (see *Draw block prefix*). r67 freed it under them, which crashed Ryubing 1.3.3 106 ms after
 insertion. r67, the previous release, is preserved in `backups/accepted/world-sharpness-gauge/r67-before-prefix-relocation/`, and the
@@ -205,8 +205,8 @@ above and is read through the mapping query at runtime.
   touches no animation sequence, and leaves the native HUD alone in every unsupported state.
 - **Tree.** The controller's first child is the mask over bar, glow and edge; the clip mask is the mask's
   sibling, with the copy as its child. The walk emits mask enter, bar/glow/edge enter+exit, mask exit, clip
-  enter, copy enter/exit, clip exit, terminator, so the copy is outside the accepted scissor and inside its
-  own. Teardown follows the same links: the mask destroys bar, glow and edge, and its sibling chain destroys
+  enter, copy enter/exit, clip exit, terminator. Neither mask clips (see *Geometric cut*); the walk order
+  is what puts the cut mask's enter, where the frame's cut is decided, before every sprite's draw. Teardown follows the same links: the mask destroys bar, glow and edge, and its sibling chain destroys
   the clip mask, which destroys the copy.
 - **Cut.** Offsets 18 and 90 of the bar's 128 px rect, scaled by the live rect width, linear between them.
   On the measured 110..238 rect the box rights are 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
@@ -217,11 +217,24 @@ above and is read through the mapping query at runtime.
   1.5 image px is 1 GUI px. These describe the art; the clip's numbers come from the photographs. Hilt columns:
   18-19 left edge, 20-21 empty, 22-25 hook, 26-27 empty; the tip tapers at 76..79. The glow's bloom reads 3..9 px
   past the box in a photo, which is not a misplaced cut. Screenshot measurements carry a few px of noise.
+- **Geometric cut.** The masks are built and written as before but carry `+0xa4 = 2`: the box is rebuilt and
+  no scissor is applied (main+0xa4bbe0) or restored (main+0xa4bce4). The cut mask's enter sets the frame's
+  span in the space of the bar's own `+0x10` matrix (`node_rect`, `drawn_rect` over the node's words): the
+  bar, glow and edge keep canvas x up to `rect left + cut_box` width, the copy keeps `dim_box`'s left..right.
+  `wsg_texture_draw` cuts each of the four before the original: `crop_span` scales `+0x10` (m[0]) by the
+  kept fraction, moves `+0x40` (m[12]) so the kept part stays in place, and gives the window `[u1, v1, u2,
+  v2]` the same fraction through the setter; after the original it puts m[0] and m[12] back. The draw
+  uploads `node+0x10` at main+0xa4fd10/0xa4fd38 and rebuilds the UVs at main+0xa4fe44, so both are drawn
+  this frame, and anything that moves the drawn quad later (UIScale's block edit, gu-native's renderer)
+  moves the cut with it. A cut window stays on the sprite between draws; a live window other than the one
+  set is the game's new one, so the setter runs only when the game's window or the cut changes. The copy
+  takes the bar's game window. A sprite `crop_span` cannot model is drawn whole with the game's window, and
+  the copy then not at all. The log line `geometric cut` counts the cut draws per sprite once per row.
 - **Shade.** Each frame the clip mask's translation (`+0x40/+0x44`) is the cut's right edge and the bar's
   rect top; its authored width is the blade past the cut and its height the bar's rect height. r62 logged
-  `shade_box=128 38 200 166` at `ratio_bp=0`. The copy keeps the bar's quad from the build, and only its
-  window changes per frame. The dark part has no glow by design.
-- **Following a rescaled bar.** UIScale edits a sprite in the uploaded matrix block at `*(ctx+4)+0x18bc`, after main+0xa4eb9c or main+0xa3e3b0, so the node's own `+0x10` stays unscaled. Its rewrite of `+0xe0` (main+0xa4f420's output) refreshes only on a rebuild and takes a different anchor branch from the sprite (`+0x22` on a hit, UIScale `0x5200`). So `wsg_texture_draw` reads the block after the original returns, which holds in either hook order. A block address unchanged by the draw means nothing was uploaded. Words 0, 1, 4, 5, 12 and 13 equal to the node's mean a plain draw, and the game's rect stays the source. Otherwise `drawn_rect` gives the box, one frame old at the mask's enter. Each frame the mask's enter writes the box's corner over the mask's translation (`+0x40/+0x44`), the original builds the box, and the hook puts the walk's value back, because a child's setMatrix reads its parent's `+0x10` (main+0xa496b0).
+  `shade_box=128 38 200 166` at `ratio_bp=0`. These writes are kept from r68 so the copy is placed as it
+  was; the copy's cut is the geometric one. The dark part has no glow by design.
+- **Following a rescaled bar.** UIScale edits a sprite in the uploaded matrix block at `*(ctx+4)+0x18bc`, after main+0xa4eb9c or main+0xa3e3b0, so the node's own `+0x10` stays unscaled. Its rewrite of `+0xe0` (main+0xa4f420's output) refreshes only on a rebuild and takes a different anchor branch from the sprite (`+0x22` on a hit, UIScale `0x5200`). So `wsg_texture_draw` reads the block after the original returns, which holds in either hook order. A block address unchanged by the draw means nothing was uploaded. Words 0, 1, 4, 5, 12 and 13 equal to the node's mean a plain draw, and the game's rect stays the source. Otherwise `drawn_rect` gives the box, one frame old at the mask's enter. Each frame the mask's enter writes the box's corner over the mask's translation (`+0x40/+0x44`), the original builds the box, and the hook puts the walk's value back, because a child's setMatrix reads its parent's `+0x10` (main+0xa496b0). Since r69 this box only places the masks and feeds the `bar drawn` line: the drawn words are the cut quad's, so `capture_drawn` takes the game's saved words through the drawn x scale and shift to report the whole bar. The cut itself follows a rescaled bar because UIScale edits the already-cut quad.
 - **The copy under UIScale.** UIScale picks the element from KatLib's stack of instances being drawn (`0x4138`), not from the node, and keys the anchor box on that instance (`0x13b8`), so the copy and the bar get one transform.
 - **Copy construction.** DTI allocator slot 0x20 with `(bytes, align, dti id)`, a zeroed 304-byte block,
   constructor main+0xa4f60c, the mod's marker at `+0x50`, the bar's `+0x64/+0x74/+0x78`, the twelve style setters in Key Quest
@@ -290,6 +303,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 
 ## Do not
 
+- **Cut the gauge with a scissor.** A port that moves the HUD's quads in its renderer (gu-native's `exec.c` rewrites each quad's matrix and moves no status scissor) leaves the cut in the game's pixels while the bar moves.
 - **Free or zero the draw block's prefix while objects point into it.** The bar, glow and edge animate through `+0x64` every frame; r67 did, and Ryubing crashed at main+0xb349c0 from main+0xa49238.
 - **Call native code on a player that has not passed the fill's gates.** `calculateSharpnessType`
   dereferences `player + 0x13c4` (main+0x29ce34) and then `+ 0x4d4` (main+0x27c848, main+0x27c84c)
@@ -307,7 +321,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
   or lerp" (tester). The computed fill is published as it is.
 - **Cache the band between frames.** It depends on the points, the maximum and the game's gates,
   so a cache needs its own invalidation; the ~18 native calls per frame have no measured cost.
-- **Leave the glow and edge outside the mask, or set only the rebuild bit.** A mask whose tree never closes has no exit record, so its scissor never ends; `a_mask_left_open_never_stops_clipping` pins that shape. `+0xa4` bit 1 only rebuilds, and bit 0 asks for the scissor.
+- **Leave the glow and edge outside the mask.** A mask whose tree never closes has no exit record, so a scissor it applies never ends; `a_mask_left_open_never_stops_clipping` pins that shape. `+0xa4` bit 1 only rebuilds, and bit 0 asks for the scissor: r69 keeps bit 0 clear on purpose.
 - **Publish a mask's links before the mask.** A parent chain that ends at 0 or a parent cycle is fatal to a rebuild on the draw thread, so publish the mask first. Grow map and cache before linking.
 - **Re-read the row after insertion with the gates written for the tree before it.** The per-frame path must accept the inserted tree, and `read_row` detects the marker for that.
 - **Treat a loading screen as a row's end.** A gauge row lasts a quest (see Lifecycle), and older notes calling a row's end "the area transition" were labels on events beside a save commit.
@@ -328,7 +342,7 @@ result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) 
 - **Write the mask's `+0xb0..+0xbc`, or remember the box between frames.** The rectangle is derived, and the game rebuilds it every frame. Write the inputs on every enter.
 - **Read a mask's width from `bar+0xa8`, or leave its anchor nibble as allocated.** The first reads zero at enter; the second collapses the axis.
 - **Write `+0xe0` on a mask.** The object is 0xd0 bytes, so that writes past its end.
-- **Rely on a node's rect to clip it.** Zero-width `+0xe0/+0xf0` landed and the copy painted over the gauge anyway. Only the render state's scissor clips.
+- **Rely on a node's rect to clip it.** Zero-width `+0xe0/+0xf0` landed and the copy painted over the gauge anyway. A scissor clips, and so does the sprite's own `+0x10` matrix and window at its draw (*Geometric cut*).
 - **Expect a scissor to scale.** It clips at 1:1. r58 and r61 rested on a squeeze premise that is refuted; r61 is withdrawn, do not ship it.
 - **Take a mask's corner from its parent's rect.** The builder main+0xa4b390 reads only the node's own transform, and the authored width spans forward from that corner.
 - **Move the copy with raw position, size or window writes after the build.** They read back and never repaint. Use the setter for the window and a mask for geometry. The only build writing the quad per frame also faulted in the game's own update (`strb r1,[r4,#0xcb00]` at main+0x1014604, `r4` = 0, called from main+0xf28238). The mechanism is unread, so do not retry that without reading it.

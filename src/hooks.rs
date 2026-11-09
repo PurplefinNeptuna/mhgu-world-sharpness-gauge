@@ -124,9 +124,11 @@ pub unsafe extern "C" fn wsg_mask_enter(mask: u32, _context: u32) {
     }
 }
 
-/// The texture draw entry takes (node, context). Every HUD texture pays one compare. For the bar,
-/// the read follows the original so that any other plugin's edit of the uploaded matrix, inner or
-/// outer in the hook chain, is already done or is nested inside this call.
+/// The texture draw entry takes (node, context). Every HUD texture pays four compares. The bar,
+/// its effect and edge, and the shade's copy are cut to this frame's span before the original
+/// uploads their matrix, and the matrix goes back after it. For the bar, the read follows the
+/// original so that any other plugin's edit of the uploaded matrix, inner or outer in the hook
+/// chain, is already done or is nested inside this call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wsg_texture_draw(node: u32, context: u32) {
     let original = wsg_texture_draw_original.load(Ordering::Acquire);
@@ -134,13 +136,20 @@ pub unsafe extern "C" fn wsg_texture_draw(node: u32, context: u32) {
         return;
     }
     let f: unsafe extern "C" fn(u32, u32) = unsafe { core::mem::transmute(original as usize) };
-    if !wsg_texture_draw_active.load(Ordering::Acquire) || !insert::is_bar(node) {
+    if !wsg_texture_draw_active.load(Ordering::Acquire) || !insert::is_cut(node) {
         unsafe { f(node, context) };
         return;
     }
-    let before = insert::uploaded_block(context);
+    let bar = insert::is_bar(node);
+    let before = if bar { insert::uploaded_block(context) } else { 0 };
+    let saved = insert::crop_before(node);
     unsafe { f(node, context) };
-    insert::capture_drawn(node, context, before);
+    if bar {
+        insert::capture_drawn(node, context, before, saved);
+    }
+    if let Some(saved) = saved {
+        insert::crop_after(node, saved);
+    }
 }
 
 /// The gauge row is gone: drop every address this plugin holds into it, so the sampler, the

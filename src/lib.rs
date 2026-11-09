@@ -143,6 +143,13 @@ pub extern "C" fn forge_onUpdate(_delta: f32) {
             " bar drawn {kind}: drawn={drawn:?} rect={rect:?}"
         ), kind = if plain { "plain" } else { "rescaled" }, drawn = drawn, rect = rect);
     }
+    if let Some(([bar, effect, edge, copy], draws)) = insert::take_crop_report() {
+        log::error!(concat!(
+            "WSG ",
+            env!("WSG_VERSION"),
+            " geometric cut: bar={bar} effect={effect} edge={edge} shade={copy} of {draws} bar draws"
+        ), bar = bar, effect = effect, edge = edge, copy = copy, draws = draws);
+    }
     // The fill's gates refused, or a native call was refused, so the stock bar is showing.
     if insert::take_fill_refused() {
         log::error!(concat!(

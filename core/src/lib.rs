@@ -45,6 +45,61 @@ pub fn drawn_rect(
     ])
 }
 
+/// A sprite cut down to the canvas columns `x0..x1` by its own geometry, so the cut moves with
+/// whatever later transforms the drawn quad (a plugin's edit of the uploaded matrix, a port that
+/// rewrites HUD matrices in its renderer). A scissor does not: it stays in the game's pixels.
+///
+/// The texture draw main+0xa4fc9c uploads the node's `+0x10` matrix at draw time (r1 = node+0x10
+/// into main+0xa4eb9c / main+0xa3e3b0) and maps the quad's local x through `x * m[0] + m[12]`, the
+/// local span set by the anchor mode as in `drawn_rect`. Its UVs come from the window `[u1, v1,
+/// u2, v2]` at `+0x10c`, spread linearly across that span. So keeping the fraction `f0..f1` of the
+/// span is the x scale times `f1 - f0`, the translation moved to keep the kept part in place, and
+/// the window's u range cut to the same fraction. An empty span returns a zero x scale: a quad of
+/// no width draws nothing. `None` for a sprite this cannot model (flipped, sheared, unscalable, a
+/// collapsed anchor or no width), which the caller leaves as the game drew it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Crop {
+    pub x_scale: f32,
+    pub x: f32,
+    pub window: [f32; 4],
+}
+
+pub fn crop_span(
+    [x_scale, x_shear, y_shear, x]: [f32; 4],
+    anchors: u32,
+    flipped: bool,
+    width: i32,
+    window: [f32; 4],
+    x0: f32,
+    x1: f32,
+) -> Option<Crop> {
+    let (left, right) = match anchors & 3 {
+        0 => (0.0, width as f32),
+        1 => (-(width as f32) / 2.0, width as f32 / 2.0),
+        2 => (-(width as f32), 0.0),
+        _ => return None,
+    };
+    if flipped || !(x_scale > 0.0) || x_shear != 0.0 || y_shear != 0.0 || width <= 0 || !x.is_finite() {
+        return None;
+    }
+    let (a, b) = (x + x_scale * left, x + x_scale * right);
+    let f0 = ((x0 - a) / (b - a)).clamp(0.0, 1.0);
+    let f1 = ((x1 - a) / (b - a)).clamp(0.0, 1.0);
+    if !(f0.is_finite() && f1.is_finite()) {
+        return None;
+    }
+    if f1 <= f0 {
+        return Some(Crop { x_scale: 0.0, x, window });
+    }
+    let kept = x_scale * (f1 - f0);
+    let du = window[2] - window[0];
+    Some(Crop {
+        x_scale: kept,
+        x: a + (b - a) * f0 - kept * left,
+        window: [window[0] + du * f0, window[1], window[0] + du * f1, window[3]],
+    })
+}
+
 /// One checked native word read. The plugin implements it with the mapping
 /// checks in `src/memory.rs`; tests implement it with a flat table.
 pub trait Memory {

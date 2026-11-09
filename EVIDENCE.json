@@ -1595,5 +1595,15 @@
     ],
     "note": "Two insertions with the bar drawn, KatLib and UIScale loaded. The stage-21 and links-lost lines are not analysed here.",
     "user_report": "none for this run"
+  },
+  "static_r69": {
+    "date": "2026-11-10",
+    "nro_sha256": "0948d5a1e8683c42dc1f94611f13dfb24c14bbef1e6b7ac4e953807c7607c8b7",
+    "runtime_test": "NOT RUN",
+    "user_report": "\"it broke all my mod that need screen size/position like world-sharpness and damage numbers\" (gu-native, no log or screenshot); \"they wont do compromise for mods, so only option 2 possible\"",
+    "change": "masks carry +0xa4 = 2 (rebuild, no scissor); wsg_texture_draw cuts the bar, glow, edge and copy with crop_span: +0x10 m[0] and +0x40 m[12] for the draw, restored after, and the window through 0xa4fb58",
+    "native": "0xa4fc9c passes r1 = node+0x10 to 0xa4eb9c (0xa4fd10) or 0xa3e3b0 (0xa4fd38) and calls 0xa4feb4 at 0xa4fe44; mask enter skips its scissor at 0xa4bbe0 and exit returns at 0xa4bce4 while bit 0 is clear; window is [u1,v1,u2,v2]; setter slot 0x28 is 0xa4f74c (calls on node+0xbc and node+0x11c, effect unread)",
+    "tests": "31 host fixtures passed (3 new for crop_span); verify: \"PASS: native imports/signatures, hook window uniqueness, flag-rule audit and payload inventory\"",
+    "gu_native_source": "https://github.com/khorne-hub/gu-native c7fc45a: runtime/nvn/vulkan/exec.c scissor_rect moves a HUD scissor only vertically at 16:10 (ui_scissor_v) or relaxes it for the item bar"
   }
 }

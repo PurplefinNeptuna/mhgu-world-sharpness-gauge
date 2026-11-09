@@ -1,6 +1,6 @@
 //! Host fixtures for the gauge decisions. No game, no ARM, no Forge.
 use sharpness_gauge_core::{
-    band_bp, count_nodes, cache_layout, relocate_prefix, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
+    band_bp, count_nodes, cache_layout, crop_span, Crop, relocate_prefix, cut_box, dim_box, draw_plan, is_sharp_animation, local_player,
     drawn_rect, mask_box, read_gauge, sample_controller, span_box, tier_band, window_matches,
     CLIP_HEIGHT, CLIP_TOP,
     CONTROLLER_ROW, ENTRIES, Gauge, Local,
@@ -738,4 +738,56 @@ fn track_pointers_follow_the_replaced_draw_block() {
     assert_eq!(relocate_prefix(old + prefix + 4, old, prefix, fresh), None);
     assert_eq!(relocate_prefix(old - 4, old, prefix, fresh), None);
     assert_eq!(relocate_prefix(0, old, prefix, fresh), None);
+}
+
+#[test]
+fn a_crop_keeps_the_cut_part_of_the_sprite_at_its_own_place_and_texel_size() {
+    // The accepted bar: rect 110..238, anchor 0 at x 110, scale 1, quad 128 wide, at 50% fill.
+    let window = [0.0, 280.0, 128.0, 304.0];
+    let cut = 110 + cut_box([110, 38, 238, 166], 5_000)[2];
+    let bar = crop_span([1.0, 0.0, 0.0, 110.0], 0, false, 128, window, f32::NEG_INFINITY, cut as f32).unwrap();
+    assert_eq!(cut, 164);
+    assert_eq!(bar.x, 110.0);
+    assert!((bar.x + bar.x_scale * 128.0 - 164.0).abs() < 1e-4);
+    assert!((bar.window[2] - 54.0).abs() < 1e-4 && bar.window[0] == 0.0 && bar.window[1] == 280.0 && bar.window[3] == 304.0);
+    // The shade: the part between the cut and the full-sharpness tip, from the dim box.
+    let shade = dim_box([110, 38, 238, 166], 5_000);
+    let dim = crop_span([1.0, 0.0, 0.0, 110.0], 0, false, 128, window, shade[0] as f32, shade[2] as f32).unwrap();
+    assert!((dim.x - 164.0).abs() < 1e-4);
+    assert!((dim.x + dim.x_scale * 128.0 - shade[2] as f32).abs() < 1e-4);
+    assert!((dim.window[0] - 54.0).abs() < 1e-4 && (dim.window[2] - (shade[2] - 110) as f32).abs() < 1e-4);
+    // A whole span is the sprite unchanged.
+    let whole = crop_span([1.0, 0.0, 0.0, 110.0], 0, false, 128, window, 0.0, 1280.0).unwrap();
+    assert_eq!(whole, Crop { x_scale: 1.0, x: 110.0, window });
+}
+
+#[test]
+fn a_centred_or_scaled_sprite_is_cut_at_the_same_canvas_columns() {
+    // Centred anchor at 174, a quad 128 wide: canvas 110..238, kept 150..200.
+    let c = crop_span([1.0, 0.0, 0.0, 174.0], 1, false, 128, [0.0, 0.0, 64.0, 8.0], 150.0, 200.0).unwrap();
+    assert!((c.x - c.x_scale * 64.0 - 150.0).abs() < 1e-4 && (c.x + c.x_scale * 64.0 - 200.0).abs() < 1e-4);
+    assert!((c.window[0] - 20.0).abs() < 1e-4 && (c.window[2] - 45.0).abs() < 1e-4);
+    // A sprite drawn at half scale: canvas 110..174, cut at 142 keeps its first half.
+    let h = crop_span([0.5, 0.0, 0.0, 110.0], 0, false, 128, [0.0, 0.0, 128.0, 8.0], 0.0, 142.0).unwrap();
+    assert!((h.x - 110.0).abs() < 1e-4 && (h.x_scale - 0.25).abs() < 1e-6 && (h.window[2] - 64.0).abs() < 1e-4);
+}
+
+#[test]
+fn an_empty_span_draws_nothing_and_an_unmodelled_sprite_is_left_alone() {
+    let window = [0.0, 280.0, 128.0, 304.0];
+    let empty = crop_span([1.0, 0.0, 0.0, 110.0], 0, false, 128, window, 238.0, 238.0).unwrap();
+    assert_eq!(empty.x_scale, 0.0);
+    let outside = crop_span([1.0, 0.0, 0.0, 110.0], 0, false, 128, window, 300.0, 400.0).unwrap();
+    assert_eq!(outside.x_scale, 0.0);
+    for (m, anchors, flipped, width) in [
+        ([1.0, 0.0, 0.0, 110.0], 3, false, 128),
+        ([1.0, 0.0, 0.0, 110.0], 0, true, 128),
+        ([1.0, 0.1, 0.0, 110.0], 0, false, 128),
+        ([1.0, 0.0, 0.1, 110.0], 0, false, 128),
+        ([0.0, 0.0, 0.0, 110.0], 0, false, 128),
+        ([1.0, 0.0, 0.0, 110.0], 0, false, 0),
+        ([1.0, 0.0, 0.0, f32::NAN], 0, false, 128),
+    ] {
+        assert!(crop_span(m, anchors, flipped, width, window, 0.0, 164.0).is_none());
+    }
 }

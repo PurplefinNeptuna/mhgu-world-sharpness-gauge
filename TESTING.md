@@ -3,21 +3,19 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r68
+## What to check on r69
 
-r68 fixes a crash that r67 and earlier could cause soon after a quest starts, or later at a
-loading screen: the gauge's animation state was freed while the game still used it. Ryubing 1.3.3
-showed it every time; Eden rarely does. Play on Ryubing (`/mnt/storage2/Programs/Ryubing-1.3.3/run.sh`):
+r69 draws the cut and the dark part by shortening the sprites themselves instead of clipping them
+with a scissor. On the emulators it should look exactly like r68. On gu-native, the Android and
+Windows port that moves the HUD, the cut should now stay on the bar wherever the HUD puts it.
 
-1. Start a quest with a blade weapon. The game must keep running past the moment the HUD appears,
-   and the log must have `WSG r68 scissor mask inserted` and `bar drawn plain` with no crash after.
-2. Move between zones a few times, then finish or abandon the quest and return to the village.
-   Repeat with a second quest. The bar should keep cutting by tier the whole time.
-3. On Eden, play one quest and confirm the gauge looks as before.
-
-On every run, also send the `bar drawn` line. In a plain game it must say `bar drawn plain` with
-`drawn` equal to `rect`. If the line is missing, the game's upload could not be read, and the cut
-falls back to the game's rect.
+1. On Eden, play one quest with a blade weapon. Compare the bar with r68: the coloured
+   part, the dark part past it, the glow and the edge glyph should look the same, and the bar should
+   refill at each colour change. The log must have `WSG r69 scissor mask inserted`, `bar drawn plain`
+   with `drawn` equal to `rect`, and `geometric cut` with every count above 0.
+2. On Ryubing (`/mnt/storage2/Programs/Ryubing-1.3.3/run.sh`), play one quest and check the same.
+3. If you play on gu-native, play one quest there and send a screenshot of the bar. Say which
+   platform (Android or PC) and which HUD layout you use.
 
 Delete any older folder of this mod first, or both builds will load together.
 
@@ -51,14 +49,19 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `WSG r68`.
+lines that matter start with `WSG r69`.
 
 ## The log lines
 
 - `bar drawn plain: drawn=[...] rect=[...]`: printed once per gauge row. Nothing has moved the bar.
   The two boxes must match; a difference means the box model is wrong for this bar.
 - `bar drawn rescaled: drawn=[...] rect=[...]`: another plugin moved or scaled the bar. `drawn` is
-  the box the cut follows. If it shows `[0, 0, 0, 0]`, the cut uses `rect` instead.
+  where the whole bar was drawn. The cut follows the bar by itself; this box only places the dark
+  part's mask. `[0, 0, 0, 0]` means it could not be read.
+- `geometric cut: bar=N effect=N edge=N shade=N of M bar draws`: printed once per gauge row, after
+  120 draws of the bar. Each number counts the draws in which that sprite was shortened. All four
+  above 0 is right. A 0 means that sprite is drawn whole: for the bar, glow or edge the cut is missing
+  on it, for `shade` the dark part is missing. Report any 0.
 
 The mod logs one line per lifecycle event and nothing per frame. `scissor mask inserted` means the
 mask went into the gauge: `mask=` and `map=` the nodes, `entries=` the map entries (7), `cache=` and
