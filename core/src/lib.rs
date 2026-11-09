@@ -50,9 +50,11 @@ pub fn drawn_rect(
 /// rewrites HUD matrices in its renderer). A scissor does not: it stays in the game's pixels.
 ///
 /// The texture draw main+0xa4fc9c uploads the node's `+0x10` matrix at draw time (r1 = node+0x10
-/// into main+0xa4eb9c / main+0xa3e3b0) and maps the quad's local x through `x * m[0] + m[12]`, the
-/// local span set by the anchor mode as in `drawn_rect`. Its UVs come from the window `[u1, v1,
-/// u2, v2]` at `+0x10c`, spread linearly across that span. So keeping the fraction `f0..f1` of the
+/// into main+0xa4eb9c / main+0xa3e3b0) and maps the quad's local x through `x * m[0] + m[12]`. The
+/// quad rebuild main+0xa4feb4 makes the local span from the float authored width at `+0xb4` and
+/// the anchor mode `+0xa0 & 3` (0: `0..w`, 1: `-w/2..w/2`, 2: `-w..0`; main+0xa4ff1c..0xa4ffb4),
+/// not from the layout width at `+0xd8`. Its UVs come from the window `[u1, v1, u2, v2]` at
+/// `+0x10c`, spread linearly across that span. So keeping the fraction `f0..f1` of the
 /// span is the x scale times `f1 - f0`, the translation moved to keep the kept part in place, and
 /// the window's u range cut to the same fraction. An empty span returns a zero x scale: a quad of
 /// no width draws nothing. `None` for a sprite this cannot model (flipped, sheared, unscalable, a
@@ -68,18 +70,18 @@ pub fn crop_span(
     [x_scale, x_shear, y_shear, x]: [f32; 4],
     anchors: u32,
     flipped: bool,
-    width: i32,
+    width: f32,
     window: [f32; 4],
     x0: f32,
     x1: f32,
 ) -> Option<Crop> {
     let (left, right) = match anchors & 3 {
-        0 => (0.0, width as f32),
-        1 => (-(width as f32) / 2.0, width as f32 / 2.0),
-        2 => (-(width as f32), 0.0),
+        0 => (0.0, width),
+        1 => (-width / 2.0, width / 2.0),
+        2 => (-width, 0.0),
         _ => return None,
     };
-    if flipped || !(x_scale > 0.0) || x_shear != 0.0 || y_shear != 0.0 || width <= 0 || !x.is_finite() {
+    if flipped || !(x_scale > 0.0) || x_shear != 0.0 || y_shear != 0.0 || !(width > 0.0) || !x.is_finite() {
         return None;
     }
     let (a, b) = (x + x_scale * left, x + x_scale * right);

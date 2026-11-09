@@ -1605,5 +1605,23 @@
     "native": "0xa4fc9c passes r1 = node+0x10 to 0xa4eb9c (0xa4fd10) or 0xa3e3b0 (0xa4fd38) and calls 0xa4feb4 at 0xa4fe44; mask enter skips its scissor at 0xa4bbe0 and exit returns at 0xa4bce4 while bit 0 is clear; window is [u1,v1,u2,v2]; setter slot 0x28 is 0xa4f74c (calls on node+0xbc and node+0x11c, effect unread)",
     "tests": "31 host fixtures passed (3 new for crop_span); verify: \"PASS: native imports/signatures, hook window uniqueness, flag-rule audit and payload inventory\"",
     "gu_native_source": "https://github.com/khorne-hub/gu-native c7fc45a: runtime/nvn/vulkan/exec.c scissor_rect moves a HUD scissor only vertically at 16:10 (ui_scissor_v) or relaxes it for the item bar"
+  },
+  "recomp_r69_2026_11_10": {
+    "emulator": "MHGURecomp, 1920x1080, 16:9",
+    "log": [
+      "WSG r69 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]",
+      "WSG r69 geometric cut: bar=120 effect=120 edge=0 shade=120 of 120 bar draws"
+    ],
+    "user_report": "\"gauge broken\"; \"about gauge, there are no dark part, the gauge should be full\"",
+    "observed": "screenshot: the green blade ends near canvas x 172 instead of the tip",
+    "cause": "crop_span sized the quad from +0xd8 (128) while main+0xa4feb4 builds it from +0xb4 (88): 88 * 90/128 = 62 px from 110"
+  },
+  "static_r70": {
+    "date": "2026-11-10",
+    "nro_sha256": "bfd9301f7ad2014971d2b056d088551b3a37313effc4139bc31a85c3e5e2600a",
+    "runtime_test": "NOT RUN",
+    "change": "crop width from the float at +0xb4",
+    "native": "main+0xa4ff44 / 0xa4ff9c vldr s0,[r7,#180]; mode 2 negates +0xb4 (0xa4ff8c)",
+    "tests": "32 host fixtures passed; verify PASSED"
   }
 }

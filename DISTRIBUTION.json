@@ -2,16 +2,16 @@
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
   "status": "DEVELOPMENT",
-  "reason": "r69 is r68 with the cut and the shade drawn as the sprites' own geometry instead of scissors: each sprite's matrix x row and atlas window are cut just before its draw, so the cut moves with anything that moves the HUD's quads afterwards (gu-native, an Android/Windows port, moves them in its renderer and leaves scissors in place). The masks stay in the tree with their scissor off; the tree, storage and fill are r68's.",
+  "reason": "r70 is r69 with the crop sized from the quad the draw really builds: the float authored width at +0xb4 with the anchor modes at +0xa0 (main+0xa4feb4, main+0xa4ff1c..0xa4ffb4), not the 128 px layout width at +0xd8. r69 took 90/128 of the 88 px bar and cut a full bar at x 172. r69 drew the cut and shade as the sprites' own geometry instead of scissors, so the cut follows a HUD moved by gu-native.",
   "publication": {
     "published": false,
     "url": null,
     "date": null
   },
-  "version": "r69",
+  "version": "r70",
   "package_name": "world-sharpness-gauge",
-  "archive": "world-sharpness-gauge-r69-candidate.zip",
-  "runtime_test": "r69 NOT RUN. The user reported r68 \"good on both\" on Ryubing 1.3.3 and Eden. The user reported that gu-native broke the gauge (2026-11-10, no log or screenshot).",
+  "archive": "world-sharpness-gauge-r70-candidate.zip",
+  "runtime_test": "r70 NOT RUN. The user ran Damage Numbers r41 and World Sharpness Gauge r69 on MHGURecomp (1920x1080, 16:9, FSR 3.1 NativeAA on) on 2026-11-10: \"gauge broken, number shaky\"; \"about gauge, there are no dark part, the gauge should be full\". recomplog.txt: \"[damage-numbers] r41 loaded: 11 Forge hooks\", \"WSG r69 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]\", \"WSG r69 geometric cut: bar=120 effect=120 edge=0 shade=120 of 120 bar draws\".",
   "runtime_active": true,
   "gamebanana": {
     "compact_html": true,
@@ -65,7 +65,7 @@
   },
   "target": "MHGU Nintendo Switch 1.4.0; upstream Forge 1.5.1; Eden/Ryujinx. Base game and optional MHGU HD Project.",
   "limitations": [
-    "r69 gameplay NOT RUN: that the effect and edge reach the texture draw hook, and that the cut picture matches r68's, rest on static reading until the `geometric cut` log line and a look at the bar on Eden",
+    "r70 gameplay NOT RUN: the cut picture matching r68's rests on the quad rebuild read in bytes; the edge glyph draws only under Heavy Polish, so `edge=0` without it is expected (r69 run)",
     "a live drag in UIScale's editor has no report",
     "r67 has a player report on MHGURecomp beside KatLib and UIScale, and logs from one plain Eden session",
     "the box model for a rescaled bar has only host fixtures until a `bar drawn` log line shows it agreeing with the game's rect",
@@ -102,8 +102,8 @@
     "manual": [
       "mods/world-sharpness-gauge/EVIDENCE.json"
     ],
-    "static_summary": "r69: pinned toolchain build; 31 host fixtures passed, three of them for crop_span; verify PASSED. The draw uploads node+0x10 (main+0xa4fd10/0xa4fd38, r1 = node+0x10) and rebuilds the UVs from +0x10c later in the same call (main+0xa4fe44); a mask with +0xa4 bit 0 clear applies and restores no scissor (main+0xa4bbe0, main+0xa4bce4). Fill research as r68: see EVIDENCE.json and work/world-sharpness-gauge/.",
-    "manual_summary": "r69 NOT RUN. The user reported r68 \"good on both\" on Ryubing 1.3.3 and Eden. The user reported that gu-native broke the gauge (2026-11-10, no log or screenshot)."
+    "static_summary": "r70: pinned toolchain build; 32 host fixtures passed, four of them for crop_span (one for the authored 88 px quad); verify PASSED. The draw uploads node+0x10 (main+0xa4fd10/0xa4fd38, r1 = node+0x10) and rebuilds the UVs from +0x10c later in the same call (main+0xa4fe44); a mask with +0xa4 bit 0 clear applies and restores no scissor (main+0xa4bbe0, main+0xa4bce4). Fill research as r68: see EVIDENCE.json and work/world-sharpness-gauge/.",
+    "manual_summary": "r70 NOT RUN. The user ran Damage Numbers r41 and World Sharpness Gauge r69 on MHGURecomp (1920x1080, 16:9, FSR 3.1 NativeAA on) on 2026-11-10: \"gauge broken, number shaky\"; \"about gauge, there are no dark part, the gauge should be full\". recomplog.txt: \"[damage-numbers] r41 loaded: 11 Forge hooks\", \"WSG r69 bar drawn plain: drawn=[110, 38, 238, 166] rect=[110, 38, 238, 166]\", \"WSG r69 geometric cut: bar=120 effect=120 edge=0 shade=120 of 120 bar draws\"."
   },
   "dependencies": [
     {
@@ -118,8 +118,8 @@
   },
   "payloads": {
     "romfs/nativeNX/plugins/world_sharpness_gauge.nro": {
-      "source": "build/world-sharpness-gauge/candidates/r69/package/romfs/nativeNX/plugins/world_sharpness_gauge.nro",
-      "sha256": "0948d5a1e8683c42dc1f94611f13dfb24c14bbef1e6b7ac4e953807c7607c8b7"
+      "source": "build/world-sharpness-gauge/candidates/r70/package/romfs/nativeNX/plugins/world_sharpness_gauge.nro",
+      "sha256": "bfd9301f7ad2014971d2b056d088551b3a37313effc4139bc31a85c3e5e2600a"
     }
   }
 }

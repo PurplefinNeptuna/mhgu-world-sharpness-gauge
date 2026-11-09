@@ -2,7 +2,7 @@
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
   "kind": "plugin",
-  "version": "r69",
+  "version": "r70",
   "runtime_platform": "forge-switch",
   "package_name": "world-sharpness-gauge"
 }

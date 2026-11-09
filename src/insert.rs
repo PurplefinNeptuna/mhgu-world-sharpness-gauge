@@ -163,7 +163,7 @@ const NODE_MATRIX: u32 = 0x10; // m[0]; m[1] at +0x14, m[4] at +0x20, m[12] at +
 const NODE_ANCHORS: u32 = 0xa0;
 const NODE_FLAGS: u32 = 0x54;
 const NODE_FLIPPED: u32 = 0x0040_0000;
-const NODE_QUAD_WIDTH: u32 = 0xd8;
+const NODE_QUAD_WIDTH: u32 = 0xd8; // the layout box's width, integer: `node_rect` only
 
 fn role(node: u32) -> Option<usize> {
     if node == 0 {
@@ -234,7 +234,7 @@ pub fn crop_before(node: u32) -> Option<Saved> {
         read(NODE_MATRIX + 0x30),
         read(NODE_ANCHORS),
         read(NODE_FLAGS),
-        read(NODE_QUAD_WIDTH),
+        read(TEX_AUTHORED),
     ) else {
         return None;
     };
@@ -264,7 +264,7 @@ pub fn crop_before(node: u32) -> Option<Saved> {
         [x_scale, x_shear, y_shear, x].map(f32::from_bits),
         anchors,
         flags & NODE_FLIPPED != 0,
-        width as i32,
+        f32::from_bits(width),
         source.map(f32::from_bits),
         x0,
         x1,

@@ -1,6 +1,6 @@
 # World Sharpness Gauge: development
 
-**Current state.** r69 DEVELOPMENT, gameplay NOT RUN, candidate at `build/world-sharpness-gauge/candidates/r69/`. r69 is r68 with the cut and the shade drawn as the sprites' own geometry instead of scissors (see *Geometric cut*), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The tree, storage, fill and masks are r68's; the masks' scissor is off. r68, the previous release (unpublished), is preserved in `backups/accepted/world-sharpness-gauge/r68-before-geometric-cut/`, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden). r68 is r67 with the
+**Current state.** r70 DEVELOPMENT, gameplay NOT RUN, candidate at `build/world-sharpness-gauge/candidates/r70/`. r70 sizes each crop from the quad the draw builds (the float authored width at `+0xb4`); r69 used the 128 px layout width at `+0xd8` and cut a full bar at x 172 on MHGURecomp. r69 was r68 with the cut and the shade drawn as the sprites' own geometry instead of scissors (see *Geometric cut*), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The tree, storage, fill and masks are r68's; the masks' scissor is off. r68, the previous release (unpublished), is preserved in `backups/accepted/world-sharpness-gauge/r68-before-geometric-cut/`, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden). r68 is r67 with the
 draw block replaced safely: `grow_cache` copies the block's animation prefix and moves every object's track pointer (`+0x64`) into the
 new block before freeing the old one (see *Draw block prefix*). r67 freed it under them, which crashed Ryubing 1.3.3 106 ms after
 insertion. r67, the previous release, is preserved in `backups/accepted/world-sharpness-gauge/r67-before-prefix-relocation/`, and the
@@ -221,8 +221,9 @@ above and is read through the mapping query at runtime.
   no scissor is applied (main+0xa4bbe0) or restored (main+0xa4bce4). The cut mask's enter sets the frame's
   span in the space of the bar's own `+0x10` matrix (`node_rect`, `drawn_rect` over the node's words): the
   bar, glow and edge keep canvas x up to `rect left + cut_box` width, the copy keeps `dim_box`'s left..right.
-  `wsg_texture_draw` cuts each of the four before the original: `crop_span` scales `+0x10` (m[0]) by the
-  kept fraction, moves `+0x40` (m[12]) so the kept part stays in place, and gives the window `[u1, v1, u2,
+  `wsg_texture_draw` cuts each of the four before the original: `crop_span` takes the quad as main+0xa4feb4 builds it (the float
+  authored width at `+0xb4`, anchor `+0xa0 & 3`; the layout width at `+0xd8` is the rect, not the quad), scales
+  `+0x10` (m[0]) by the kept fraction, moves `+0x40` (m[12]) so the kept part stays in place, and gives the window `[u1, v1, u2,
   v2]` the same fraction through the setter; after the original it puts m[0] and m[12] back. The draw
   uploads `node+0x10` at main+0xa4fd10/0xa4fd38 and rebuilds the UVs at main+0xa4fe44, so both are drawn
   this frame, and anything that moves the drawn quad later (UIScale's block edit, gu-native's renderer)

@@ -3,16 +3,17 @@
 For the tester. The README is the user guide; this page is what to run, what to
 report, and what the log lines mean.
 
-## What to check on r69
+## What to check on r70
 
-r69 draws the cut and the dark part by shortening the sprites themselves instead of clipping them
+r70 draws the cut and the dark part by shortening the sprites themselves instead of clipping them
 with a scissor. On the emulators it should look exactly like r68. On gu-native, the Android and
 Windows port that moves the HUD, the cut should now stay on the bar wherever the HUD puts it.
 
 1. On Eden, play one quest with a blade weapon. Compare the bar with r68: the coloured
    part, the dark part past it, the glow and the edge glyph should look the same, and the bar should
-   refill at each colour change. The log must have `WSG r69 scissor mask inserted`, `bar drawn plain`
-   with `drawn` equal to `rect`, and `geometric cut` with every count above 0.
+   refill at each colour change, and a full bar must reach its tip. The log must have `WSG r70 scissor
+   mask inserted`, `bar drawn plain` with `drawn` equal to `rect`, and `geometric cut` with `bar`,
+   `effect` and `shade` above 0.
 2. On Ryubing (`/mnt/storage2/Programs/Ryubing-1.3.3/run.sh`), play one quest and check the same.
 3. If you play on gu-native, play one quest there and send a screenshot of the bar. Say which
    platform (Android or PC) and which HUD layout you use.
@@ -49,7 +50,7 @@ have one:
 - Forge log, if enabled: `forge.log` next to your game data
 
 Say which emulator you used and describe the hunt in the order you played it. The
-lines that matter start with `WSG r69`.
+lines that matter start with `WSG r70`.
 
 ## The log lines
 
@@ -59,9 +60,9 @@ lines that matter start with `WSG r69`.
   where the whole bar was drawn. The cut follows the bar by itself; this box only places the dark
   part's mask. `[0, 0, 0, 0]` means it could not be read.
 - `geometric cut: bar=N effect=N edge=N shade=N of M bar draws`: printed once per gauge row, after
-  120 draws of the bar. Each number counts the draws in which that sprite was shortened. All four
-  above 0 is right. A 0 means that sprite is drawn whole: for the bar, glow or edge the cut is missing
-  on it, for `shade` the dark part is missing. Report any 0.
+  120 draws of the bar. Each number counts the draws in which that sprite was cut. `bar`, `effect` and
+  `shade` above 0 is right. `edge` is the Heavy Polish glyph and counts only while it shows, so 0 is
+  normal without Heavy Polish. Report a 0 on any of the other three.
 
 The mod logs one line per lifecycle event and nothing per frame. `scissor mask inserted` means the
 mask went into the gauge: `mask=` and `map=` the nodes, `entries=` the map entries (7), `cache=` and
