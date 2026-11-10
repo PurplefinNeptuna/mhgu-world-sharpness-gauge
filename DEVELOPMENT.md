@@ -1,27 +1,17 @@
 # World Sharpness Gauge: development
 
-**Current state.** r70 DEVELOPMENT, gameplay NOT RUN, candidate at `build/world-sharpness-gauge/candidates/r70/`. r70 sizes each crop from the quad the draw builds (the float authored width at `+0xb4`); r69 used the 128 px layout width at `+0xd8` and cut a full bar at x 172 on MHGURecomp. r69 was r68 with the cut and the shade drawn as the sprites' own geometry instead of scissors (see *Geometric cut*), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The tree, storage, fill and masks are r68's; the masks' scissor is off. r68, the previous release (unpublished), is preserved in `backups/accepted/world-sharpness-gauge/r68-before-geometric-cut/`, the gameplay-accepted build on Ryubing 1.3.3 and Eden ("good on both": three quests on Ryubing, one on Eden). r68 is r67 with the
-draw block replaced safely: `grow_cache` copies the block's animation prefix and moves every object's track pointer (`+0x64`) into the
-new block before freeing the old one (see *Draw block prefix*). r67 freed it under them, which crashed Ryubing 1.3.3 106 ms after
-insertion. r67, the previous release, is preserved in `backups/accepted/world-sharpness-gauge/r67-before-prefix-relocation/`, and the
-gameplay-accepted build on MHGURecomp 0.14.0 beside KatLib and UIScale on the user's report (`bar drawn rescaled`), its ZIP kept in
-`build/world-sharpness-gauge/candidates/r67/`; logs from one plain Eden quest (`bar drawn plain`, `drawn` equal to `rect`). r67 is r65 with two compatibility changes. A required code window may now carry another plugin's
-Forge entry hook over its first eight bytes, because all four of this mod's hooks chain to the original
-(`window_matches` in core). The cut and the shade now follow where the bar is really drawn: a post-hook
-on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source. The fill, the shade and the tree are r65's. The bar's length is measured
-inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor`
-is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by
-binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see *Fill, per
-tier* below). No settings, no panel. The shade's atlas window is the bar's own live four floats, published
-through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with
-the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the
-bar's sampler. 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk
-emits exactly 13. 28 host fixtures pass; verify PASSED with 33 signature windows. r65, the release before r67, is
-preserved in `backups/accepted/world-sharpness-gauge/r65-before-katlib-compat/`. The accepted
-picture is r64's, the gameplay-accepted build at `build/world-sharpness-gauge/candidates/r64/` (Eden, "all
-works perfectly"), and accepted r62's crop of the worn blade at the red tier, at
-`build/world-sharpness-gauge/candidates/r62/`. `DISTRIBUTION.json` holds the status and hashes,
-`EVIDENCE.json` the exact results, `TESTING.md` the tester steps and log lines.
+**Current state.** r70 DEVELOPMENT, gameplay NOT RUN, candidate at `build/world-sharpness-gauge/candidates/r70/`. The last release and gameplay-accepted build is r68 (unpublished), at `build/world-sharpness-gauge/candidates/r68/`: "good on both" on Ryubing 1.3.3 (three quests) and Eden (one). r67 at `build/world-sharpness-gauge/candidates/r67/` is the accepted run on MHGURecomp 0.14.0 beside KatLib and UIScale. The accepted picture is r64's (`build/world-sharpness-gauge/candidates/r64/`, Eden, "all works perfectly"), and the accepted crop of the worn blade at the red tier is r62's (`build/world-sharpness-gauge/candidates/r62/`). `DISTRIBUTION.json` holds the status and hashes, `EVIDENCE.json` every version's results, `TESTING.md` the tester steps and log lines.
+
+How the current build draws:
+
+- Each crop is sized from the quad the draw builds (the float authored width at `+0xb4`), not the 128 px layout width at `+0xd8`.
+- The cut and the shade are the sprites' own geometry, not scissors (see *Geometric cut*), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The masks' scissor is off.
+- `grow_cache` copies the draw block's animation prefix and moves every object's track pointer (`+0x64`) into the new block before freeing the old one (see *Draw block prefix*).
+- A required code window may carry another plugin's Forge entry hook over its first eight bytes, because all four hooks chain to the original (`window_matches` in core).
+- The cut and the shade follow where the bar is really drawn: a post-hook on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source.
+- The bar's length is measured inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see *Fill, per tier* below). No settings, no panel.
+- The shade's atlas window is the bar's own live four floats, published through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's sampler.
+- 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits exactly 13.
 
 The name is World because the per-tier bar works like Monster Hunter: World's, while the later games' long
 gauge spans all sharpness. Builds through r64, the log lines quoted in `EVIDENCE.json` and `DISTRIBUTION.json`,
