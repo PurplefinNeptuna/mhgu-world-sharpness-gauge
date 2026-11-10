@@ -1623,5 +1623,26 @@
     "change": "crop width from the float at +0xb4",
     "native": "main+0xa4ff44 / 0xa4ff9c vldr s0,[r7,#180]; mode 2 negates +0xb4 (0xa4ff8c)",
     "tests": "32 host fixtures passed; verify PASSED"
+  },
+  "recomp_r70_2026_11_10": {
+    "emulator": "MHGURecomp (updater 0.16.0), 1920x1080, FSR 3.1 NativeAA",
+    "log": "/mnt/storage2/Programs/MHGURecomp/recomplog.txt",
+    "lines": [
+      "[forge] [INFO] World Sharpness Gauge r70 loaded (clips the sharpness gauge to the fill inside its tier)",
+      "[forge] [ERROR] WSG r70 gauge row check stopped at stage 21: instance=0 controller=0 gauge=0",
+      "[forge] [ERROR] WSG r70 scissor mask inserted: mask=0xc409bb0 map=0xc3881d0 entries=7 cache=0xc3dd370 records=13 dim=0xc3cdce0 clip=0xc3ce120",
+      "[forge] [ERROR] WSG r70 inserted mask's links lost (1 times); captured addresses cleared"
+    ],
+    "user_report": "\"Both work\" (answer to: full gauge with the dark part where it belongs?)",
+    "installed_nro_matches": true,
+    "nro_sha256": "bfd9301f7ad2014971d2b056d088551b3a37313effc4139bc31a85c3e5e2600a"
+  },
+  "approval_r70_2026_11_10": {
+    "version": "r70",
+    "user_request": "\"also promote damage number and world sharpness gauge\"",
+    "nro_sha256": {
+      "romfs/nativeNX/plugins/world_sharpness_gauge.nro": "bfd9301f7ad2014971d2b056d088551b3a37313effc4139bc31a85c3e5e2600a"
+    },
+    "basis": "The user answered \"Both work\" when asked whether the 22:26 MHGURecomp run gave steady numbers and a full gauge with the dark part where it belongs."
   }
 }
