@@ -38,6 +38,7 @@ def doctor():
     pinned.extend((name,Path(CONFIG['devkitarm'])/'bin'/name) for name in lock['tool_sha256'] if name.startswith('arm-none-eabi-'))
     for n,p in pinned:
         if digest(p)!=lock['tool_sha256'][n]: raise ValueError('Pinned tool differs: '+n)
+    if not (MOD/'vendor/crates').is_dir(): raise ValueError('Dependencies missing: run ./build.sh fetch')
     for n,h in lock['files'].items():
         if digest(MOD/n)!=h: raise ValueError('Pinned source differs: '+n)
     for n,h in lock['inputs'].items():
@@ -112,9 +113,11 @@ def package():
     spec.update(version=VERSION,archive=archive.name,candidate=str(dest.relative_to(ROOT)))
     distribution.verify_candidate(spec,ROOT)
     print('Verified active DEVELOPMENT candidate:',archive)
+def fetch():
+    import fetch_vendor;fetch_vendor.main()
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command',choices=['doctor','build','test','verify','package','export'])
+    p.add_argument('command',choices=['doctor','fetch','build','test','verify','package','export'])
     p.add_argument('--output',type=Path);a=p.parse_args()
     if a.command=='export':
         if a.output is None: p.error('export requires --output')

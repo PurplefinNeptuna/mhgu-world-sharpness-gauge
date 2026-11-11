@@ -87,10 +87,10 @@
   "notices": [
     "mods/world-sharpness-gauge/DISTRIBUTION_NOTICES.md",
     "mods/world-sharpness-gauge/LICENSE",
-    "mods/world-sharpness-gauge/vendor/forge-rs/LICENSE",
+    "mods/world-sharpness-gauge/licenses/FORGE-RS-MIT.txt",
     "mods/world-sharpness-gauge/vendor/libnx/LICENSE-MIT",
     "mods/world-sharpness-gauge/licenses/FORGE-MIT.txt",
-    "mods/world-sharpness-gauge/vendor/crates/log-0.4.34/LICENSE-MIT",
+    "mods/world-sharpness-gauge/licenses/LOG-MIT.txt",
     "mods/world-sharpness-gauge/licenses/RUST-MIT.txt",
     "mods/world-sharpness-gauge/licenses/UNICODE-3.0.txt",
     "mods/world-sharpness-gauge/licenses/COMPILER_BUILTINS.txt"

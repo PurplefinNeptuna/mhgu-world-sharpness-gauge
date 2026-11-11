@@ -49,7 +49,7 @@ launches, edits saves, publishes or pushes.
 
 ## Commands
 
-`./build.sh doctor|build|test|verify|package|export --output DEST`. There is no
+`./build.sh fetch|doctor|build|test|verify|package|export --output DEST`. There is no
 `prepare`: this mod ships no resources, assets or INI, and has no settings,
 so no Plugin UI panel: the build exports `forge_onLoad`, `forge_onInit`,
 `forge_onUpdate`, `init` and `fini`, and `verify.py` requires exactly that set.

@@ -4,13 +4,13 @@ import argparse, hashlib, json, re, shutil, subprocess, tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 FORBIDDEN={'.git','build','work','tools','.venv','__pycache__','backups','history'}
+FETCHED={('vendor','crates'),('vendor','forge-rs')}  # build.sh fetch downloads these
 BINARY={'.arc','.tex','.mod','.lmt','.gmd','.nsp','.xci','.nca','.zip','.7z','.nro','.elf','.o','.exe','.dll','.gzf','.gpr'}
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def safe(name):
  p=Path(name)
- # object's src/build/ is vendored Rust source, not this mod's generated build tree.
- blocked=FORBIDDEN-{'build'} if p.parts[:2]==('vendor','crates') else FORBIDDEN
- if p.is_absolute() or '..' in p.parts or any(x in blocked for x in p.parts) or p.suffix.lower() in BINARY or p.name in ('build.local.json','source-export.json'):raise ValueError('Non-source export path: '+name)
+ if p.parts[:2] in FETCHED:raise ValueError('Fetched dependency, not source: '+name)
+ if p.is_absolute() or '..' in p.parts or any(x in FORBIDDEN for x in p.parts) or p.suffix.lower() in BINARY or p.name in ('build.local.json','source-export.json'):raise ValueError('Non-source export path: '+name)
  return p
 def refresh(mod):
  folder=ROOT if (ROOT/'mod.json').is_file() else ROOT/'mods'/mod
@@ -22,7 +22,7 @@ def refresh(mod):
   if p.is_symlink():raise ValueError('Source symlink: '+name)
   if p.is_file() and p.name!='EXPORT.json':names.append(name)
  pins=json.loads((folder/'dependencies.lock.json').read_text()).get('files',{})
- missing=set(pins)-set(names)
+ missing={n for n in pins if Path(n).parts[:2] not in FETCHED}-set(names)
  if missing:raise ValueError('Pinned source omitted from export: '+str(sorted(missing)))
  (folder/'EXPORT.json').write_text(json.dumps({'schema_version':1,'mod':mod,'files':names},indent=2)+'\n')
 def export(mod,dest):
