@@ -112,7 +112,7 @@
     "r58": {
       "nro_sha256": "5a90ab09cf405daddecf23f014596951e9d63bb0b96ba6e8d19cdf6924ef6d48",
       "archive_sha256": "8cd42010fce660274f240287c26b741c74b4b95866f7dec493fce3af7a3f7614",
-      "runtime": "WITHDRAWN, never installed and never run. Built, packaged and committed (f0f117f) on 2026-10-31 and superseded by r59 the same day",
+      "runtime": "WITHDRAWN, never installed and never run. Built, packaged and committed (fb6f2c4) on 2026-10-31 and superseded by r59 the same day",
       "adds": "core::shade_quad, the per-frame writes of the copy's atlas window, position pair, authored pair and flags, and a clip box running from the cut to the bar rect's right edge; dim_box and its fixture were deleted",
       "refuted": "the premise 'a texture node's draw is scaled into the rectangle its draw is clipped to' is false - a scissor clips (accepted r44 cuts the bar's notches at native size, and the r57 photos show the dark part clipped, not scaled). Its per-frame dirty-bit write never runs, because the class constructor already writes 0x020a0001 at +0x54. Its +0x80/+0xb4 quad writes are of the kind measured inert in r53. The shade_box= read-back is kept in r59"
     },
@@ -1472,7 +1472,7 @@
     "archive": "world-sharpness-gauge-r65.zip",
     "archive_sha256": "3ff1ddf497035362f599fe37b21e4d88438d04f2f45b22e5dcdd918b15bf9f6f",
     "source_check": "All 17 source files recorded in the candidate's build.json hash the same in the tree at promotion.",
-    "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 8f141b5 (the r65 rename and consolidation) among them. The user stated the rest on 2026-11-02: \"the one without AI trailer is using qwen 3.8 flash next via deepseek harness\" and \"claude code is opus 5.5\".",
+    "ai_disclosure": "Claude Code added to the GameBanana record and THIRD_PARTY.md: 17 commits touching this mod carry its Co-Authored-By trailer, 44aac9d (the r65 rename and consolidation) among them. The user stated the rest on 2026-11-02: \"the one without AI trailer is using qwen 3.8 flash next via deepseek harness\" and \"claude code is opus 5.5\".",
     "basis_scope": "Eden only. The picture was accepted on r64 and r62; r65's run is log evidence. Sharpness+1/+2, Heavy Polish, Ryujinx and Switch hardware are unconfirmed."
   },
   "runtime_r67_2026_11_05": {
