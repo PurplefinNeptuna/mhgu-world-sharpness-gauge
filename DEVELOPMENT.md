@@ -99,39 +99,7 @@ are already main-relative. Disassembly prints words byte-swapped: the word
 memory order as `30482de9 0140a0e1 ...`. `scripts/verify.py` compares memory-order
 bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 
-| Address | Meaning | Proof |
-| --- | --- | --- |
-| `0xa494a0` | draw walker entry; a hook site | 12-word window, unique in main; `bl` from `0xa39664`, tail branch from `0xa56a20` (`research xref`) |
-| `0xa49b28` | animation controller setup; sizes the draw cache from the halfwords at row+8 | decompile in `ghidra-batch1/` |
-| `0xa39300` | instance draw; hands the controller to the walker at `0xa39664`; a hook site | same batch |
-| `0xa37c1c` | scissor routine: writes the render target's scissor and stores the request at context `+0xd0..+0xdc` | batch 1 |
-| `0xa4e628` | `cGUIObjTexture` slot 0x38, its enter: unions the live scissor with its rect only when `+0xcc`'s low nibble is 3 or 6 and `+0x56` bit 6 is clear | vtable word, bytes |
-| `0xa4fc9c`, `0xa4feb4` | texture draw slot 0x3c; rebuilds the quad's UVs and colours only on the `+0xc0` mark | batch 1, bytes |
-| `0xa4fc9c` | hook site, post only: texture draw `(node, context)`. Uploads `node+0x10` once, through `0xa4eb9c`, or `0xa3e3b0` with `+0x56` bit 6; each stores the block's address at `*(context+4)+0x18bc` and copies matrix words 0..13 unchanged | bytes |
-| `0xa4fc68` | texture slot 0x50: sets the `+0xc0` bits 24..26 | bytes |
-| `0xa4964c`, `0xa4915c` | transform walk (slot 0x44 only with bit 17); row update with the bit 19 child re-sort on `+0x60` | bytes |
-| `0x61912c` | HUD widget driver, a required signature only; its case 8 reads `+0x2784` through vtable `+0x1a0`, not the tier | batch 2, bytes |
-| `0x62bb0c` | the gauge's sequence driver: tier through vtable `+0x1fc`, clamped to 6, indexes `0x1638ecc` or, with `player+0x2844 & 0x200`, `0x1638ee8` | vtable word `0x177633c`, bytes |
-| `0x26893c` | `uPlayerBase::getSharpnessType`, returns `mSharpnessType` | batch 2 |
-| `0x29cdfc` | `uPlayerBase::calculateSharpnessType`, `(player, s32 points) -> u32 tier`, 196 bytes: the fill's band call. Called, never hooked; its window is a required signature. Gate `0x27c7ec(player, 1)` nonzero → 0; fixed-tier `0x27b918` picks vtable `+0x144`, else the equip record's `+0x4` field `(& 0x3ff) >> 5` goes to vtable `+0x84` with the points; every gate and lookup failure returns 0, the red tier. No store in the body | window unique in `.text`; disassembly bytes |
-| `0x27c7ec` | the gate that call runs first: case 1 loads `*(player+0x13c4)` and reads the byte at `+0x4d4`, and answers 1 for the values `(v-4) & 7` that bit 0x47 selects | bytes `main+0x27c844..0x27c86c` |
-| `0x27b918` | the fixed-tier flag: bit 3 of the byte at `player+0x13cc`. Only two sites set it, main+0x259aec on a `uOtomoLobby` and main+0x275bd4 on a `uPlayerPreview` when the param byte `+0x4d4` is 15. Both are 10064-byte lobby classes, so a quest player is never given it and the fill does not meet it. Writes through a computed pointer are not excluded | bytes; `movw #0x13cc` and `add #0x1300` scans of `.text`, ctor vtable words at main+0x2651c0 and main+0x298b7c against the DTI |
-| `0xdf814` | not a dereference: `(cell, index) -> cell + index * 44 + 20`, the equip-record address the band call indexes | bytes |
-| `0xf4794` | level object slot 0x84, the tier rule: counts the thresholds `i` in 0..6 with `threshold[i] < points`, unsigned and strict, and answers 7 only when all seven are below; 23 vtable words equal it | bytes, `research word 0xf4794` |
-| `0xf4724` | level object slot 0x80, the threshold lookup: the u16 at `row + 4 + 2*i` of the row picked by slot 0x20, through the data singleton (`0x13f290`, then `0x12db78`) | bytes |
-| `0x2ad288` | `uPlayerQuest::adjustSharpness`, the writer of `mSharpness` during a quest | batch 2 |
-| `0x29b7d4` | player init: the only non-zero writer of `mMaxSharpness` (`+0x2778` = 10104) as `min(vft+0x15c(player, 14) * 25 + 150, 450)`, and it sets `mSharpness` (`+0x2774` = 10100) to the same value, then `calculateSharpnessType` into `+0x13f0` (5104) | bytes at `0x29b870..0x29b8bc`, scan of `.text` for the offsets |
-| `0x3f8398` | local hunter index reader over the session singleton | batch 3 |
-| `0x276278` | `sPlayer::getMainPlayer` | batch 3 |
-| `0xa4faf0`, `0xa4fb58` | `cGUIObjTexture` setTexture / setTextureRect | batch 3, bytes |
-| `0xa4ba20`, `0xa4ba40` | `cGUIObjScissorMask` Enable (bit 0 of `+0xa4` from its argument) / Size setters | bytes |
-| `0xa48460`, `0xa4844c` | native child / sibling linkers, each writes the attached node's parent | bytes; `bl` from `0xa38dd8` and `0xa38dfc` |
-| `0xa4ba94` | mask enter: builds `+0xb0..+0xbc` when `+0xa4 & 2`, applies the scissor when `+0xa4 & 1`; a hook site | vtable word at `0x178fb3c`, batch 7 |
-| `0xa4bcdc` | mask exit: restores the clip saved at `+0xc0..+0xcc`, returns unless `+0xa4 & 1` | vtable word at `0x178fb44`, bytes |
-| `0xa486fc` | `cGUIObjRoot` destructor (slot 0x04): frees the row cache, then deletes the root's child chain | vtable word, bytes |
-| `0xa56758` | `cGUIObjScissorMask` destructor (slot 0x04): deletes its own child chain | vtable word, bytes |
-| `0xa4b6cc` | `cGUIObjScissorMask` factory: 0xd0 bytes through the mask DTI's MT allocator | batch 7 decompile |
-| `0xa38828` | `setAnimationId`: destroys a row's controller and map, builds new ones; `bl` from `0x54504c` and `0x5451fc` | batch 1 |
+The native functions this mod reads, hooks or calls (draw walker, controller setup, instance draw, scissor routine, texture enter and draw, transform walk and row update, the sharpness functions and gates, setters, linkers, mask enter and exit, destructors, the mask factory, `setAnimationId`) are listed with their proof in `.agents/skills/mhgu-understanding/references/native-gui.md` and `sharpness.md`.
 
 Runtime state read by the hook:
 
@@ -280,17 +248,7 @@ No saved log was identified as using a Sharpness skill, so the +1 and +2 paths a
 
 ## Sharpness chain
 
-`adjustSharpness` (main+0x2ad288) fires event `0x1c` (tier down), `0x1d` (tier up) or `0x1e` (reached the
-maximum) through `vft+0x3ac`. Decay, read in the same function: `HeavyPolish` zeroes it while `vft+0x1b0` with `0x200` reports its timer
-running; `RazorSharp`, `StonefistSoul`, `StonefistSoulX`, `SteadyHand`, `NightcloakSoul` and
-`NightcloakSoulX` halve it, with a 1-point loss nullified on a coin flip; `BluntEdge` doubles it. Gates at
-`0x27bcd0`, `0x27c7ec` and `0x27b918` are unexercised.
-
-The tier is weapon data. `calculateSharpnessType` (main+0x29cdfc) takes the equipped record through
-`FUN_00aa8814(&mpPlParam->mStatusParam, 0)`, resolves the base data with `FUN_00b0803c` over the singleton
-pair at `DAT_00c65ec0 + 0xc65e54`, asks it at `vft+0xd8` with `(equip->field1_0x4 & 0x3ff) >> 5`, and the
-result answers points-to-tier at `vft+0x84`. `/DTI_Types/WpDatEntry` (68 bytes) names `Sharpness` +21,
-`SharpnessQuality` +22, `WeaponId` +58 and `WeaponNameId` +60. `mCmdTblId` at player `+9388` identifies the weapon: 1000 Long Sword, 2000..2033 Dual Blades, 9999 no weapon command (bowgun).
+`adjustSharpness` events, skill decay rules, the tier lookup through weapon data, `WpDatEntry` and `mCmdTblId` are in `.agents/skills/mhgu-understanding/references/sharpness.md`.
 
 ## Do not
 
