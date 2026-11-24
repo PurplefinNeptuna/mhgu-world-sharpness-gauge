@@ -5,11 +5,11 @@
 How the current build draws:
 
 - Each crop is sized from the quad the draw builds (the float authored width at `+0xb4`), not the 128 px layout width at `+0xd8`.
-- The cut and the shade are the sprites' own geometry, not scissors (see *Geometric cut*), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The masks' scissor is off.
-- `grow_cache` copies the draw block's animation prefix and moves every object's track pointer (`+0x64`) into the new block before freeing the old one (see *Draw block prefix*).
+- The cut and the shade are the sprites' own geometry, not scissors (see Geometric cut in [Accepted shape](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-gauge.md#accepted-shape)), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The masks' scissor is off.
+- `grow_cache` copies the draw block's animation prefix and moves every object's track pointer (`+0x64`) into the new block before freeing the old one (see [Draw block prefix](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-gauge.md#draw-block-prefix)).
 - A required code window may carry another plugin's Forge entry hook over its first eight bytes, because all four hooks chain to the original (`window_matches` in core).
 - The cut and the shade follow where the bar is really drawn: a post-hook on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source.
-- The bar's length is measured inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see *Fill, per tier* below). No settings, no panel.
+- The bar's length is measured inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see [Fill, per tier](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-fill.md#fill-per-tier) below). No settings, no panel.
 - The shade's atlas window is the bar's own live four floats, published through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's sampler.
 - 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits exactly 13.
 
@@ -26,17 +26,9 @@ afterwards, and the setter main+0xa4fb58 - early return while the four floats ma
 write to the copy's `+0x10c` marks nothing and never repaints. `work/world-sharpness-gauge/PHASE5_RESEARCH.md`
 carries these facts with their bytes.
 
-## Draw block prefix
+## How it works
 
-The row's draw block (`root+0xa4`) starts with `sequences * 12` bytes of animation tracks, 192 here. Row setup loads the block at
-main+0xa38cfc and main+0xa484c4 stores each object's slice of it at `+0x64`, writing the object's address at `+8` of each 12-byte
-track. The row update main+0xa4915c walks the first `row+4` map entries (controller, bar, glow, edge) and, for an object with bit 23,
-evaluates its tracks through `+0x64` at main+0xb349c0. The copy is given the bar's `+0x64`, so it points there too. A replaced block
-therefore keeps the prefix bytes and every `+0x64` inside `old..=old + prefix` moves to the same offset (`relocate_prefix` in core).
-
-General GUI rules (masks, cache and map growth, teardown) are in the forge-modding skill's
-`references/native-gui-extensions.md`; row, field and table facts are in the mhgu-understanding skill's
-`references/sharpness.md`.
+Design, hooks and native detail live in the skills: [World Sharpness Gauge: insertion and cut](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-gauge.md), [World Sharpness Gauge: fill per tier](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-fill.md).
 
 ## Constraints
 
@@ -99,7 +91,7 @@ are already main-relative. Disassembly prints words byte-swapped: the word
 memory order as `30482de9 0140a0e1 ...`. `scripts/verify.py` compares memory-order
 bytes against the supplied NSO; nothing here is a Ghidra-imported byte.
 
-The native functions this mod reads, hooks or calls (draw walker, controller setup, instance draw, scissor routine, texture enter and draw, transform walk and row update, the sharpness functions and gates, setters, linkers, mask enter and exit, destructors, the mask factory, `setAnimationId`) are listed with their proof in `.agents/skills/mhgu-understanding/references/native-gui.md` and `sharpness.md`.
+The native functions this mod reads, hooks or calls (draw walker, controller setup, instance draw, scissor routine, texture enter and draw, transform walk and row update, the sharpness functions and gates, setters, linkers, mask enter and exit, destructors, the mask factory, `setAnimationId`) are listed with their proof in `.agents/skills/mhgu-understanding/references/gui-resources.md` and `sharpness.md`.
 
 Runtime state read by the hook:
 
@@ -113,7 +105,7 @@ Runtime state read by the hook:
 | player `+0x13c4` | the param cell `calculateSharpnessType` loads; the byte at that pointer `+ 0x4d4` is the sharpness state its gate reads. Both are read by the fill's third gate before the first native call |
 | controller `+0x68/+0x80/+0x8c/+0x9c/+0xa0` | tree root, draw cache, rebuild flags, animation row, map alias |
 | row `+0/+4/+0xc/+0x14` | animation id; counts packed in one word (objects low u16, sequences high u16); first object row; the word at `+0x14` is a pointer into the sequence block, not a row index |
-| node `+0x54` | flag word: `.agents/skills/mhgu-understanding/references/native-gui.md` has the bits |
+| node `+0x54` | flag word: `.agents/skills/mhgu-understanding/references/gui-resources.md` has the bits |
 | node `+0x68/+0x6c/+0x70` | first child, next sibling, parent |
 | node `+0xE0..+0xEC` / `+0xF0..+0xFC` | layout rect, 128x128 here and not the sprite (4 signed ints), then the effective rect |
 | node `+0x100/+0x104/+0x10C..+0x118` | texture id, texture object, atlas rect (4 floats) |
@@ -125,126 +117,6 @@ so the identity test is the cheap filter in front of every read. The singletons 
 in `.bss`, past the NSO file image, which is why `verify.py` checks the `.data/.bss`
 split instead of their bytes; the chain itself is proven from the decompilations
 above and is read through the mapping query at runtime.
-
-## Hot path rules
-
-- Four hooks, each `e51ff004` + target. Forge copies the first 8 bytes without
-  relocating them, so each entry is checked for position independence; install
-  validates the 16-byte continuation (original bytes, branch opcode, `target+8`)
-  and rolls back on any mismatch. Hook struct size 24, `context` at 12, `ctx_cell`
-  at 16 (compile-time asserts).
-- No `MSR` anywhere in the plugin (`verify.py` disassembly gate). The walker's
-  relocated window keeps `cmp r1,#0` with the flag-consuming `popeq`, and holds no
-  SEL/USAD8/MRS/MSR, so no `APSR_g`/`APSR_nzcvqg` producer is separated from
-  its consumer.
-- Inside the hooks: no allocation, formatting, file access or logging. Reads go
-  through `memory::word`, which queries the mapping per access.
-- Discovery cadence: one attempt every 60 walker calls, so a few fractions of a second per HUD. Nothing is queued; formatting and logging happen only in `forge_onUpdate`.
-- Fill math, in `core`: require a maximum `> 0`, find the band by binary search on the supplied
-  points-to-tier function, compute `(current - floor) * 10_000 / (ceiling - floor)` in `i64`, clamp
-  to `0..=10000`, and keep every probe inside `0..=maximum`. A zero, negative, missing or
-  above-maximum state yields no ratio; above maximum draws full, depletion floors at empty. Nothing
-  is divided by an unverified band width, and no native call happens before `src/sampling.rs`'s gates.
-- Native calls run only in the mask's enter handler, from `sampling::fill`: about 18 per frame
-  (two searches over at most 450 points), each behind `memory::executable`. Nothing is cached, so a
-  weapon change needs no invalidation; add a band cache keyed by `(points, maximum, tier)` only if a
-  run shows a cost.
-
-## Accepted shape
-
-- **Scope, set by the tester.** The bar's length is the fill inside the tier band its points sit in.
-  The tester's words: "the bar is per tier, so for example, weapon with purple tier max, the bar will
-  show the fill as between max sharpness, and the sharpness point at white, then it became full again
-  until it reach sharpness point for blue, etc.", "coloring is already managed by game, so you only
-  need to control the bar", "dont forget any buff that might increase sharpness and might change how
-  the calculation at max tier sharpness", and "thin band sharpness tier are okay, the need is
-  approximation, so jumpy is okay, no need for fancy smooth animations or lerp". So the computed fill
-  is published directly: nothing is smoothed, interpolated or animated. The mod picks no colour,
-  touches no animation sequence, and leaves the native HUD alone in every unsupported state.
-- **Tree.** The controller's first child is the mask over bar, glow and edge; the clip mask is the mask's
-  sibling, with the copy as its child. The walk emits mask enter, bar/glow/edge enter+exit, mask exit, clip
-  enter, copy enter/exit, clip exit, terminator. Neither mask clips (see *Geometric cut*); the walk order
-  is what puts the cut mask's enter, where the frame's cut is decided, before every sprite's draw. Teardown follows the same links: the mask destroys bar, glow and edge, and its sibling chain destroys
-  the clip mask, which destroys the copy.
-- **Cut.** Offsets 18 and 90 of the bar's 128 px rect, scaled by the live rect width, linear between them.
-  On the measured 110..238 rect the box rights are 128 / 146 / 164 / 182 / 200 px at 0 / 25 / 50 / 75 / 100%.
-  These are the tester's measurement (128 at 0%, 200 at 100%), not derived from the atlas. At the accepted
-  cut, 0% leaves only the hilt glyph and 100% ends at the measured tip.
-- **Measured art.** Ink in hud00 rows 280, 304 and 328 is columns 18..79 and rows +6..+17 of the authored 88x24:
-  hilt 18..27, blade 28..79. On screen the ink runs 124..200 px and the hilt glyph starts near 125. On the crops
-  1.5 image px is 1 GUI px. These describe the art; the clip's numbers come from the photographs. Hilt columns:
-  18-19 left edge, 20-21 empty, 22-25 hook, 26-27 empty; the tip tapers at 76..79. The glow's bloom reads 3..9 px
-  past the box in a photo, which is not a misplaced cut. Screenshot measurements carry a few px of noise.
-- **Geometric cut.** The masks are built and written as before but carry `+0xa4 = 2`: the box is rebuilt and
-  no scissor is applied (main+0xa4bbe0) or restored (main+0xa4bce4). The cut mask's enter sets the frame's
-  span in the space of the bar's own `+0x10` matrix (`node_rect`, `drawn_rect` over the node's words): the
-  bar, glow and edge keep canvas x up to `rect left + cut_box` width, the copy keeps `dim_box`'s left..right.
-  `wsg_texture_draw` cuts each of the four before the original: `crop_span` takes the quad as main+0xa4feb4 builds it (the float
-  authored width at `+0xb4`, anchor `+0xa0 & 3`; the layout width at `+0xd8` is the rect, not the quad), scales
-  `+0x10` (m[0]) by the kept fraction, moves `+0x40` (m[12]) so the kept part stays in place, and gives the window `[u1, v1, u2,
-  v2]` the same fraction through the setter; after the original it puts m[0] and m[12] back. The draw
-  uploads `node+0x10` at main+0xa4fd10/0xa4fd38 and rebuilds the UVs at main+0xa4fe44, so both are drawn
-  this frame, and anything that moves the drawn quad later (UIScale's block edit, gu-native's renderer)
-  moves the cut with it. A cut window stays on the sprite between draws; a live window other than the one
-  set is the game's new one, so the setter runs only when the game's window or the cut changes. The copy
-  takes the bar's game window. A sprite `crop_span` cannot model is drawn whole with the game's window, and
-  the copy then not at all. The log line `geometric cut` counts the cut draws per sprite once per row.
-- **Shade.** Each frame the clip mask's translation (`+0x40/+0x44`) is the cut's right edge and the bar's
-  rect top; its authored width is the blade past the cut and its height the bar's rect height. r62 logged
-  `shade_box=128 38 200 166` at `ratio_bp=0`. These writes are kept from r68 so the copy is placed as it
-  was; the copy's cut is the geometric one. The dark part has no glow by design.
-- **Following a rescaled bar.** UIScale edits a sprite in the uploaded matrix block at `*(ctx+4)+0x18bc`, after main+0xa4eb9c or main+0xa3e3b0, so the node's own `+0x10` stays unscaled. Its rewrite of `+0xe0` (main+0xa4f420's output) refreshes only on a rebuild and takes a different anchor branch from the sprite (`+0x22` on a hit, UIScale `0x5200`). So `wsg_texture_draw` reads the block after the original returns, which holds in either hook order. A block address unchanged by the draw means nothing was uploaded. Words 0, 1, 4, 5, 12 and 13 equal to the node's mean a plain draw, and the game's rect stays the source. Otherwise `drawn_rect` gives the box, one frame old at the mask's enter. Each frame the mask's enter writes the box's corner over the mask's translation (`+0x40/+0x44`), the original builds the box, and the hook puts the walk's value back, because a child's setMatrix reads its parent's `+0x10` (main+0xa496b0). Since r69 this box only places the masks and feeds the `bar drawn` line: the drawn words are the cut quad's, so `capture_drawn` takes the game's saved words through the drawn x scale and shift to report the whole bar. The cut itself follows a rescaled bar because UIScale edits the already-cut quad.
-- **The copy under UIScale.** UIScale picks the element from KatLib's stack of instances being drawn (`0x4138`), not from the node, and keys the anchor box on that instance (`0x13b8`), so the copy and the bar get one transform.
-- **Copy construction.** DTI allocator slot 0x20 with `(bytes, align, dti id)`, a zeroed 304-byte block,
-  constructor main+0xa4f60c, the mod's marker at `+0x50`, the bar's `+0x64/+0x74/+0x78`, the twelve style setters in Key Quest
-  Markers' order, `SamplerState` from the bar (authored 2, stored in the low nibble of `+0x108` by
-  main+0xa4fa5c), the `Texture` id last, then the window through the setter. Stages 50..52 are additive: no
-  copy, and the gauge looks like the plain cut.
-- **Transform.** Bit 17 of `+0x54` is transform dirty. The walk main+0xa4964c, started by main+0xa39c40 when
-  root `+0x8c` bit 1 is set, calls setMatrix (slot 0x44, main+0xa4e604 for a texture) only on a node with
-  that bit, and pushes the bits to children only from a dirty node. Mask defaults come from factory
-  main+0xa4b6cc, which is reached through the class table at main+0x178ff04.
-- **Lifecycle.** A gauge row lasts one quest. Inference: 21 of 24 row ends across 19 saved logs land within 40 s of the game's save commit (the other 3 sit near the end of their logs), the shortest gap from a row's end to the next insertion is 124 s, rows live 240..1827 s apart from one of 59 s that also ends beside a save commit, and testers report area changes and faints with no re-insertion. No log line marks an area change; the count is in `work/world-sharpness-gauge/ROW_LIFETIME_AND_FIXED_TIER_RESEARCH.md`. The walker hook checks the marker and links read-only; on failure it runs `hooks::teardown_gauge_row`, so the next row is read and inserted like the first. The mask's enter disables a mask whose links are gone. Forge has no plugin unload, so nothing is undone at removal.
-
-## Fill, per tier
-
-The ratio at `src/insert.rs`'s mask enter is the fill inside the band; the cut, the shade and the
-colour code are untouched, because `cut_box` and `dim_box` take the same number.
-
-```text
-tier    = the game's own rule on the current points        (0 red .. 6 purple)
-floor   = the top of the tier below, 0 in tier 0
-ceiling = the top of this tier, clipped to mMaxSharpness
-fill    = (current - floor) * 10_000 / (ceiling - floor)
-```
-
-The band is found by binary search on `calculateSharpnessType` (main+0x29cdfc), so the mod reads no
-weapon id, level row or kireaji table, and the game's own gates apply. Points sitting exactly on a
-threshold answer with the tier below, which is why `ceiling` is a point of the tier it closes; the
-tier rule (`main+0xf4794`) counts thresholds strictly below the points, and all 164 kireaji rows are
-monotonic, so the rule is monotonic and the search is sound. Every gate and lookup failure in the function answers tier 0 for any points, and the fill is then `current / maximum`.
-A band of 5 points moves the bar about 14 px per point and then drops to the next
-tier at full; 70 of the 164 rows have a zero-width band and the rule never lands in one.
-
-The `ceiling` clip to `mMaxSharpness` is the whole buff answer, because that field is what the game
-clamps points against:
-
-| Effect | Source | What it does to the bar |
-| --- | --- | --- |
-| `Sharpness_Plus1`, `HonedBlade`, `BoltreaverSoul(X)` | `0xe1eec` | +1 level = +25 maximum, read through `mMaxSharpness` |
-| `Sharpness_Plus2`, `HellbladeSoul(X)` | `0xe1eec` | +2 levels = +50 maximum, and takes precedence over the +1 group |
-| Level cap | `0xe1eec` | Level 12, so 450 maximum. A bonus on a level 12 row adds nothing, and no melee row is level 11 |
-| Whetstone and any positive `adjustSharpness` amount | 14 call sites | Current only, clamped to the maximum; sharpening has no partial steps (tester) |
-| `RazorSharp`, `StonefistSoul(X)`, `SteadyHand`, `NightcloakSoul(X)`, `BluntEdge` | `0x2ad288` | The rate of loss only |
-| `ChallengeSheath` | `0x2ac990` | A random gain on a condition; current only |
-| `HeavyPolish` | `0x2ad288`, timer `+0x277c` | Zeroes the loss while the timer runs; its flag `+0x2844 & 0x200` switches the colour sequence to the static set. No threshold and no maximum change |
-
-Example, great sword level id 149 with kireaji row 119 (`30 100 250 330 410 430 450`): maximum 400
-ends tier 4 blue at 400, +1 gives 425 in tier 5 white, +2 gives 450 in tier 6 purple, and each reads
-full at its maximum. Fixtures in `core/tests/behavior.rs` reproduce the tester's logged samples
-(150, 131, 130, 100, 90, 8, 0 at maximum 150 on kireaji row 10, fills 10000, 500, 10000, 2500, 10000,
-888, 0), the three buffed maxima, a `..., 450, 450` row at 450, and constant tier 0 as `current / maximum`.
-No saved log was identified as using a Sharpness skill, so the +1 and +2 paths and Heavy Polish over the banded bar have no runtime check.
 
 ## Sharpness chain
 
