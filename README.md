@@ -45,3 +45,9 @@ Works with the base game on Eden and on Ryujinx (Ryubing 1.3.3). On MHGURecomp i
 scaled by UIScale. Switch hardware is untested.
 
 It can load alongside plugins that hook the same game functions.
+
+## License
+
+Copyright (c) 2026 PurplefinNeptuna. World Sharpness Gauge is free software under the GNU
+General Public License, version 3 or (at your option) any later version. The source code
+and the license text are at https://github.com/PurplefinNeptuna/mhgu-world-sharpness-gauge.

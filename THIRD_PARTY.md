@@ -1,7 +1,7 @@
 # Development provenance
 
-Project-owned code in this folder belongs to PurplefinNeptuna (2026), all rights reserved;
-see `LICENSE`.
+Project-owned code in this folder is copyright PurplefinNeptuna (2026), under the GNU General
+Public License version 3 or (at your option) any later version; see `LICENSE`.
 
 ## Vendored and linked components
 
