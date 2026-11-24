@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "mod": "world-sharpness-gauge",
-  "status": "READY_TO_DISTRIBUTE",
+  "status": "PUBLISHED",
   "reason": "r70 approved for distribution. It sizes the crop from the quad the draw really builds (the float authored width at +0xb4, 88 px), so a full bar is no longer cut short, and draws the cut and shade as the sprites' own geometry so the cut follows a HUD moved by gu-native.",
   "publication": {
-    "published": false,
-    "url": null,
-    "date": null
+    "published": true,
+    "url": "https://github.com/PurplefinNeptuna/mhgu-world-sharpness-gauge/releases/tag/r70",
+    "date": "2026-11-24"
   },
   "version": "r70",
   "package_name": "world-sharpness-gauge",
