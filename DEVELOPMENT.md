@@ -5,11 +5,11 @@
 How the current build draws:
 
 - Each crop is sized from the quad the draw builds (the float authored width at `+0xb4`), not the 128 px layout width at `+0xd8`.
-- The cut and the shade are the sprites' own geometry, not scissors (see Geometric cut in [Accepted shape](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-gauge.md#accepted-shape)), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The masks' scissor is off.
-- `grow_cache` copies the draw block's animation prefix and moves every object's track pointer (`+0x64`) into the new block before freeing the old one (see [Draw block prefix](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-gauge.md#draw-block-prefix)).
+- The cut and the shade are the sprites' own geometry, not scissors (see Geometric cut in [Accepted shape](docs/worked/sharpness-gauge.md#accepted-shape)), because gu-native, an Android and Windows port, moves the HUD's quads in its renderer and leaves the game's scissor where it was. The masks' scissor is off.
+- `grow_cache` copies the draw block's animation prefix and moves every object's track pointer (`+0x64`) into the new block before freeing the old one (see [Draw block prefix](docs/worked/sharpness-gauge.md#draw-block-prefix)).
 - A required code window may carry another plugin's Forge entry hook over its first eight bytes, because all four hooks chain to the original (`window_matches` in core).
 - The cut and the shade follow where the bar is really drawn: a post-hook on the texture draw reads the bar's uploaded matrix, and a plain draw keeps the game's rect as the source.
-- The bar's length is measured inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see [Fill, per tier](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-fill.md#fill-per-tier) below). No settings, no panel.
+- The bar's length is measured inside the tier band its points sit in: `(current - floor) * 10_000 / (ceiling - floor)`, where `floor` is the top of the tier below and `ceiling` the top of this tier clipped to `mMaxSharpness`, found by binary search on `calculateSharpnessType` (main+0x29cdfc), which is called, never hooked (see [Fill, per tier](docs/worked/sharpness-fill.md#fill-per-tier) below). No settings, no panel.
 - The shade's atlas window is the bar's own live four floats, published through the `mTextureRect` setter every frame. The shade is the clip mask's sibling, one clip mask with the copy as its child, `#202326` = `0xFF262320`, the clip mask carrying bit 17, the copy carrying the bar's sampler.
 - 6 tree nodes, the 7-word object array, `(6 << 4) | 8` = 104 bytes = 13 records, and the walk emits exactly 13.
 
@@ -28,7 +28,7 @@ carries these facts with their bytes.
 
 ## How it works
 
-Design, hooks and native detail live in the skills: [World Sharpness Gauge: insertion and cut](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-gauge.md), [World Sharpness Gauge: fill per tier](../../.agents/skills/mhgu-forge-modding/references/worked/sharpness-fill.md).
+Design, hooks and native detail are in `docs/worked/`: [World Sharpness Gauge: insertion and cut](docs/worked/sharpness-gauge.md), [World Sharpness Gauge: fill per tier](docs/worked/sharpness-fill.md).
 
 ## Constraints
 
