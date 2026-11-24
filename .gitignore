@@ -16,3 +16,20 @@ __pycache__/
 # Downloaded by ./build.sh fetch
 /vendor/crates/
 /vendor/forge-rs/
+
+# Standalone repo: what the workspace .gitignore covered, game assets included
+/target/
+.venv/
+*.tex
+*.mod
+*.lmt
+*.gmd
+*.nsp
+*.xci
+*.nca
+*.7z
+*.exe
+*.dll
+*.gzf
+*.gpr
+*.rep/
