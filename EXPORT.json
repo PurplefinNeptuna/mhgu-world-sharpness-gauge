@@ -37,6 +37,7 @@
     "research/sysroot-Cargo.lock",
     "rust-toolchain.toml",
     "scripts/build.py",
+    "scripts/candidate_guard.py",
     "scripts/export_source.py",
     "scripts/fetch_vendor.py",
     "scripts/mhgu_binary.py",
