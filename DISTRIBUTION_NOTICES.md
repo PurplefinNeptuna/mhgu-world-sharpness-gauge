@@ -1,5 +1,9 @@
 # Component credits
 
+Copyright (c) 2026 PurplefinNeptuna. World Sharpness Gauge is licensed under the GNU GPL,
+version 3 or later. The license text follows. Its Free Software Foundation
+copyright line covers the license text itself, not this mod.
+
 Plugin code uses forge-rs 1.5.0 by Fexty (MIT), Fexty's MHGU Forge fork of
 Jeffi's original Forge, and MIT-licensed libnx ARM32 syscall code by the
 Hydrosphere Developers. Forge retains the Skyline Project and Jeffi license
